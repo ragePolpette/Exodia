@@ -1,20 +1,17 @@
 export function renderTriageReport(summary) {
-  const counts = new Map();
-
-  for (const item of summary.triage) {
-    counts.set(item.status_decision, (counts.get(item.status_decision) ?? 0) + 1);
-  }
-
   const lines = [
     "BpoPilot Triage Report",
     `Mode: ${summary.mode}`,
     `Dry run: ${summary.dryRun}`,
+    `Run id: ${summary.runId || "n/a"}`,
+    `Adapters: jira=${summary.adapterKinds.jira}, llmContext=${summary.adapterKinds.llmContext}, llmMemory=${summary.adapterKinds.llmMemory}, llmSqlDb=${summary.adapterKinds.llmSqlDb}, bitbucket=${summary.adapterKinds.bitbucket}`,
     `Tickets loaded: ${summary.ticketCount}`,
     `Memory file: ${summary.memoryFile}`,
+    `Resume: before=${summary.resumeStats.memoryRecordsBefore} after=${summary.resumeStats.memoryRecordsAfter} reused_rejected=${summary.resumeStats.skippedAlreadyRejected} reused_in_progress=${summary.resumeStats.skippedAlreadyInProgress}`,
     "Status counts:"
   ];
 
-  for (const [status, count] of [...counts.entries()].sort(([left], [right]) =>
+  for (const [status, count] of Object.entries(summary.triageCounts).sort(([left], [right]) =>
     left.localeCompare(right)
   )) {
     lines.push(`- ${status}: ${count}`);

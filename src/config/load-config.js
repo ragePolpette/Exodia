@@ -80,7 +80,8 @@ const defaultConfig = {
     args: []
   },
   logging: {
-    level: "info"
+    level: "info",
+    includeTimestamp: false
   },
   mockTickets: []
 };

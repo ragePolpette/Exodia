@@ -1,0 +1,84 @@
+{
+  "mode": "triage-and-execution",
+  "dryRun": false,
+  "memory": {
+    "backend": "file",
+    "filePath": "../data/memory.json"
+  },
+  "adapters": {
+    "jira": {
+      "kind": "mcp",
+      "mock": {
+        "ticketSource": "config.mockTickets"
+      },
+      "mcp": {
+        "server": "jira-official",
+        "jql": "project = BPO AND statusCategory != Done",
+        "filterId": ""
+      }
+    },
+    "llmContext": {
+      "kind": "mcp",
+      "mock": {
+        "mappingSource": "ticket.contextMapping"
+      },
+      "mcp": {
+        "server": "llm-context",
+        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth"
+      }
+    },
+    "llmMemory": {
+      "kind": "mcp",
+      "mock": {
+        "backend": "file"
+      },
+      "mcp": {
+        "server": "llm-memory",
+        "namespace": "bpopilot-ticket-harness"
+      }
+    },
+    "llmSqlDb": {
+      "kind": "mcp",
+      "mock": {
+        "recordRuns": true
+      },
+      "mcp": {
+        "server": "llm-sql-db-mcp",
+        "enabled": true,
+        "namespace": "bpopilot-ticket-harness"
+      }
+    },
+    "bitbucket": {
+      "kind": "mcp",
+      "mock": {
+        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth\\bpopilot-ticket-harness"
+      },
+      "mcp": {
+        "server": "llm-bitbucket-mcp",
+        "repository": "BPOFH",
+        "project": "BPO",
+        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth\\bpopilot-ticket-harness"
+      }
+    }
+  },
+  "execution": {
+    "enabled": true,
+    "dryRun": false,
+    "baseBranch": "BPOFH",
+    "allowRealPrs": true,
+    "allowMerge": false,
+    "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth\\bpopilot-ticket-harness"
+  },
+  "mcpBridge": {
+    "mode": "external",
+    "fixtureFile": "",
+    "fixtures": {},
+    "command": "your-mcp-bridge-command",
+    "args": []
+  },
+  "logging": {
+    "level": "info",
+    "includeTimestamp": true
+  },
+  "mockTickets": []
+}

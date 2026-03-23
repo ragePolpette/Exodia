@@ -8,7 +8,8 @@ function parseArgs(argv) {
   const options = {
     command,
     configPath: "./config/harness.config.example.json",
-    dryRun: false,
+    dryRun: undefined,
+    executionEnabled: undefined,
     report: undefined,
     help: false
   };
@@ -24,6 +25,21 @@ function parseArgs(argv) {
 
     if (value === "--dry-run") {
       options.dryRun = true;
+      continue;
+    }
+
+    if (value === "--real-run") {
+      options.dryRun = false;
+      continue;
+    }
+
+    if (value === "--execution-disabled") {
+      options.executionEnabled = false;
+      continue;
+    }
+
+    if (value === "--execution-enabled") {
+      options.executionEnabled = true;
       continue;
     }
 
@@ -53,6 +69,7 @@ function renderHelp() {
     "  node src/cli.js run --config ./config/harness.config.example.json --dry-run",
     "  node src/cli.js triage --config ./config/harness.config.example.json --dry-run",
     "  node src/cli.js execute --config ./config/harness.config.example.json --dry-run --report execution",
+    "  node src/cli.js execute --config ./config/harness.config.real.example.json --real-run --report execution",
     "",
     "Commands:",
     "  run      triage + execution",
@@ -61,7 +78,10 @@ function renderHelp() {
     "",
     "Options:",
     "  --config <path>   config json path",
-    "  --dry-run         force safe mock mode",
+    "  --dry-run         force safe mode",
+    "  --real-run        disable dry-run and allow config to request real execution",
+    "  --execution-enabled    force execution on",
+    "  --execution-disabled   force execution off",
     "  --report <name>   default | execution",
     "  --help            show this help"
   ].join("\n");
@@ -80,13 +100,15 @@ function renderSummary(summary) {
     "BpoPilot Ticket Harness",
     `Mode: ${summary.mode}`,
     `Dry run: ${summary.dryRun}`,
+    `Run id: ${summary.runId || "n/a"}`,
     `Execution enabled: ${summary.executionEnabled}`,
     `Execution dry run: ${summary.executionDryRun}`,
     `Adapters: jira=${summary.adapterKinds.jira}, llmContext=${summary.adapterKinds.llmContext}, llmMemory=${summary.adapterKinds.llmMemory}, llmSqlDb=${summary.adapterKinds.llmSqlDb}, bitbucket=${summary.adapterKinds.bitbucket}`,
     `Tickets loaded: ${summary.ticketCount}`,
     `Tickets triaged: ${summary.triage.length}`,
     `Execution plans: ${summary.execution.length}`,
-    `Memory file: ${summary.memoryFile}`
+    `Memory file: ${summary.memoryFile}`,
+    `Resume reused: rejected=${summary.resumeStats.skippedAlreadyRejected} in_progress=${summary.resumeStats.skippedAlreadyInProgress}`
   ];
 
   lines.push("Triage:");
@@ -122,10 +144,14 @@ async function main() {
   const summary = await runHarness({
     configPath: options.configPath,
     modeOverride,
-    dryRunOverride: options.dryRun
+    dryRunOverride: options.dryRun,
+    executionEnabledOverride: options.executionEnabled
   });
 
-  console.log(renderSummary({ ...summary, report: options.report ?? "default" }));
+  const effectiveReport =
+    options.report ?? (options.command === "execute" ? "execution" : "default");
+
+  console.log(renderSummary({ ...summary, report: effectiveReport }));
 }
 
 main().catch((error) => {

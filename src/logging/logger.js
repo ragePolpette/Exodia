@@ -1,9 +1,10 @@
-export function createLogger({ level = "info" } = {}) {
+export function createLogger({ level = "info", includeTimestamp = false } = {}) {
   const levels = {
     silent: 0,
     error: 1,
-    info: 2,
-    debug: 3
+    warn: 2,
+    info: 3,
+    debug: 4
   };
 
   const activeLevel = levels[level] ?? levels.info;
@@ -13,7 +14,8 @@ export function createLogger({ level = "info" } = {}) {
       return;
     }
 
-    const line = `[${kind.toUpperCase()}] ${message}`;
+    const prefix = includeTimestamp ? `${new Date().toISOString()} ` : "";
+    const line = `${prefix}[${kind.toUpperCase()}] ${message}`;
     if (details === undefined) {
       console.error(line);
       return;
@@ -23,6 +25,9 @@ export function createLogger({ level = "info" } = {}) {
   }
 
   return {
+    warn(message, details) {
+      log("warn", message, details);
+    },
     error(message, details) {
       log("error", message, details);
     },

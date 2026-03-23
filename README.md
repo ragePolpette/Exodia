@@ -19,7 +19,9 @@ Il bootstrap corrente non richiede ticket reali, non apre PR reali sui repositor
 ```text
 bpopilot-ticket-harness/
 ├─ config/
-│  └─ harness.config.example.json
+│  ├─ harness.config.example.json
+│  ├─ harness.config.mcp.example.json
+│  └─ harness.config.real.example.json
 ├─ .git/
 ├─ data/
 │  └─ memory.json
@@ -51,6 +53,8 @@ bpopilot-ticket-harness/
 │  │  └─ logger.js
 │  ├─ memory/
 │  │  └─ file-memory-store.js
+│  ├─ mcp/
+│  │  └─ create-mcp-client.js
 │  ├─ orchestration/
 │  │  └─ run-harness.js
 │  ├─ prompts/
@@ -61,9 +65,13 @@ bpopilot-ticket-harness/
 │     ├─ render-triage-report.js
 │     └─ triage-service.js
 └─ tests/
+   ├─ adapter-bootstrap.test.js
    ├─ dry-run.test.js
    ├─ execution-flow.test.js
-   └─ triage-flow.test.js
+   ├─ resume-flow.test.js
+   ├─ sql-db-diagnostics.test.js
+   ├─ triage-flow.test.js
+   └─ triage-mcp-mode.test.js
 ```
 
 ## Architettura Operativa
@@ -133,6 +141,41 @@ Durante il bootstrap:
 - `llm-sql-db-mcp` e` disponibile ma solo su richiesta diagnostica
 - `llm-bitbucket-mcp` e` integrato sia in modalita` mock sia in modalita` MCP
 
+## Quick Start Mock
+
+1. usa [harness.config.example.json](C:/Users/Gianmarco/Urgewalt/Malkuth/bpopilot-ticket-harness/config/harness.config.example.json)
+2. esegui solo triage:
+
+```bash
+node src/cli.js triage --config ./config/harness.config.example.json --dry-run
+```
+
+3. esegui triage + execution mock:
+
+```bash
+node src/cli.js run --config ./config/harness.config.example.json --dry-run
+```
+
+## Quick Start MCP Reale Controllato
+
+1. parti da [harness.config.mcp.example.json](C:/Users/Gianmarco/Urgewalt/Malkuth/bpopilot-ticket-harness/config/harness.config.mcp.example.json) per triage MCP
+2. parti da [harness.config.real.example.json](C:/Users/Gianmarco/Urgewalt/Malkuth/bpopilot-ticket-harness/config/harness.config.real.example.json) per execution MCP reale controllata
+3. configura `mcpBridge.command` e `mcpBridge.args`
+4. verifica che `execution.allowMerge = false`
+5. usa `--real-run` solo quando vuoi davvero disattivare il dry-run
+
+Triage MCP:
+
+```bash
+node src/cli.js triage --config ./config/harness.config.mcp.example.json --dry-run
+```
+
+Execution MCP reale controllata:
+
+```bash
+node src/cli.js execute --config ./config/harness.config.real.example.json --real-run --report execution
+```
+
 ## Config Example
 
 Il file di esempio e` [harness.config.example.json](C:/Users/Gianmarco/Urgewalt/Malkuth/bpopilot-ticket-harness/config/harness.config.example.json).
@@ -140,6 +183,7 @@ Il file di esempio e` [harness.config.example.json](C:/Users/Gianmarco/Urgewalt/
 Esempio separato per triage MCP:
 
 - [harness.config.mcp.example.json](C:/Users/Gianmarco/Urgewalt/Malkuth/bpopilot-ticket-harness/config/harness.config.mcp.example.json)
+- [harness.config.real.example.json](C:/Users/Gianmarco/Urgewalt/Malkuth/bpopilot-ticket-harness/config/harness.config.real.example.json)
 
 Campi principali:
 
@@ -189,6 +233,12 @@ Execution report esplicito:
 
 ```bash
 node src/cli.js execute --config ./config/harness.config.example.json --dry-run --report execution
+```
+
+Execution reale controllata:
+
+```bash
+node src/cli.js execute --config ./config/harness.config.real.example.json --real-run --report execution
 ```
 
 Per consentire davvero branch/commit/PR via MCP servono tutte queste condizioni:
@@ -272,6 +322,23 @@ Scenario 3, resume:
 - niente dipendenza obbligatoria da ticket reali durante il bootstrap
 - niente PR reali sui repository business durante lo sviluppo dell'harness
 - niente execution reale finche' la config non lo abilita esplicitamente negli step successivi
+- `--real-run` da solo non basta: servono anche adapter `mcp` coerenti e `execution.allowRealPrs = true`
+- `llm-sql-db-mcp` resta opzionale e on-demand
+
+## Readiness Review
+
+Stato attuale:
+
+- harness pronto per un primo utilizzo reale controllato
+- mock e MCP convivono nello stesso progetto
+- il resume con memoria esistente e` verificato con test dedicato
+- i guardrail bloccano i path reali incoerenti
+
+Rischi residui:
+
+- il bridge MCP `external` dipende dalla qualita` del comando integrato nel tuo ambiente
+- i prompt attuali sono buoni prompt operativi, ma non ancora i prompt definitivi che inserirai tu
+- il DB diagnostico non ha ancora una policy di query whitelist o governance piu` fine
 
 ## Limiti Residui
 

@@ -1,0 +1,99 @@
+{
+  "mode": "triage-and-execution",
+  "dryRun": true,
+  "memory": {
+    "backend": "file",
+    "filePath": "../data/memory.json"
+  },
+  "adapters": {
+    "jira": {
+      "kind": "mock",
+      "mock": {
+        "ticketSource": "config.mockTickets"
+      },
+      "mcp": {
+        "server": "jira-official",
+        "jql": "project = BPO AND statusCategory != Done",
+        "filterId": ""
+      }
+    },
+    "llmContext": {
+      "kind": "mock",
+      "mock": {
+        "mappingSource": "ticket.contextMapping"
+      },
+      "mcp": {
+        "server": "llm-context",
+        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth"
+      }
+    },
+    "llmMemory": {
+      "kind": "mock",
+      "mock": {
+        "backend": "file"
+      },
+      "mcp": {
+        "server": "llm-memory",
+        "namespace": "bpopilot-ticket-harness"
+      }
+    },
+    "llmSqlDb": {
+      "kind": "mock",
+      "mock": {
+        "recordRuns": true
+      },
+      "mcp": {
+        "server": "llm-sql-db-mcp",
+        "enabled": false
+      }
+    },
+    "bitbucket": {
+      "kind": "mock",
+      "mock": {
+        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth\\bpopilot-ticket-harness"
+      },
+      "mcp": {
+        "server": "llm-bitbucket-mcp",
+        "repository": "BPOFH",
+        "project": "BPO"
+      }
+    }
+  },
+  "execution": {
+    "baseBranch": "BPOFH",
+    "allowRealPrs": false,
+    "allowMerge": false
+  },
+  "logging": {
+    "level": "info"
+  },
+  "mockTickets": [
+    {
+      "key": "BPO-100",
+      "projectKey": "BPO",
+      "summary": "Bootstrap harness dry-run skeleton",
+      "scope": "BpoPilot",
+      "repoTarget": "BPOFH",
+      "contextMapping": {
+        "inScope": true,
+        "repoTarget": "BPOFH",
+        "feasibility": "feasible",
+        "confidence": 0.9,
+        "implementationHint": "Extend the harness triage pipeline for BpoPilot"
+      }
+    },
+    {
+      "key": "OPS-7",
+      "projectKey": "OPS",
+      "summary": "Upgrade unrelated infra bootstrap",
+      "scope": "Other",
+      "repoTarget": "OPS",
+      "contextMapping": {
+        "inScope": false,
+        "repoTarget": "OPS",
+        "feasibility": "feasible",
+        "confidence": 0.1
+      }
+    }
+  ]
+}

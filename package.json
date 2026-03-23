@@ -1,0 +1,17 @@
+{
+  "name": "bpopilot-ticket-harness",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Autonomous dry-run harness for BpoPilot ticket triage and execution orchestration.",
+  "scripts": {
+    "start": "node src/cli.js run",
+    "dry-run": "node src/cli.js run --config ./config/harness.config.example.json --dry-run",
+    "triage": "node src/cli.js triage --config ./config/harness.config.example.json --dry-run",
+    "execute": "node src/cli.js execute --config ./config/harness.config.example.json --dry-run --report execution",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

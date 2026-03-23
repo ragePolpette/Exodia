@@ -48,21 +48,25 @@
       }
     },
     "bitbucket": {
-      "kind": "mock",
+      "kind": "mcp",
       "mock": {
         "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth\\bpopilot-ticket-harness"
       },
       "mcp": {
         "server": "llm-bitbucket-mcp",
         "repository": "BPOFH",
-        "project": "BPO"
+        "project": "BPO",
+        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth\\bpopilot-ticket-harness"
       }
     }
   },
   "execution": {
+    "enabled": true,
+    "dryRun": true,
     "baseBranch": "BPOFH",
     "allowRealPrs": false,
-    "allowMerge": false
+    "allowMerge": false,
+    "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth\\bpopilot-ticket-harness"
   },
   "mcpBridge": {
     "mode": "external",

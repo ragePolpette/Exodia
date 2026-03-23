@@ -19,9 +19,12 @@ async function runExecutionScenario({ mockTickets, existingMemory = [] }) {
       filePath: "./memory.json"
     },
     execution: {
+      enabled: true,
+      dryRun: true,
       baseBranch: "BPOFH",
       allowRealPrs: false,
-      allowMerge: false
+      allowMerge: false,
+      workspaceRoot: workspace
     },
     mockTickets
   };
@@ -47,6 +50,29 @@ test("bitbucket adapter creates policy-compliant branch names", () => {
   });
 
   assert.equal(branchName, "bpo-321-fix-complex-payment-timeout-bug");
+});
+
+test("dry-run mock execution stays on the safe mock path", async () => {
+  const { summary } = await runExecutionScenario({
+    mockTickets: [
+      {
+        key: "BPO-326",
+        projectKey: "BPO",
+        summary: "Dry run mock execution",
+        repoTarget: "BPOFH",
+        contextMapping: {
+          inScope: true,
+          repoTarget: "BPOFH",
+          feasibility: "feasible",
+          confidence: 0.93
+        }
+      }
+    ]
+  });
+
+  assert.equal(summary.executionDryRun, true);
+  assert.equal(summary.adapterKinds.bitbucket, "mock");
+  assert.equal(summary.execution[0].status, "pr_opened");
 });
 
 test("execution skips feasible_low_confidence tickets", async () => {
@@ -132,4 +158,240 @@ test("execution creates a simulated pull request for feasible tickets", async ()
   assert.equal(summary.execution[0].status, "pr_opened");
   assert.match(summary.execution[0].pullRequestUrl, /^mock:\/\/pull-request\//);
   assert.equal(memory[0].pr_url, summary.execution[0].pullRequestUrl);
+});
+
+test("guardrail blocks real execution when bitbucket adapter is not mcp", async () => {
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "bpopilot-execution-guard-"));
+  const configPath = path.join(workspace, "harness.config.json");
+  const config = {
+    mode: "triage-and-execution",
+    dryRun: false,
+    memory: {
+      backend: "file",
+      filePath: "./memory.json"
+    },
+    execution: {
+      enabled: true,
+      dryRun: false,
+      baseBranch: "BPOFH",
+      allowRealPrs: true,
+      allowMerge: false,
+      workspaceRoot: workspace
+    },
+    mockTickets: [
+      {
+        key: "BPO-327",
+        projectKey: "BPO",
+        summary: "Should fail guardrail",
+        repoTarget: "BPOFH",
+        contextMapping: {
+          inScope: true,
+          repoTarget: "BPOFH",
+          feasibility: "feasible",
+          confidence: 0.95
+        }
+      }
+    ]
+  };
+
+  await writeFile(configPath, JSON.stringify(config, null, 2));
+
+  await assert.rejects(
+    () =>
+      runHarness({
+        configPath,
+        modeOverride: "triage-and-execution",
+        dryRunOverride: false
+      }),
+    /Real execution requires adapters\.bitbucket\.kind = "mcp"/
+  );
+});
+
+test("guardrail blocks real execution when allowRealPrs is false", async () => {
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "bpopilot-execution-mcp-guard-"));
+  const configPath = path.join(workspace, "harness.config.json");
+  const config = {
+    mode: "triage-and-execution",
+    dryRun: false,
+    memory: {
+      backend: "file",
+      filePath: "./memory.json"
+    },
+    adapters: {
+      jira: {
+        kind: "mock",
+        mock: { ticketSource: "config.mockTickets" },
+        mcp: { server: "jira-official" }
+      },
+      llmContext: {
+        kind: "mock",
+        mock: { mappingSource: "ticket.contextMapping" },
+        mcp: { server: "llm-context" }
+      },
+      llmMemory: {
+        kind: "mock",
+        mock: { backend: "file" },
+        mcp: { server: "llm-memory" }
+      },
+      llmSqlDb: {
+        kind: "mock",
+        mock: { recordRuns: true },
+        mcp: { server: "llm-sql-db-mcp" }
+      },
+      bitbucket: {
+        kind: "mcp",
+        mock: { workspaceRoot: workspace },
+        mcp: {
+          server: "llm-bitbucket-mcp",
+          repository: "BPOFH",
+          project: "BPO",
+          workspaceRoot: workspace
+        }
+      }
+    },
+    execution: {
+      enabled: true,
+      dryRun: false,
+      baseBranch: "BPOFH",
+      allowRealPrs: false,
+      allowMerge: false,
+      workspaceRoot: workspace
+    },
+    mcpBridge: {
+      mode: "fixture",
+      fixtureFile: "",
+      fixtures: {},
+      command: "",
+      args: []
+    },
+    mockTickets: [
+      {
+        key: "BPO-328",
+        projectKey: "BPO",
+        summary: "Should fail allowRealPrs guardrail",
+        repoTarget: "BPOFH",
+        contextMapping: {
+          inScope: true,
+          repoTarget: "BPOFH",
+          feasibility: "feasible",
+          confidence: 0.95
+        }
+      }
+    ]
+  };
+
+  await writeFile(configPath, JSON.stringify(config, null, 2));
+
+  await assert.rejects(
+    () =>
+      runHarness({
+        configPath,
+        modeOverride: "triage-and-execution",
+        dryRunOverride: false
+      }),
+    /Real execution requires execution\.allowRealPrs = true/
+  );
+});
+
+test("mcp execution can create branch, commit and pull request when config is coherent", async () => {
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "bpopilot-execution-mcp-real-"));
+  const configPath = path.join(workspace, "harness.config.json");
+  const config = {
+    mode: "triage-and-execution",
+    dryRun: false,
+    memory: {
+      backend: "file",
+      filePath: "./memory.json"
+    },
+    adapters: {
+      jira: {
+        kind: "mock",
+        mock: { ticketSource: "config.mockTickets" },
+        mcp: { server: "jira-official" }
+      },
+      llmContext: {
+        kind: "mock",
+        mock: { mappingSource: "ticket.contextMapping" },
+        mcp: { server: "llm-context" }
+      },
+      llmMemory: {
+        kind: "mock",
+        mock: { backend: "file" },
+        mcp: { server: "llm-memory" }
+      },
+      llmSqlDb: {
+        kind: "mock",
+        mock: { recordRuns: true },
+        mcp: { server: "llm-sql-db-mcp" }
+      },
+      bitbucket: {
+        kind: "mcp",
+        mock: { workspaceRoot: workspace },
+        mcp: {
+          server: "llm-bitbucket-mcp",
+          repository: "BPOFH",
+          project: "BPO",
+          workspaceRoot: workspace
+        }
+      }
+    },
+    execution: {
+      enabled: true,
+      dryRun: false,
+      baseBranch: "BPOFH",
+      allowRealPrs: true,
+      allowMerge: false,
+      workspaceRoot: workspace
+    },
+    mcpBridge: {
+      mode: "fixture",
+      fixtureFile: "",
+      fixtures: {
+        "llm-bitbucket-mcp.createBranch": {
+          branchName: "bpo-329-real-mcp-execution",
+          baseBranch: "BPOFH"
+        },
+        "llm-bitbucket-mcp.checkoutBranch": {
+          branchName: "bpo-329-real-mcp-execution",
+          workspaceRoot: workspace
+        },
+        "llm-bitbucket-mcp.createCommit": {
+          commitSha: "abc123"
+        },
+        "llm-bitbucket-mcp.openPullRequest": {
+          title: "[BPO-329] Real MCP execution",
+          link: "https://example.invalid/pr/329"
+        }
+      },
+      command: "",
+      args: []
+    },
+    mockTickets: [
+      {
+        key: "BPO-329",
+        projectKey: "BPO",
+        summary: "Real MCP execution",
+        repoTarget: "BPOFH",
+        contextMapping: {
+          inScope: true,
+          repoTarget: "BPOFH",
+          feasibility: "feasible",
+          confidence: 0.96
+        }
+      }
+    ]
+  };
+
+  await writeFile(configPath, JSON.stringify(config, null, 2));
+
+  const summary = await runHarness({
+    configPath,
+    modeOverride: "triage-and-execution",
+    dryRunOverride: false
+  });
+
+  assert.equal(summary.adapterKinds.bitbucket, "mcp");
+  assert.equal(summary.executionDryRun, false);
+  assert.equal(summary.execution[0].status, "pr_opened");
+  assert.equal(summary.execution[0].pullRequestUrl, "https://example.invalid/pr/329");
 });

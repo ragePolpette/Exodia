@@ -2,20 +2,35 @@ import { loadPrompt } from "../prompts/load-prompt.js";
 import { ExecutionService } from "../execution/execution-service.js";
 
 export class ExecutionAgent {
-  constructor({ bitbucketAdapter, memoryAdapter }) {
+  constructor({ bitbucketAdapter, memoryAdapter, executionConfig, logger }) {
     this.bitbucketAdapter = bitbucketAdapter;
     this.memoryAdapter = memoryAdapter;
+    this.executionConfig = executionConfig;
+    this.logger = logger;
     this.service = new ExecutionService();
   }
 
   async run(items) {
     const prompt = await loadPrompt("execution-agent.md");
     await this.bitbucketAdapter.assertNoMergePolicy();
+    const executionMode = this.service.resolveMode({
+      executionConfig: this.executionConfig,
+      bitbucketKind: this.bitbucketAdapter.kind
+    });
+
+    this.logger?.info("Execution mode resolved", {
+      mode: executionMode,
+      adapter: this.bitbucketAdapter.kind
+    });
+
+    if (executionMode === "disabled") {
+      return [];
+    }
 
     const results = [];
 
     for (const item of items) {
-      const result = await this.executeItem(item, prompt);
+      const result = await this.executeItem(item, prompt, executionMode);
       results.push(result);
 
       await this.memoryAdapter.upsertRecords([
@@ -42,7 +57,7 @@ export class ExecutionAgent {
     return results;
   }
 
-  async executeItem(item, prompt) {
+  async executeItem(item, prompt, executionMode) {
     const { ticket, decision } = item;
 
     if (decision.status_decision === "feasible_low_confidence") {
@@ -70,6 +85,21 @@ export class ExecutionAgent {
     }
 
     const branchName = this.bitbucketAdapter.planBranch(ticket);
+
+    if (executionMode === "dry-run-mcp") {
+      return {
+        ...this.service.buildPlannedResult(
+          ticket,
+          "dry_run_planned",
+          "execution dry-run planned with MCP adapter; no real PR opened"
+        ),
+        branchName,
+        commitMessage: this.service.buildCommitMessage(ticket, prompt),
+        pullRequestTitle: `[${ticket.key}] ${ticket.summary}`,
+        pullRequestUrl: ""
+      };
+    }
+
     await this.bitbucketAdapter.createBranch(ticket, branchName);
     await this.bitbucketAdapter.checkoutBranch(ticket, branchName);
     const commitMessage = this.service.buildCommitMessage(ticket, prompt);

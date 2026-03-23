@@ -14,7 +14,8 @@ export async function runHarness({
 } = {}) {
   const config = await loadConfig(configPath);
   const mode = modeOverride ?? config.mode;
-  const dryRun = dryRunOverride || config.dryRun;
+  const executionDryRun = dryRunOverride ?? config.execution.dryRun ?? config.dryRun;
+  const dryRun = executionDryRun;
   const logger = createLogger({ level: config.logging?.level ?? "info" });
 
   assertMode(mode);
@@ -35,7 +36,12 @@ export async function runHarness({
   });
   const executionAgent = new ExecutionAgent({
     bitbucketAdapter,
-    memoryAdapter
+    memoryAdapter,
+    executionConfig: {
+      ...config.execution,
+      dryRun: executionDryRun
+    },
+    logger
   });
 
   const tickets = await jiraAdapter.listOpenTickets();
@@ -72,6 +78,8 @@ export async function runHarness({
     mode,
     dryRun,
     adapterKinds: kinds,
+    executionEnabled: config.execution.enabled,
+    executionDryRun,
     ticketCount: tickets.length,
     triage,
     execution,

@@ -80,6 +80,8 @@ function renderSummary(summary) {
     "BpoPilot Ticket Harness",
     `Mode: ${summary.mode}`,
     `Dry run: ${summary.dryRun}`,
+    `Execution enabled: ${summary.executionEnabled}`,
+    `Execution dry run: ${summary.executionDryRun}`,
     `Adapters: jira=${summary.adapterKinds.jira}, llmContext=${summary.adapterKinds.llmContext}, llmMemory=${summary.adapterKinds.llmMemory}, llmSqlDb=${summary.adapterKinds.llmSqlDb}, bitbucket=${summary.adapterKinds.bitbucket}`,
     `Tickets loaded: ${summary.ticketCount}`,
     `Tickets triaged: ${summary.triage.length}`,

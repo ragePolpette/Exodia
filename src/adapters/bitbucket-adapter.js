@@ -1,9 +1,13 @@
-function toKebabCase(value) {
+export function toKebabCase(value) {
   return value
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 40);
+}
+
+export function buildBranchName(ticket) {
+  return `${ticket.key.toLowerCase()}-${toKebabCase(ticket.summary)}`;
 }
 
 export class BitbucketAdapter {
@@ -15,7 +19,7 @@ export class BitbucketAdapter {
   }
 
   planBranch(ticket) {
-    return `${ticket.key.toLowerCase()}-${toKebabCase(ticket.summary)}`;
+    return buildBranchName(ticket);
   }
 
   async createBranch(ticket, branchName) {

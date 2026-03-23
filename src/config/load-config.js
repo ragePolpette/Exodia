@@ -58,14 +58,18 @@ const defaultConfig = {
       mcp: {
         server: "llm-bitbucket-mcp",
         repository: "",
-        project: ""
+        project: "",
+        workspaceRoot: ""
       }
     }
   },
   execution: {
+    enabled: true,
+    dryRun: true,
     baseBranch: "BPOFH",
     allowRealPrs: false,
-    allowMerge: false
+    allowMerge: false,
+    workspaceRoot: ""
   },
   mcpBridge: {
     mode: "fixture",

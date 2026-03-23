@@ -71,7 +71,9 @@ export function buildAdapters({ config, logger }) {
         new McpBitbucketAdapter({
           ...config.adapters.bitbucket.mcp,
           baseBranch: config.execution.baseBranch,
-          allowMerge: config.execution.allowMerge
+          allowMerge: config.execution.allowMerge,
+          workspaceRoot: config.execution.workspaceRoot || config.adapters.bitbucket.mcp.workspaceRoot,
+          client: mcpClient
         })
     }
   };

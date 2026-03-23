@@ -1,29 +1,86 @@
+import { buildBranchName } from "./bitbucket-adapter.js";
+
 export class McpBitbucketAdapter {
-  constructor({ baseBranch = "BPOFH", allowMerge = false, ...options } = {}) {
+  constructor({
+    baseBranch = "BPOFH",
+    allowMerge = false,
+    client,
+    server = "llm-bitbucket-mcp",
+    repository = "",
+    project = "",
+    workspaceRoot = "",
+    ...options
+  } = {}) {
     this.baseBranch = baseBranch;
     this.allowMerge = allowMerge;
+    this.client = client;
+    this.server = server;
+    this.repository = repository;
+    this.project = project;
+    this.workspaceRoot = workspaceRoot;
     this.options = options;
     this.kind = "mcp";
   }
 
   planBranch(ticket) {
-    return `${ticket.key.toLowerCase()}-mcp-bridge`;
+    return buildBranchName(ticket);
   }
 
-  async createBranch() {
-    throw new Error("Bitbucket MCP adapter is registered but not connected in STEP 1");
+  async createBranch(ticket, branchName) {
+    return this.client.request({
+      server: this.server,
+      action: "createBranch",
+      payload: {
+        repository: this.repository,
+        project: this.project,
+        baseBranch: this.baseBranch,
+        branchName,
+        ticket
+      }
+    });
   }
 
-  async checkoutBranch() {
-    throw new Error("Bitbucket MCP adapter is registered but not connected in STEP 1");
+  async checkoutBranch(ticket, branchName) {
+    return this.client.request({
+      server: this.server,
+      action: "checkoutBranch",
+      payload: {
+        repository: this.repository,
+        workspaceRoot: this.workspaceRoot,
+        branchName,
+        ticket
+      }
+    });
   }
 
-  async createCommit() {
-    throw new Error("Bitbucket MCP adapter is registered but not connected in STEP 1");
+  async createCommit(ticket, branchName, commitMessage) {
+    return this.client.request({
+      server: this.server,
+      action: "createCommit",
+      payload: {
+        repository: this.repository,
+        workspaceRoot: this.workspaceRoot,
+        branchName,
+        commitMessage,
+        ticket
+      }
+    });
   }
 
-  async openPullRequest() {
-    throw new Error("Bitbucket MCP adapter is registered but not connected in STEP 1");
+  async openPullRequest(ticket, branchName, commitResult) {
+    return this.client.request({
+      server: this.server,
+      action: "openPullRequest",
+      payload: {
+        repository: this.repository,
+        project: this.project,
+        sourceBranch: branchName,
+        targetBranch: this.baseBranch,
+        title: `[${ticket.key}] ${ticket.summary}`,
+        commitSha: commitResult.commitSha,
+        ticket
+      }
+    });
   }
 
   async assertNoMergePolicy() {

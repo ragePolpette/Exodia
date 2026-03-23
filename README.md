@@ -1,6 +1,6 @@
 # BpoPilot Ticket Harness
 
-Harness autonomo per orchestrare triage ed execution di ticket BpoPilot con Codex come motore operativo, con bootstrap centralizzato degli adapter e supporto sia `mock` sia `mcp`. Il triage ora puo` lavorare sia in modalita` mock sia in modalita` MCP tramite un bridge configurabile.
+Harness autonomo per orchestrare triage ed execution di ticket BpoPilot con Codex come motore operativo, con bootstrap centralizzato degli adapter e supporto sia `mock` sia `mcp`. Il triage puo` lavorare in modalita` mock o MCP e l'execution puo` usare `llm-bitbucket-mcp` solo quando la config lo consente esplicitamente.
 
 ## Obiettivo
 
@@ -72,7 +72,7 @@ bpopilot-ticket-harness/
 - [bootstrap-adapters.js](C:/Users/Gianmarco/Urgewalt/Malkuth/bpopilot-ticket-harness/src/adapters/bootstrap-adapters.js): registry centrale che seleziona adapter `mock` o `mcp` in base alla config.
 - [triage-agent.js](C:/Users/Gianmarco/Urgewalt/Malkuth/bpopilot-ticket-harness/src/agents/triage-agent.js): legge memoria esistente, usa `llm-context` come fonte primaria per il mapping ticket -> codebase e salva decisioni persistenti.
 - [create-mcp-client.js](C:/Users/Gianmarco/Urgewalt/Malkuth/bpopilot-ticket-harness/src/mcp/create-mcp-client.js): bridge MCP generico, con modalita` `fixture` per test e `external` per integrazione reale.
-- [execution-agent.js](C:/Users/Gianmarco/Urgewalt/Malkuth/bpopilot-ticket-harness/src/agents/execution-agent.js): esegue flow mock con branch da `BPOFH`, checkout, commit, PR simulata e guardrail anti-merge.
+- [execution-agent.js](C:/Users/Gianmarco/Urgewalt/Malkuth/bpopilot-ticket-harness/src/agents/execution-agent.js): esegue flow mock o reale via `llm-bitbucket-mcp`, con guardrail su `enabled`, `dryRun`, `allowRealPrs` e anti-merge.
 - [memory-record.js](C:/Users/Gianmarco/Urgewalt/Malkuth/bpopilot-ticket-harness/src/contracts/memory-record.js): contratto persistente del ticket memory layer.
 - [logger.js](C:/Users/Gianmarco/Urgewalt/Malkuth/bpopilot-ticket-harness/src/logging/logger.js): logging minimale a livelli `silent`, `error`, `info`, `debug`.
 
@@ -130,7 +130,8 @@ Durante il bootstrap:
 
 - la modalita' `mock` e' operativa
 - la modalita' `mcp` per Jira, `llm-context` e `llm-memory` e' operativa tramite bridge
-- `llm-sql-db-mcp` e `llm-bitbucket-mcp` restano ancora mock in questo step
+- `llm-sql-db-mcp` resta ancora mock in questo step
+- `llm-bitbucket-mcp` e` integrato sia in modalita` mock sia in modalita` MCP
 
 ## Config Example
 
@@ -149,8 +150,11 @@ Campi principali:
 - `adapters.<name>.mock`: parametri della modalita' fake/mock
 - `adapters.<name>.mcp`: parametri preparatori per l'integrazione reale
 - `execution.baseBranch`: branch base, richiesto `BPOFH`
+- `execution.enabled`: attiva o disattiva la fase di execution
+- `execution.dryRun`: se `true`, blocca ogni azione reale anche con adapter MCP
 - `execution.allowRealPrs`: deve restare `false` nel bootstrap
 - `execution.allowMerge`: deve restare `false`
+- `execution.workspaceRoot`: workspace locale configurabile per git/checkout
 - `mcpBridge.mode`: `fixture` oppure `external`
 - `mcpBridge.fixtureFile` o `mcpBridge.fixtures`: per test e bootstrap controllato
 - `mcpBridge.command` e `mcpBridge.args`: bridge reale per i server MCP
@@ -184,6 +188,14 @@ Execution report esplicito:
 ```bash
 node src/cli.js execute --config ./config/harness.config.example.json --dry-run --report execution
 ```
+
+Per consentire davvero branch/commit/PR via MCP servono tutte queste condizioni:
+
+- `adapters.bitbucket.kind = "mcp"`
+- `execution.enabled = true`
+- `execution.dryRun = false`
+- `execution.allowRealPrs = true`
+- `execution.allowMerge = false`
 
 Resume con memoria esistente:
 
@@ -229,6 +241,14 @@ Scenario 2, triage + execution:
 - apre una PR mock obbligatoria
 - non esegue mai merge
 
+Scenario 2c, execution MCP reale controllata:
+
+- usa `llm-bitbucket-mcp` per creare branch da `BPOFH`
+- fa checkout nel `workspaceRoot` configurato
+- crea commit e apre PR
+- parte solo se `execution.dryRun = false` e `execution.allowRealPrs = true`
+- si blocca subito se la config non e` coerente
+
 Scenario 2b, registry pronto per MCP:
 
 - la config puo' dichiarare `kind: "mcp"` per Jira, `llm-context`, `llm-memory`, `llm-sql-db-mcp`, `llm-bitbucket-mcp`
@@ -251,10 +271,10 @@ Scenario 3, resume:
 
 ## Limiti Residui
 
-- `llm-sql-db-mcp` e `llm-bitbucket-mcp` non sono ancora integrati davvero
+- `llm-sql-db-mcp` non e` ancora integrato davvero
 - prompt agent ancora placeholder in attesa dei prompt definitivi
 - nessuna modifica reale a repository business
-- nessuna apertura PR reale
+- nessuna apertura PR reale per default
 - logging minimale, non ancora strutturato in sink esterni
 
 ## Miglioramenti Consigliati

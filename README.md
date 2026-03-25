@@ -116,14 +116,14 @@ Malkuth/
 
 ## Architettura Operativa
 
-- [run-harness.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/orchestration/run-harness.js): entrypoint centrale. Carica config, usa la factory di bootstrap degli adapter, lancia triage e opzionalmente execution.
-- [bootstrap-adapters.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/adapters/bootstrap-adapters.js): registry centrale che seleziona adapter `mock` o `mcp` in base alla config.
-- [triage-agent.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/agents/triage-agent.js): legge memoria esistente, usa `llm_context` come fonte primaria per il mapping ticket -> codebase e salva decisioni persistenti.
-- [create-mcp-client.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/mcp/create-mcp-client.js): bridge MCP generico, con modalita` `fixture` per test e `external` per integrazione reale.
-- [run-bridge.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/mcp/run-bridge.js): bridge MCP `stdio` reale che legge un registry TOML dei server MCP e inoltra le action del harness ai tool reali.
-- [execution-agent.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/agents/execution-agent.js): esegue flow mock o reale via `llm_bitbucket_mcp`, con guardrail su `enabled`, `dryRun`, `allowRealPrs`, anti-merge e riuso di PR gia` aperte.
-- [memory-record.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/contracts/memory-record.js): contratto persistente del ticket memory layer.
-- [logger.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/logging/logger.js): logging minimale a livelli `silent`, `error`, `info`, `debug`.
+- [run-harness.js](src/orchestration/run-harness.js): entrypoint centrale. Carica config, usa la factory di bootstrap degli adapter, lancia triage e opzionalmente execution.
+- [bootstrap-adapters.js](src/adapters/bootstrap-adapters.js): registry centrale che seleziona adapter `mock` o `mcp` in base alla config.
+- [triage-agent.js](src/agents/triage-agent.js): legge memoria esistente, usa `llm_context` come fonte primaria per il mapping ticket -> codebase e salva decisioni persistenti.
+- [create-mcp-client.js](src/mcp/create-mcp-client.js): bridge MCP generico, con modalita` `fixture` per test e `external` per integrazione reale.
+- [run-bridge.js](src/mcp/run-bridge.js): bridge MCP `stdio` reale che legge un registry TOML dei server MCP e inoltra le action del harness ai tool reali.
+- [execution-agent.js](src/agents/execution-agent.js): esegue flow mock o reale via `llm_bitbucket_mcp`, con guardrail su `enabled`, `dryRun`, `allowRealPrs`, anti-merge e riuso di PR gia` aperte.
+- [memory-record.js](src/contracts/memory-record.js): contratto persistente del ticket memory layer.
+- [logger.js](src/logging/logger.js): logging minimale a livelli `silent`, `error`, `info`, `debug`.
 
 ## Contratto Memoria
 
@@ -187,11 +187,11 @@ In questo STEP 4:
 
 Il progetto e` strutturato per integrare questi MCP:
 
-- Jira/Confluence tramite server `atlassian_rovo_mcp` e [jira-adapter.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/adapters/jira-adapter.js)
-- `llm_context` tramite [llm-context-adapter.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/adapters/llm-context-adapter.js)
-- `llm_memory` tramite [llm-memory-adapter.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/adapters/llm-memory-adapter.js) come memoria semantica opzionale
-- `llm_db_prod_mcp` / `llm_db_dev_mcp` tramite [llm-sql-db-adapter.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/adapters/llm-sql-db-adapter.js)
-- `llm_bitbucket_mcp` tramite [bitbucket-adapter.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/adapters/bitbucket-adapter.js)
+- Jira/Confluence tramite server `atlassian_rovo_mcp` e [jira-adapter.js](src/adapters/jira-adapter.js)
+- `llm_context` tramite [llm-context-adapter.js](src/adapters/llm-context-adapter.js)
+- `llm_memory` tramite [llm-memory-adapter.js](src/adapters/llm-memory-adapter.js) come memoria semantica opzionale
+- `llm_db_prod_mcp` / `llm_db_dev_mcp` tramite [llm-sql-db-adapter.js](src/adapters/llm-sql-db-adapter.js)
+- `llm_bitbucket_mcp` tramite [bitbucket-adapter.js](src/adapters/bitbucket-adapter.js)
 
 Durante il bootstrap:
 
@@ -203,7 +203,7 @@ Durante il bootstrap:
 
 ## Quick Start Mock
 
-1. usa [harness.config.example.json](C:/Users/Gianmarco/Urgewalt/Malkuth/config/harness.config.example.json)
+1. usa [harness.config.example.json](config/harness.config.example.json)
 2. esegui solo triage:
 
 ```bash
@@ -218,11 +218,12 @@ node src/cli.js run --config ./config/harness.config.example.json --dry-run
 
 ## Quick Start MCP Reale Controllato
 
-1. parti da [harness.config.mcp.example.json](C:/Users/Gianmarco/Urgewalt/Malkuth/config/harness.config.mcp.example.json) per triage MCP
-2. parti da [harness.config.real.example.json](C:/Users/Gianmarco/Urgewalt/Malkuth/config/harness.config.real.example.json) per execution MCP reale controllata
-3. configura `mcpBridge.command` e `mcpBridge.args`, oppure usa [harness.config.triage.codex-local.example.json](C:/Users/Gianmarco/Urgewalt/Malkuth/config/harness.config.triage.codex-local.example.json) con [codex.mcp.reference.toml](C:/Users/Gianmarco/Urgewalt/Malkuth/config/codex.mcp.reference.toml)
+1. parti da [harness.config.mcp.example.json](config/harness.config.mcp.example.json) per triage MCP
+2. parti da [harness.config.real.example.json](config/harness.config.real.example.json) per execution MCP reale controllata
+3. configura `mcpBridge.command` e `mcpBridge.args`, oppure usa [harness.config.triage.codex-local.example.json](config/harness.config.triage.codex-local.example.json) con [codex.mcp.reference.toml](config/codex.mcp.reference.toml)
 4. verifica che `execution.allowMerge = false`
 5. usa `--real-run` solo quando vuoi davvero disattivare il dry-run
+6. copia i valori reali in file locali non tracciati seguendo [LOCAL_CONFIGURATION.md](config/LOCAL_CONFIGURATION.md)
 
 Triage MCP:
 
@@ -244,13 +245,14 @@ node src/cli.js execute --config ./config/harness.config.real.example.json --rea
 
 ## Config Example
 
-Il file di esempio e` [harness.config.example.json](C:/Users/Gianmarco/Urgewalt/Malkuth/config/harness.config.example.json).
+Il file di esempio e` [harness.config.example.json](config/harness.config.example.json).
 
 Esempio separato per triage MCP:
 
-- [harness.config.mcp.example.json](C:/Users/Gianmarco/Urgewalt/Malkuth/config/harness.config.mcp.example.json)
-- [harness.config.real.example.json](C:/Users/Gianmarco/Urgewalt/Malkuth/config/harness.config.real.example.json)
-- [harness.config.triage.codex-local.example.json](C:/Users/Gianmarco/Urgewalt/Malkuth/config/harness.config.triage.codex-local.example.json)
+- [harness.config.mcp.example.json](config/harness.config.mcp.example.json)
+- [harness.config.real.example.json](config/harness.config.real.example.json)
+- [harness.config.triage.codex-local.example.json](config/harness.config.triage.codex-local.example.json)
+- [LOCAL_CONFIGURATION.md](config/LOCAL_CONFIGURATION.md)
 
 Campi principali:
 
@@ -261,12 +263,12 @@ Campi principali:
 - `adapters.<name>.kind`: `mock` oppure `mcp`
 - `adapters.<name>.mock`: parametri della modalita' fake/mock
 - `adapters.<name>.mcp`: parametri preparatori per l'integrazione reale
-- `execution.baseBranch`: branch base, richiesto `BPOFH`
+- `execution.baseBranch`: branch base del repository target, da definire localmente
 - `execution.enabled`: attiva o disattiva la fase di execution
 - `execution.dryRun`: se `true`, blocca ogni azione reale anche con adapter MCP
 - `execution.allowRealPrs`: deve restare `false` nel bootstrap
 - `execution.allowMerge`: deve restare `false`
-- `execution.workspaceRoot`: workspace locale configurabile per git/checkout
+- `execution.workspaceRoot`: workspace locale configurabile per git/checkout, da tenere fuori dai file tracciati
 - `adapters.llmSqlDb.mcp.enabled`: abilita il bridge DB solo quando serve
 - `adapters.llmSqlDb.mcp.topology`: `split` oppure `unified`
 - `adapters.llmSqlDb.mcp.operations.recordRun.server`: server usato per registrare il run del harness
@@ -277,7 +279,7 @@ Campi principali:
 - `adapters.llmSqlDb.mcp.targets.dev.database`: nome logico o reale del database `dev`
 - `adapters.llmSqlDb.mcp.targets.dev.access`: uso atteso, tipicamente `schema-and-tests`
 - `adapters.llmSqlDb.mcp.defaultDatabase`: `prod` o `dev`, default consigliato `prod`
-- `adapters.llmSqlDb.mcp.namespace`: namespace diagnostico del harness
+- `adapters.llmSqlDb.mcp.namespace`: namespace diagnostico del harness, da definire localmente
 - `adapters.bitbucket.mcp.operations.findOpenPullRequest.action`: operation di lookup PR esistente
 - `adapters.bitbucket.mcp.operations.findOpenPullRequest.enabled`: abilita o disabilita il check PR gia` aperta
 - `adapters.bitbucket.mcp.operations.createBranch.action`: operation per creare il branch
@@ -305,7 +307,7 @@ Per il DB MCP ci sono due modalita' equivalenti:
 
 Il codice del harness non deve assumere quale delle due topologie sia attiva.
 
-Per i ticket reali passati da assistenza al tecnico, usare il template in [ticket-handoff-template.md](C:/Users/Gianmarco/Urgewalt/Malkuth/harness-docs/ticket-handoff-template.md) e rendere sempre esplicito il target `legacy`, `fatturhello` o `fiscobot`.
+Per i ticket reali passati da assistenza al tecnico, usare il template in [ticket-handoff-template.md](harness-docs/ticket-handoff-template.md) e rendere sempre esplicito il target `legacy`, `fatturhello` o `fiscobot`.
 
 ## Comandi Principali
 
@@ -355,7 +357,7 @@ Resume con memoria esistente:
 node src/cli.js triage --config ./config/harness.config.example.json --dry-run
 ```
 
-Il resume usa [memory.json](C:/Users/Gianmarco/Urgewalt/Malkuth/data/memory.json) come storico ticket operativo per evitare rivalutazioni inutili e loop sui ticket gia` rifiutati, bloccati o gia` in lavorazione.
+Il resume usa [memory.json](data/memory.json) come storico ticket operativo per evitare rivalutazioni inutili e loop sui ticket gia` rifiutati, bloccati o gia` in lavorazione.
 
 Help CLI:
 
@@ -396,7 +398,7 @@ Scenario 2, triage + execution:
 
 Scenario 2c, execution MCP reale controllata:
 
-- usa `llm_bitbucket_mcp` per creare branch da `BPOFH`
+- usa `llm_bitbucket_mcp` per creare branch dalla base branch configurata localmente
 - controlla prima se esiste gia` una PR aperta per il branch previsto
 - fa checkout nel `workspaceRoot` configurato
 - crea commit e apre PR
@@ -421,7 +423,7 @@ Scenario 3, resume:
 - niente merge automatici
 - niente chiusura ticket automatica
 - niente dipendenza obbligatoria da ticket reali durante il bootstrap
-- niente PR reali sui repository business durante lo sviluppo dell'harness
+- niente PR reali su repository interni o sensibili durante lo sviluppo dell'harness
 - niente execution reale finche' la config non lo abilita esplicitamente negli step successivi
 - `--real-run` da solo non basta: servono anche adapter `mcp` coerenti e `execution.allowRealPrs = true`
 - i DB MCP restano opzionali e on-demand
@@ -438,7 +440,7 @@ Per rendere i ticket facilmente implementabili:
 
 Template pronto all'uso:
 
-- [ticket-handoff-template.md](C:/Users/Gianmarco/Urgewalt/Malkuth/harness-docs/ticket-handoff-template.md)
+- [ticket-handoff-template.md](harness-docs/ticket-handoff-template.md)
 
 ## Readiness Review
 
@@ -459,7 +461,7 @@ Rischi residui:
 
 - i prompt agent sono maturi ma ancora non sono i prompt finali che inserirai tu
 - il DB e` usato solo on-demand, senza policy diagnostiche sofisticate
-- nessuna modifica reale a repository business
+- nessuna modifica reale a repository interni o sensibili
 - nessuna apertura PR reale per default
 - logging minimale, non ancora strutturato in sink esterni
 
@@ -470,3 +472,4 @@ Rischi residui:
 - aggiungere policy piu` fini per resume, retry e rate limiting
 - aggiungere audit log strutturato per ogni run
 - aggiungere fixture piu` ricche per ticket mock complessi
+

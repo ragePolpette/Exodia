@@ -2,7 +2,7 @@ import { buildBranchName } from "./bitbucket-adapter.js";
 
 export class McpBitbucketAdapter {
   constructor({
-    baseBranch = "BPOFH",
+    baseBranch = "",
     allowMerge = false,
     client,
     server = "llm_bitbucket_mcp",

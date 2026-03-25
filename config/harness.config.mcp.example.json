@@ -13,7 +13,7 @@
       },
       "mcp": {
         "server": "atlassian_rovo_mcp",
-        "jql": "project = BPO AND statusCategory != Done",
+        "jql": "project = YOUR_PROJECT AND statusCategory != Done",
         "filterId": ""
       }
     },
@@ -24,7 +24,7 @@
       },
       "mcp": {
         "server": "llm_context",
-        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth"
+        "workspaceRoot": "C:\\path\\to\\your\\workspace"
       }
     },
     "llmMemory": {
@@ -34,7 +34,7 @@
       },
       "mcp": {
         "server": "llm_memory",
-        "namespace": "malkuth-harness"
+        "namespace": "your-harness-namespace"
       }
     },
     "llmSqlDb": {
@@ -45,7 +45,7 @@
       "mcp": {
         "server": "llm_db_prod_mcp",
         "enabled": true,
-        "namespace": "malkuth-harness",
+        "namespace": "your-harness-namespace",
         "topology": "split",
         "operations": {
           "recordRun": {
@@ -70,14 +70,14 @@
     "bitbucket": {
       "kind": "mcp",
       "mock": {
-        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth",
+        "workspaceRoot": "C:\\path\\to\\your\\workspace",
         "existingPullRequests": []
       },
       "mcp": {
         "server": "llm_bitbucket_mcp",
-        "repository": "BPOFH",
-        "project": "BPO",
-        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth",
+        "repository": "your-repository",
+        "project": "YOUR_PROJECT",
+        "workspaceRoot": "C:\\path\\to\\your\\workspace",
         "operations": {
           "findOpenPullRequest": {
             "action": "findOpenPullRequest",
@@ -102,10 +102,10 @@
   "execution": {
     "enabled": true,
     "dryRun": true,
-    "baseBranch": "BPOFH",
+    "baseBranch": "main",
     "allowRealPrs": false,
     "allowMerge": false,
-    "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth"
+    "workspaceRoot": "C:\\path\\to\\your\\workspace"
   },
   "mcpBridge": {
     "mode": "external",

@@ -14,8 +14,8 @@ export class McpJiraAdapter {
       summary: ticket.summary,
       description: ticket.description,
       productTarget: ticket.productTarget ?? ticket.product_target,
-      scope: ticket.scope ?? "BpoPilot",
-      repoTarget: ticket.repoTarget ?? ticket.repo_target ?? "BPOFH",
+      scope: ticket.scope ?? "Unspecified",
+      repoTarget: ticket.repoTarget ?? ticket.repo_target ?? "UNKNOWN",
       contextMapping: ticket.contextMapping ?? ticket.context_mapping,
       recheckConditions: ticket.recheckConditions ?? ticket.recheck_conditions ?? []
     });

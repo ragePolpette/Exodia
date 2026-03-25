@@ -43,7 +43,7 @@ export class McpLlmSqlDbAdapter {
       server: target.server,
       action: "runDiagnosticQuery",
       payload: {
-        namespace: this.options.namespace ?? "bpopilot-ticket-harness",
+        namespace: this.options.namespace ?? "malkuth",
         database: target.database,
         phase: request.phase,
         ticketKey: request.ticketKey,

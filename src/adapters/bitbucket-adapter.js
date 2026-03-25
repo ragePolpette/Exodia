@@ -11,7 +11,7 @@ export function buildBranchName(ticket) {
 }
 
 export class BitbucketAdapter {
-  constructor({ baseBranch = "BPOFH", allowMerge = false, existingPullRequests = [] } = {}) {
+  constructor({ baseBranch = "", allowMerge = false, existingPullRequests = [] } = {}) {
     this.baseBranch = baseBranch;
     this.allowMerge = allowMerge;
     this.existingPullRequests = existingPullRequests;

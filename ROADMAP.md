@@ -46,14 +46,14 @@ Per ogni milestone o sottostep:
 
 ## Milestone 2 - Externalizzazione completa della config sensibile
 
-- [ ] spostare fuori dal codice tutti i path locali
-- [ ] spostare fuori dal codice tutti i cloudId, tenant e URL specifici
-- [ ] spostare fuori dal codice tutti i nomi repo, project key e branch base
-- [ ] spostare fuori dal codice namespace e naming operativi specifici
-- [ ] creare config example generici e pubblicabili
-- [ ] introdurre file locali ignorati da git per le config reali
-- [ ] aggiornare `.gitignore` per config locali e segreti
-- [ ] documentare chiaramente cosa va creato localmente fuori repo
+- [x] spostare fuori dal codice tutti i path locali
+- [x] spostare fuori dal codice tutti i cloudId, tenant e URL specifici
+- [x] spostare fuori dal codice tutti i nomi repo, project key e branch base
+- [x] spostare fuori dal codice namespace e naming operativi specifici
+- [x] creare config example generici e pubblicabili
+- [x] introdurre file locali ignorati da git per le config reali
+- [x] aggiornare `.gitignore` per config locali e segreti
+- [x] documentare chiaramente cosa va creato localmente fuori repo
 
 ## Milestone 3 - Generalizzazione del modello dominio
 
@@ -112,4 +112,5 @@ Per ogni milestone o sottostep:
 - [x] milestone 0 completata: identita` progetto e framing portfolio-safe allineati
 - [x] milestone 1 avviata: verification gate introdotto tra triage ed execution
 - [x] milestone 1 completata: verification gate, preflight path policy e command checks attivi
+- [x] milestone 2 completata: config sensibile esterna al repo e example sanificati
 - [x] sviluppo milestone operative avviato

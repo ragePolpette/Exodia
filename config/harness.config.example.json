@@ -13,7 +13,7 @@
       },
       "mcp": {
         "server": "atlassian_rovo_mcp",
-        "jql": "project = BPO AND statusCategory != Done",
+        "jql": "project = YOUR_PROJECT AND statusCategory != Done",
         "filterId": ""
       }
     },
@@ -24,7 +24,7 @@
       },
       "mcp": {
         "server": "llm_context",
-        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth"
+        "workspaceRoot": "C:\\path\\to\\your\\workspace"
       }
     },
     "llmMemory": {
@@ -34,7 +34,7 @@
       },
       "mcp": {
         "server": "llm_memory",
-        "namespace": "malkuth-harness"
+        "namespace": "your-harness-namespace"
       }
     },
     "llmSqlDb": {
@@ -45,7 +45,7 @@
       "mcp": {
         "server": "llm_db_prod_mcp",
         "enabled": false,
-        "namespace": "malkuth-harness",
+        "namespace": "your-harness-namespace",
         "topology": "unified",
         "operations": {
           "recordRun": {
@@ -70,14 +70,14 @@
     "bitbucket": {
       "kind": "mock",
       "mock": {
-        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth",
+        "workspaceRoot": "C:\\path\\to\\your\\workspace",
         "existingPullRequests": []
       },
       "mcp": {
         "server": "llm_bitbucket_mcp",
-        "repository": "BPOFH",
-        "project": "BPO",
-        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth",
+        "repository": "your-repository",
+        "project": "YOUR_PROJECT",
+        "workspaceRoot": "C:\\path\\to\\your\\workspace",
         "operations": {
           "findOpenPullRequest": {
             "action": "findOpenPullRequest",
@@ -102,10 +102,10 @@
   "execution": {
     "enabled": true,
     "dryRun": true,
-    "baseBranch": "BPOFH",
+    "baseBranch": "main",
     "allowRealPrs": false,
     "allowMerge": false,
-    "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth"
+    "workspaceRoot": "C:\\path\\to\\your\\workspace"
   },
   "mcpBridge": {
     "mode": "fixture",
@@ -119,19 +119,19 @@
   },
   "mockTickets": [
     {
-      "key": "BPO-100",
-      "projectKey": "BPO",
+      "key": "GEN-100",
+      "projectKey": "GEN",
       "summary": "Bootstrap harness dry-run skeleton",
       "productTarget": "legacy",
-      "scope": "BpoPilot",
-      "repoTarget": "api+asp",
+      "scope": "CoreApp",
+      "repoTarget": "core-app",
       "contextMapping": {
         "inScope": true,
         "productTarget": "legacy",
-        "repoTarget": "api+asp",
+        "repoTarget": "core-app",
         "feasibility": "feasible",
         "confidence": 0.9,
-        "implementationHint": "Extend the harness triage pipeline for BPOpilot legacy"
+        "implementationHint": "Extend the harness triage pipeline for the core legacy area"
       },
       "diagnostics": {
         "triage": {
@@ -143,19 +143,19 @@
       }
     },
     {
-      "key": "FH-101",
-      "projectKey": "FH",
-      "summary": "Yeti anagrafica validation regression",
+      "key": "WEB-101",
+      "projectKey": "WEB",
+      "summary": "Validation regression on the public application",
       "productTarget": "fatturhello",
-      "scope": "Fatturhello",
-      "repoTarget": "pubblico",
+      "scope": "PublicApp",
+      "repoTarget": "public-web",
       "contextMapping": {
         "inScope": true,
         "productTarget": "fatturhello",
-        "repoTarget": "pubblico",
+        "repoTarget": "public-web",
         "feasibility": "feasible_low_confidence",
         "confidence": 0.63,
-        "implementationHint": "Inspect pubblico/ without expanding into bpofh or fiscobot"
+        "implementationHint": "Inspect the public web area before widening the implementation scope"
       },
       "diagnostics": {
         "triage": {

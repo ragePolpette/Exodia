@@ -47,9 +47,12 @@ test("dry-run bootstraps triage and execution with mock adapters", async () => {
   assert.equal(summary.triage.length, 2);
   assert.equal(summary.execution.length, 1);
   assert.equal(summary.triage[0].status_decision, "feasible");
+  assert.equal(summary.triage[0].product_target, "legacy");
   assert.equal(summary.execution[0].status, "pr_opened");
+  assert.equal(summary.execution[0].productTarget, "legacy");
 
   const savedMemory = JSON.parse(await readFile(summary.memoryFile, "utf8"));
   assert.equal(savedMemory.length, 2);
   assert.ok(savedMemory[0].ticket_key);
+  assert.equal(savedMemory[0].product_target, "legacy");
 });

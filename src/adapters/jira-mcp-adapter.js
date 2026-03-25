@@ -1,3 +1,5 @@
+import { normalizeSupportTicket } from "../tickets/normalize-support-ticket.js";
+
 export class McpJiraAdapter {
   constructor(options = {}) {
     this.options = options;
@@ -6,15 +8,17 @@ export class McpJiraAdapter {
   }
 
   normalizeTicket(ticket) {
-    return {
+    return normalizeSupportTicket({
       key: ticket.key,
       projectKey: ticket.projectKey ?? ticket.project_key ?? ticket.project?.key ?? "UNKNOWN",
       summary: ticket.summary,
+      description: ticket.description,
+      productTarget: ticket.productTarget ?? ticket.product_target,
       scope: ticket.scope ?? "BpoPilot",
       repoTarget: ticket.repoTarget ?? ticket.repo_target ?? "BPOFH",
       contextMapping: ticket.contextMapping ?? ticket.context_mapping,
       recheckConditions: ticket.recheckConditions ?? ticket.recheck_conditions ?? []
-    };
+    });
   }
 
   async listOpenTickets() {

@@ -12,7 +12,7 @@
         "ticketSource": "config.mockTickets"
       },
       "mcp": {
-        "server": "jira-official",
+        "server": "atlassian_rovo_mcp",
         "jql": "project = BPO AND statusCategory != Done",
         "filterId": ""
       }
@@ -23,7 +23,7 @@
         "mappingSource": "ticket.contextMapping"
       },
       "mcp": {
-        "server": "llm-context",
+        "server": "llm_context",
         "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth"
       }
     },
@@ -33,7 +33,7 @@
         "backend": "file"
       },
       "mcp": {
-        "server": "llm-memory",
+        "server": "llm_memory",
         "namespace": "bpopilot-ticket-harness"
       }
     },
@@ -43,21 +43,59 @@
         "recordRuns": true
       },
       "mcp": {
-        "server": "llm-sql-db-mcp",
+        "server": "llm_db_prod_mcp",
         "enabled": false,
-        "namespace": "bpopilot-ticket-harness"
+        "namespace": "bpopilot-ticket-harness",
+        "topology": "unified",
+        "operations": {
+          "recordRun": {
+            "server": "llm_db_prod_mcp"
+          }
+        },
+        "targets": {
+          "prod": {
+            "server": "llm_db_prod_mcp",
+            "database": "prod",
+            "access": "read-only"
+          },
+          "dev": {
+            "server": "llm_db_dev_mcp",
+            "database": "dev",
+            "access": "schema-and-tests"
+          }
+        },
+        "defaultDatabase": "prod"
       }
     },
     "bitbucket": {
       "kind": "mock",
       "mock": {
-        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth\\bpopilot-ticket-harness"
+        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth\\bpopilot-ticket-harness",
+        "existingPullRequests": []
       },
       "mcp": {
-        "server": "llm-bitbucket-mcp",
+        "server": "llm_bitbucket_mcp",
         "repository": "BPOFH",
         "project": "BPO",
-        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth\\bpopilot-ticket-harness"
+        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth\\bpopilot-ticket-harness",
+        "operations": {
+          "findOpenPullRequest": {
+            "action": "findOpenPullRequest",
+            "enabled": true
+          },
+          "createBranch": {
+            "action": "createBranch"
+          },
+          "checkoutBranch": {
+            "action": "checkoutBranch"
+          },
+          "createCommit": {
+            "action": "createCommit"
+          },
+          "openPullRequest": {
+            "action": "openPullRequest"
+          }
+        }
       }
     }
   },
@@ -84,14 +122,40 @@
       "key": "BPO-100",
       "projectKey": "BPO",
       "summary": "Bootstrap harness dry-run skeleton",
+      "productTarget": "legacy",
       "scope": "BpoPilot",
-      "repoTarget": "BPOFH",
+      "repoTarget": "api+asp",
       "contextMapping": {
         "inScope": true,
-        "repoTarget": "BPOFH",
+        "productTarget": "legacy",
+        "repoTarget": "api+asp",
         "feasibility": "feasible",
         "confidence": 0.9,
-        "implementationHint": "Extend the harness triage pipeline for BpoPilot"
+        "implementationHint": "Extend the harness triage pipeline for BPOpilot legacy"
+      },
+      "diagnostics": {
+        "triage": {
+          "query": ""
+        },
+        "execution": {
+          "query": ""
+        }
+      }
+    },
+    {
+      "key": "FH-101",
+      "projectKey": "FH",
+      "summary": "Yeti anagrafica validation regression",
+      "productTarget": "fatturhello",
+      "scope": "Fatturhello",
+      "repoTarget": "pubblico",
+      "contextMapping": {
+        "inScope": true,
+        "productTarget": "fatturhello",
+        "repoTarget": "pubblico",
+        "feasibility": "feasible_low_confidence",
+        "confidence": 0.63,
+        "implementationHint": "Inspect pubblico/ without expanding into bpofh or fiscobot"
       },
       "diagnostics": {
         "triage": {
@@ -106,10 +170,12 @@
       "key": "OPS-7",
       "projectKey": "OPS",
       "summary": "Upgrade unrelated infra bootstrap",
+      "productTarget": "unknown",
       "scope": "Other",
       "repoTarget": "OPS",
       "contextMapping": {
         "inScope": false,
+        "productTarget": "unknown",
         "repoTarget": "OPS",
         "feasibility": "feasible",
         "confidence": 0.1

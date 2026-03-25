@@ -1,3 +1,5 @@
+import { normalizeSupportTicket } from "../tickets/normalize-support-ticket.js";
+
 export class JiraAdapter {
   constructor({ tickets = [] } = {}) {
     this.tickets = tickets;
@@ -5,10 +7,13 @@ export class JiraAdapter {
   }
 
   async listOpenTickets() {
-    return this.tickets.map((ticket) => ({
-      ...ticket,
+    return this.tickets.map((ticket) =>
+      normalizeSupportTicket({
+        ...ticket,
+      productTarget: ticket.productTarget ?? ticket.product_target,
       recheckConditions: ticket.recheckConditions ?? [],
       contextMapping: ticket.contextMapping ?? undefined
-    }));
+      })
+    );
   }
 }

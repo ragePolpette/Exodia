@@ -25,10 +25,11 @@ export class TriageService {
       return {
         ticket_key: ticket.key,
         project_key: ticket.projectKey,
+        product_target: mapping.productTarget,
         repo_target: mapping.repoTarget,
         status_decision: "skipped_out_of_scope",
         confidence: mapping.confidence ?? 0.1,
-        short_reason: "ticket not clearly mapped to BpoPilot scope",
+        short_reason: "ticket not clearly mapped to a supported product target",
         implementation_hint: "",
         branch_name: "",
         pr_url: "",
@@ -79,6 +80,7 @@ export class TriageService {
       return {
         ticket_key: ticket.key,
         project_key: ticket.projectKey,
+        product_target: mapping.productTarget,
         repo_target: mapping.repoTarget,
         status_decision: "blocked",
         confidence: mapping.confidence ?? 0.45,
@@ -97,6 +99,7 @@ export class TriageService {
       return {
         ticket_key: ticket.key,
         project_key: ticket.projectKey,
+        product_target: mapping.productTarget,
         repo_target: mapping.repoTarget,
         status_decision: "not_feasible",
         confidence: mapping.confidence ?? 0.31,
@@ -117,6 +120,7 @@ export class TriageService {
       return {
         ticket_key: ticket.key,
         project_key: ticket.projectKey,
+        product_target: mapping.productTarget,
         repo_target: mapping.repoTarget,
         status_decision: "feasible_low_confidence",
         confidence: mapping.confidence ?? 0.55,
@@ -133,10 +137,11 @@ export class TriageService {
     return {
       ticket_key: ticket.key,
       project_key: ticket.projectKey,
+      product_target: mapping.productTarget,
       repo_target: mapping.repoTarget,
       status_decision: "feasible",
       confidence: mapping.confidence ?? 0.84,
-      short_reason: "ticket mapped to BpoPilot and looks actionable",
+      short_reason: `ticket mapped to ${mapping.productTarget} and looks actionable`,
       implementation_hint: mapping.implementationHint ?? "",
       branch_name: "",
       pr_url: "",

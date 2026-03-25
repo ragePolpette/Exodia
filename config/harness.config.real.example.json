@@ -12,7 +12,7 @@
         "ticketSource": "config.mockTickets"
       },
       "mcp": {
-        "server": "jira-official",
+        "server": "atlassian_rovo_mcp",
         "jql": "project = BPO AND statusCategory != Done",
         "filterId": ""
       }
@@ -23,7 +23,7 @@
         "mappingSource": "ticket.contextMapping"
       },
       "mcp": {
-        "server": "llm-context",
+        "server": "llm_context",
         "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth"
       }
     },
@@ -33,7 +33,7 @@
         "backend": "file"
       },
       "mcp": {
-        "server": "llm-memory",
+        "server": "llm_memory",
         "namespace": "bpopilot-ticket-harness"
       }
     },
@@ -43,21 +43,59 @@
         "recordRuns": true
       },
       "mcp": {
-        "server": "llm-sql-db-mcp",
+        "server": "llm_db_prod_mcp",
         "enabled": true,
-        "namespace": "bpopilot-ticket-harness"
+        "namespace": "bpopilot-ticket-harness",
+        "topology": "unified",
+        "operations": {
+          "recordRun": {
+            "server": "llm_db_prod_mcp"
+          }
+        },
+        "targets": {
+          "prod": {
+            "server": "llm_db_prod_mcp",
+            "database": "prod",
+            "access": "read-only"
+          },
+          "dev": {
+            "server": "llm_db_dev_mcp",
+            "database": "dev",
+            "access": "schema-and-tests"
+          }
+        },
+        "defaultDatabase": "prod"
       }
     },
     "bitbucket": {
       "kind": "mcp",
       "mock": {
-        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth\\bpopilot-ticket-harness"
+        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth\\bpopilot-ticket-harness",
+        "existingPullRequests": []
       },
       "mcp": {
-        "server": "llm-bitbucket-mcp",
+        "server": "llm_bitbucket_mcp",
         "repository": "BPOFH",
         "project": "BPO",
-        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth\\bpopilot-ticket-harness"
+        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth\\bpopilot-ticket-harness",
+        "operations": {
+          "findOpenPullRequest": {
+            "action": "findOpenPullRequest",
+            "enabled": true
+          },
+          "createBranch": {
+            "action": "createBranch"
+          },
+          "checkoutBranch": {
+            "action": "checkoutBranch"
+          },
+          "createCommit": {
+            "action": "createCommit"
+          },
+          "openPullRequest": {
+            "action": "openPullRequest"
+          }
+        }
       }
     }
   },

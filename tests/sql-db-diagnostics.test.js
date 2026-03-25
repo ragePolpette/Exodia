@@ -37,6 +37,22 @@ test("triage does not require sql diagnostics when tickets do not request them",
         mock: { recordRuns: true },
         mcp: {
           server: "llm-sql-db-mcp",
+          topology: "split",
+          targets: {
+            prod: {
+              server: "llm-db-prod-mcp",
+              database: "prod",
+              access: "read-only"
+            },
+            dev: {
+              server: "llm-db-dev-mcp",
+              database: "dev",
+              access: "schema-and-tests"
+            }
+          },
+          prodServer: "llm-db-prod-mcp",
+          devServer: "llm-db-dev-mcp",
+          defaultDatabase: "prod",
           enabled: true,
           namespace: "bpopilot-ticket-harness"
         }
@@ -126,6 +142,22 @@ test("sql diagnostics are used on demand in triage and execution", async () => {
         mock: { recordRuns: true },
         mcp: {
           server: "llm-sql-db-mcp",
+          topology: "split",
+          targets: {
+            prod: {
+              server: "llm-db-prod-mcp",
+              database: "prod",
+              access: "read-only"
+            },
+            dev: {
+              server: "llm-db-dev-mcp",
+              database: "dev",
+              access: "schema-and-tests"
+            }
+          },
+          prodServer: "llm-db-prod-mcp",
+          devServer: "llm-db-dev-mcp",
+          defaultDatabase: "prod",
           enabled: true,
           namespace: "bpopilot-ticket-harness"
         }
@@ -148,14 +180,14 @@ test("sql diagnostics are used on demand in triage and execution", async () => {
       mode: "fixture",
       fixtureFile: "",
       fixtures: {
-        "llm-sql-db-mcp.runDiagnosticQuery.triage": {
+        "llm-db-prod-mcp.runDiagnosticQuery.triage": {
           used: true,
           summary: "diagnostic evidence found",
           blockers: [],
           shouldBlock: false,
           rows: []
         },
-        "llm-sql-db-mcp.runDiagnosticQuery.execution": {
+        "llm-db-prod-mcp.runDiagnosticQuery.execution": {
           used: true,
           summary: "diagnostic evidence found",
           blockers: ["pending db validation"],

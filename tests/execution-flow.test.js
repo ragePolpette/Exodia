@@ -221,31 +221,37 @@ test("guardrail blocks real execution when allowRealPrs is false", async () => {
       jira: {
         kind: "mock",
         mock: { ticketSource: "config.mockTickets" },
-        mcp: { server: "jira-official" }
+        mcp: { server: "atlassian_rovo_mcp" }
       },
       llmContext: {
         kind: "mock",
         mock: { mappingSource: "ticket.contextMapping" },
-        mcp: { server: "llm-context" }
+        mcp: { server: "llm_context" }
       },
       llmMemory: {
         kind: "mock",
         mock: { backend: "file" },
-        mcp: { server: "llm-memory" }
+        mcp: { server: "llm_memory" }
       },
       llmSqlDb: {
         kind: "mock",
         mock: { recordRuns: true },
-        mcp: { server: "llm-sql-db-mcp" }
+        mcp: { server: "llm_db_prod_mcp" }
       },
       bitbucket: {
         kind: "mcp",
         mock: { workspaceRoot: workspace },
         mcp: {
-          server: "llm-bitbucket-mcp",
+          server: "llm_bitbucket_mcp",
           repository: "BPOFH",
           project: "BPO",
-          workspaceRoot: workspace
+          workspaceRoot: workspace,
+          operations: {
+            findOpenPullRequest: {
+              action: "findOpenPullRequest",
+              enabled: true
+            }
+          }
         }
       }
     },
@@ -307,31 +313,37 @@ test("mcp execution can create branch, commit and pull request when config is co
       jira: {
         kind: "mock",
         mock: { ticketSource: "config.mockTickets" },
-        mcp: { server: "jira-official" }
+        mcp: { server: "atlassian_rovo_mcp" }
       },
       llmContext: {
         kind: "mock",
         mock: { mappingSource: "ticket.contextMapping" },
-        mcp: { server: "llm-context" }
+        mcp: { server: "llm_context" }
       },
       llmMemory: {
         kind: "mock",
         mock: { backend: "file" },
-        mcp: { server: "llm-memory" }
+        mcp: { server: "llm_memory" }
       },
       llmSqlDb: {
         kind: "mock",
         mock: { recordRuns: true },
-        mcp: { server: "llm-sql-db-mcp" }
+        mcp: { server: "llm_db_prod_mcp" }
       },
       bitbucket: {
         kind: "mcp",
         mock: { workspaceRoot: workspace },
         mcp: {
-          server: "llm-bitbucket-mcp",
+          server: "llm_bitbucket_mcp",
           repository: "BPOFH",
           project: "BPO",
-          workspaceRoot: workspace
+          workspaceRoot: workspace,
+          operations: {
+            findOpenPullRequest: {
+              action: "findOpenPullRequest",
+              enabled: true
+            }
+          }
         }
       }
     },
@@ -347,18 +359,19 @@ test("mcp execution can create branch, commit and pull request when config is co
       mode: "fixture",
       fixtureFile: "",
       fixtures: {
-        "llm-bitbucket-mcp.createBranch": {
+        "llm_bitbucket_mcp.findOpenPullRequest": null,
+        "llm_bitbucket_mcp.createBranch": {
           branchName: "bpo-329-real-mcp-execution",
           baseBranch: "BPOFH"
         },
-        "llm-bitbucket-mcp.checkoutBranch": {
+        "llm_bitbucket_mcp.checkoutBranch": {
           branchName: "bpo-329-real-mcp-execution",
           workspaceRoot: workspace
         },
-        "llm-bitbucket-mcp.createCommit": {
+        "llm_bitbucket_mcp.createCommit": {
           commitSha: "abc123"
         },
-        "llm-bitbucket-mcp.openPullRequest": {
+        "llm_bitbucket_mcp.openPullRequest": {
           title: "[BPO-329] Real MCP execution",
           link: "https://example.invalid/pr/329"
         }
@@ -394,4 +407,104 @@ test("mcp execution can create branch, commit and pull request when config is co
   assert.equal(summary.executionDryRun, false);
   assert.equal(summary.execution[0].status, "pr_opened");
   assert.equal(summary.execution[0].pullRequestUrl, "https://example.invalid/pr/329");
+});
+
+test("execution reuses an already open pull request when found in bitbucket", async () => {
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "bpopilot-execution-existing-pr-"));
+  const configPath = path.join(workspace, "harness.config.json");
+  const config = {
+    mode: "triage-and-execution",
+    dryRun: false,
+    memory: {
+      backend: "file",
+      filePath: "./memory.json"
+    },
+    adapters: {
+      jira: {
+        kind: "mock",
+        mock: { ticketSource: "config.mockTickets" },
+        mcp: { server: "atlassian_rovo_mcp" }
+      },
+      llmContext: {
+        kind: "mock",
+        mock: { mappingSource: "ticket.contextMapping" },
+        mcp: { server: "llm_context" }
+      },
+      llmMemory: {
+        kind: "mock",
+        mock: { backend: "file" },
+        mcp: { server: "llm_memory" }
+      },
+      llmSqlDb: {
+        kind: "mock",
+        mock: { recordRuns: true },
+        mcp: { server: "llm_db_prod_mcp" }
+      },
+      bitbucket: {
+        kind: "mcp",
+        mock: { workspaceRoot: workspace },
+        mcp: {
+          server: "llm_bitbucket_mcp",
+          repository: "BPOFH",
+          project: "BPO",
+          workspaceRoot: workspace,
+          operations: {
+            findOpenPullRequest: {
+              action: "findOpenPullRequest",
+              enabled: true
+            }
+          }
+        }
+      }
+    },
+    execution: {
+      enabled: true,
+      dryRun: false,
+      baseBranch: "BPOFH",
+      allowRealPrs: true,
+      allowMerge: false,
+      workspaceRoot: workspace
+    },
+    mcpBridge: {
+      mode: "fixture",
+      fixtureFile: "",
+      fixtures: {
+        "llm_bitbucket_mcp.findOpenPullRequest": {
+          pullRequest: {
+            title: "[BPO-330] Existing pull request",
+            link: "https://example.invalid/pr/330",
+            sourceBranch: "bpo-330-reuse-existing-pr"
+          }
+        }
+      },
+      command: "",
+      args: []
+    },
+    mockTickets: [
+      {
+        key: "BPO-330",
+        projectKey: "BPO",
+        summary: "Reuse existing PR",
+        repoTarget: "BPOFH",
+        contextMapping: {
+          inScope: true,
+          repoTarget: "BPOFH",
+          feasibility: "feasible",
+          confidence: 0.96
+        }
+      }
+    ]
+  };
+
+  await writeFile(configPath, JSON.stringify(config, null, 2));
+
+  const summary = await runHarness({
+    configPath,
+    modeOverride: "triage-and-execution",
+    dryRunOverride: false
+  });
+
+  assert.equal(summary.execution[0].status, "pr_opened");
+  assert.equal(summary.execution[0].pullRequestUrl, "https://example.invalid/pr/330");
+  assert.match(summary.execution[0].reason, /already open pull request/i);
 });

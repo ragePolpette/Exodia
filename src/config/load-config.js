@@ -15,7 +15,7 @@ const defaultConfig = {
         ticketSource: "config.mockTickets"
       },
       mcp: {
-        server: "jira-official",
+        server: "atlassian_rovo_mcp",
         jql: "",
         filterId: ""
       }
@@ -26,7 +26,7 @@ const defaultConfig = {
         mappingSource: "ticket.contextMapping"
       },
       mcp: {
-        server: "llm-context",
+        server: "llm_context",
         workspaceRoot: ""
       }
     },
@@ -36,7 +36,7 @@ const defaultConfig = {
         backend: "file"
       },
       mcp: {
-        server: "llm-memory",
+        server: "llm_memory",
         namespace: "bpopilot-ticket-harness"
       }
     },
@@ -46,21 +46,59 @@ const defaultConfig = {
         recordRuns: true
       },
       mcp: {
-        server: "llm-sql-db-mcp",
+        server: "llm_db_prod_mcp",
         enabled: false,
-        namespace: "bpopilot-ticket-harness"
+        defaultDatabase: "prod",
+        namespace: "bpopilot-ticket-harness",
+        topology: "unified",
+        operations: {
+          recordRun: {
+            server: "llm_db_prod_mcp"
+          }
+        },
+        targets: {
+          prod: {
+            server: "llm_db_prod_mcp",
+            database: "prod",
+            access: "read-only"
+          },
+          dev: {
+            server: "llm_db_dev_mcp",
+            database: "dev",
+            access: "schema-and-tests"
+          }
+        }
       }
     },
     bitbucket: {
       kind: "mock",
       mock: {
-        workspaceRoot: ""
+        workspaceRoot: "",
+        existingPullRequests: []
       },
       mcp: {
-        server: "llm-bitbucket-mcp",
+        server: "llm_bitbucket_mcp",
         repository: "",
         project: "",
-        workspaceRoot: ""
+        workspaceRoot: "",
+        operations: {
+          findOpenPullRequest: {
+            action: "findOpenPullRequest",
+            enabled: true
+          },
+          createBranch: {
+            action: "createBranch"
+          },
+          checkoutBranch: {
+            action: "checkoutBranch"
+          },
+          createCommit: {
+            action: "createCommit"
+          },
+          openPullRequest: {
+            action: "openPullRequest"
+          }
+        }
       }
     }
   },
@@ -132,6 +170,50 @@ function normalizeAdaptersConfig(adapters) {
   return normalized;
 }
 
+function normalizeSqlDbMcpConfig(config = {}, explicitConfig = {}) {
+  const hasLegacyServers = Boolean(config.prodServer || config.devServer);
+  const prodTarget = {
+    server: config.prodServer ?? config.targets?.prod?.server ?? config.server,
+    database: config.targets?.prod?.database ?? "prod",
+    access: config.targets?.prod?.access ?? "read-only"
+  };
+  const devTarget = {
+    server: config.devServer ?? config.targets?.dev?.server ?? config.server,
+    database: config.targets?.dev?.database ?? "dev",
+    access: config.targets?.dev?.access ?? "schema-and-tests"
+  };
+  const topology =
+    (hasLegacyServers
+      ? undefined
+      : config.topology) ??
+    (prodTarget.server && devTarget.server && prodTarget.server !== devTarget.server
+      ? "split"
+      : "unified");
+
+  return {
+    ...config,
+    defaultDatabase: config.defaultDatabase ?? "prod",
+    topology,
+    operations: {
+      ...config.operations,
+      recordRun: {
+        server:
+          explicitConfig.operations?.recordRun?.server ??
+          explicitConfig.server ??
+          config.operations?.recordRun?.server ??
+          config.server ??
+          prodTarget.server ??
+          devTarget.server
+      }
+    },
+    targets: {
+      ...config.targets,
+      prod: prodTarget,
+      dev: devTarget
+    }
+  };
+}
+
 export async function loadConfig(configPath) {
   const resolvedPath = path.resolve(configPath);
   const configDirectory = path.dirname(resolvedPath);
@@ -141,10 +223,21 @@ export async function loadConfig(configPath) {
     ...parsed,
     adapters: normalizeAdaptersConfig(parsed.adapters)
   });
+  const normalizedSqlDbMcpConfig = normalizeSqlDbMcpConfig(
+    merged.adapters.llmSqlDb?.mcp,
+    parsed.adapters?.llmSqlDb?.mcp
+  );
 
   return {
     ...merged,
     configPath: resolvedPath,
+    adapters: {
+      ...merged.adapters,
+      llmSqlDb: {
+        ...merged.adapters.llmSqlDb,
+        mcp: normalizedSqlDbMcpConfig
+      }
+    },
     memory: {
       ...merged.memory,
       filePath: path.resolve(configDirectory, merged.memory.filePath)

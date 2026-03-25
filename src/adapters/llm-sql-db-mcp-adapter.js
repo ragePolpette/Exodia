@@ -15,7 +15,7 @@ export class McpLlmSqlDbAdapter {
     }
 
     return this.client.request({
-      server: this.options.server,
+      server: this.resolveRecordRunServer(),
       action: "recordHarnessRun",
       payload: {
         mode: summary.mode,
@@ -26,25 +26,57 @@ export class McpLlmSqlDbAdapter {
   }
 
   async runDiagnosticQuery(request) {
+    const database = request.database ?? this.options.defaultDatabase ?? "prod";
+    const target = this.resolveDatabaseTarget(database);
+
     if (!this.options.enabled) {
       return {
         used: false,
         source: "mcp",
+        database: target.database,
         rows: [],
         summary: ""
       };
     }
 
     return this.client.request({
-      server: this.options.server,
+      server: target.server,
       action: "runDiagnosticQuery",
       payload: {
         namespace: this.options.namespace ?? "bpopilot-ticket-harness",
+        database: target.database,
         phase: request.phase,
         ticketKey: request.ticketKey,
         query: request.query ?? request.statement,
         parameters: request.parameters ?? {}
       }
     });
+  }
+
+  resolveRecordRunServer() {
+    return (
+      this.options.operations?.recordRun?.server ??
+      this.options.server ??
+      this.options.targets?.prod?.server ??
+      this.options.targets?.dev?.server
+    );
+  }
+
+  resolveDatabaseTarget(database) {
+    const configuredTarget = this.options.targets?.[database];
+    if (configuredTarget?.server) {
+      return {
+        server: configuredTarget.server,
+        database: configuredTarget.database ?? database
+      };
+    }
+
+    return {
+      server:
+        database === "dev"
+          ? this.options.devServer ?? this.options.server
+          : this.options.prodServer ?? this.options.server,
+      database
+    };
   }
 }

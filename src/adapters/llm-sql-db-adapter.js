@@ -17,6 +17,7 @@ export class LlmSqlDbAdapter {
       return {
         used: false,
         source: "mock",
+        database: request.database ?? "prod",
         rows: [],
         summary: ""
       };
@@ -25,6 +26,7 @@ export class LlmSqlDbAdapter {
     return {
       used: true,
       source: "mock",
+      database: request.database ?? "prod",
       rows: request.mockRows ?? [],
       summary: request.mockSummary ?? "mock sql diagnostic executed"
     };

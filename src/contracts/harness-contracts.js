@@ -1,5 +1,7 @@
 export const supportedModes = ["triage-only", "triage-and-execution"];
 
+export const productTargets = ["legacy", "fatturhello", "fiscobot", "unknown"];
+
 export const triageStatuses = [
   "skipped_out_of_scope",
   "skipped_already_rejected",
@@ -15,6 +17,12 @@ export const terminalOutcomes = ["not_feasible", "pr_opened", "implemented", "bl
 export function assertTriageStatus(status) {
   if (!triageStatuses.includes(status)) {
     throw new Error(`Unsupported triage status: ${status}`);
+  }
+}
+
+export function assertProductTarget(target) {
+  if (!productTargets.includes(target)) {
+    throw new Error(`Unsupported product target: ${target}`);
   }
 }
 

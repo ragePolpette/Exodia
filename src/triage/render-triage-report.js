@@ -20,7 +20,7 @@ export function renderTriageReport(summary) {
   lines.push("Tickets:");
   for (const item of summary.triage) {
     lines.push(
-      `- ${item.ticket_key}: ${item.status_decision} | confidence=${item.confidence} | repo=${item.repo_target}`
+      `- ${item.ticket_key}: ${item.status_decision} | confidence=${item.confidence} | product=${item.product_target} | repo=${item.repo_target}`
     );
     lines.push(`  reason: ${item.short_reason}`);
     if (item.implementation_hint) {

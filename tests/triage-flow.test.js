@@ -40,6 +40,7 @@ test("triage marks mapped BpoPilot ticket as feasible", async () => {
         summary: "Implement mapped triage decision",
         contextMapping: {
           inScope: true,
+          productTarget: "legacy",
           repoTarget: "BPOFH",
           feasibility: "feasible",
           confidence: 0.93,
@@ -50,6 +51,7 @@ test("triage marks mapped BpoPilot ticket as feasible", async () => {
   });
 
   assert.equal(summary.triage[0].status_decision, "feasible");
+  assert.equal(summary.triage[0].product_target, "legacy");
 });
 
 test("triage marks non automatable ticket as not_feasible", async () => {
@@ -61,6 +63,7 @@ test("triage marks non automatable ticket as not_feasible", async () => {
         summary: "Unknown legacy dependency",
         contextMapping: {
           inScope: true,
+          productTarget: "legacy",
           repoTarget: "BPOFH",
           feasibility: "not_feasible",
           confidence: 0.28,
@@ -82,6 +85,7 @@ test("triage skips already rejected ticket when no new conditions exist", async 
         summary: "Previously rejected automation",
         contextMapping: {
           inScope: true,
+          productTarget: "legacy",
           repoTarget: "BPOFH",
           feasibility: "feasible"
         }
@@ -91,6 +95,7 @@ test("triage skips already rejected ticket when no new conditions exist", async 
       {
         ticket_key: "BPO-203",
         project_key: "BPO",
+        product_target: "legacy",
         repo_target: "BPOFH",
         status_decision: "not_feasible",
         confidence: 0.2,
@@ -106,6 +111,7 @@ test("triage skips already rejected ticket when no new conditions exist", async 
   });
 
   assert.equal(summary.triage[0].status_decision, "skipped_already_rejected");
+  assert.equal(summary.triage[0].product_target, "legacy");
 });
 
 test("triage skips out-of-scope ticket when llm-context mapping is not in BpoPilot", async () => {
@@ -117,6 +123,7 @@ test("triage skips out-of-scope ticket when llm-context mapping is not in BpoPil
         summary: "Infra task outside BpoPilot",
         contextMapping: {
           inScope: false,
+          productTarget: "unknown",
           repoTarget: "OPS",
           feasibility: "feasible",
           confidence: 0.1
@@ -126,4 +133,29 @@ test("triage skips out-of-scope ticket when llm-context mapping is not in BpoPil
   });
 
   assert.equal(summary.triage[0].status_decision, "skipped_out_of_scope");
+  assert.equal(summary.triage[0].product_target, "unknown");
+});
+
+test("triage classifies explicit fiscobot tickets into the fiscobot target", async () => {
+  const summary = await runTriageScenario({
+    mockTickets: [
+      {
+        key: "FH-205",
+        projectKey: "FH",
+        summary: "Fiscobot registrazione contabile fallisce su documento importato",
+        description: "Errore lato fiscobot sulla registrazione automatica.",
+        contextMapping: {
+          inScope: true,
+          repoTarget: "pubblico+bpofh+fiscobot",
+          feasibility: "feasible",
+          confidence: 0.91,
+          implementationHint: "Controllare registrazione contabile fiscobot"
+        }
+      }
+    ]
+  });
+
+  assert.equal(summary.triage[0].status_decision, "feasible");
+  assert.equal(summary.triage[0].product_target, "fiscobot");
+  assert.equal(summary.triage[0].repo_target, "pubblico+bpofh+fiscobot");
 });

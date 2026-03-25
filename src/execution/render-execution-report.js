@@ -24,16 +24,14 @@ export function renderExecutionReport(summary) {
     lines.push(`- ${status}: ${count}`);
   }
 
-  lines.push(
-    "Execution:"
-  );
+  lines.push("Execution:");
 
   if (summary.execution.length === 0) {
     lines.push("- no execution actions");
   }
 
   for (const item of summary.execution) {
-    lines.push(`- ${item.ticketKey}: ${item.status} | repo=${item.repoTarget}`);
+    lines.push(`- ${item.ticketKey}: ${item.status} | product=${item.productTarget} | repo=${item.repoTarget}`);
     lines.push(`  reason: ${item.reason}`);
     if (item.branchName) {
       lines.push(`  branch: ${item.branchName}`);

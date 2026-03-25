@@ -1,4 +1,4 @@
-import { assertTriageStatus } from "./harness-contracts.js";
+import { assertProductTarget, assertTriageStatus } from "./harness-contracts.js";
 
 function mapLegacyStatus(status) {
   if (status === "stub_candidate" || status === "already_seen") {
@@ -24,6 +24,7 @@ export function normalizeMemoryRecord(record) {
   const normalized = {
     ticket_key: record.ticket_key ?? record.ticketKey,
     project_key: record.project_key ?? record.projectKey ?? "UNKNOWN",
+    product_target: record.product_target ?? record.productTarget ?? "unknown",
     repo_target: record.repo_target ?? record.repoTarget ?? "UNKNOWN",
     status_decision: mapLegacyStatus(record.status_decision ?? record.lastDecision ?? "blocked"),
     confidence: record.confidence ?? 0,
@@ -36,6 +37,7 @@ export function normalizeMemoryRecord(record) {
     updated_at: record.updated_at ?? record.updatedAt ?? new Date().toISOString()
   };
 
+  assertProductTarget(normalized.product_target);
   assertTriageStatus(normalized.status_decision);
   return normalized;
 }
@@ -44,6 +46,7 @@ export function createMemoryRecord(decision) {
   const record = {
     ticket_key: decision.ticket_key,
     project_key: decision.project_key,
+    product_target: decision.product_target ?? "unknown",
     repo_target: decision.repo_target,
     status_decision: decision.status_decision,
     confidence: decision.confidence,
@@ -56,6 +59,7 @@ export function createMemoryRecord(decision) {
     updated_at: new Date().toISOString()
   };
 
+  assertProductTarget(record.product_target);
   assertTriageStatus(record.status_decision);
   return record;
 }

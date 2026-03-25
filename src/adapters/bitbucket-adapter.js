@@ -11,9 +11,10 @@ export function buildBranchName(ticket) {
 }
 
 export class BitbucketAdapter {
-  constructor({ baseBranch = "BPOFH", allowMerge = false } = {}) {
+  constructor({ baseBranch = "BPOFH", allowMerge = false, existingPullRequests = [] } = {}) {
     this.baseBranch = baseBranch;
     this.allowMerge = allowMerge;
+    this.existingPullRequests = existingPullRequests;
     this.operations = [];
     this.kind = "mock";
   }
@@ -53,6 +54,25 @@ export class BitbucketAdapter {
     };
     this.operations.push(operation);
     return operation;
+  }
+
+  async findOpenPullRequest(ticket, branchName) {
+    const pullRequest = this.existingPullRequests.find(
+      (item) =>
+        item.sourceBranch === branchName &&
+        (!item.targetBranch || item.targetBranch === this.baseBranch)
+    );
+
+    const operation = {
+      kind: "find_open_pr",
+      ticketKey: ticket.key,
+      sourceBranch: branchName,
+      targetBranch: this.baseBranch,
+      found: Boolean(pullRequest)
+    };
+    this.operations.push(operation);
+
+    return pullRequest ?? null;
   }
 
   async openPullRequest(ticket, branchName, commitResult) {

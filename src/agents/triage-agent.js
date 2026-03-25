@@ -1,12 +1,15 @@
 import { loadPrompt } from "../prompts/load-prompt.js";
 import { createMemoryRecord } from "../contracts/memory-record.js";
+import { buildTriageInsight } from "../memory/semantic-insights.js";
 import { TriageService } from "../triage/triage-service.js";
 
 export class TriageAgent {
-  constructor({ contextAdapter, memoryAdapter, sqlDbAdapter }) {
+  constructor({ contextAdapter, ticketMemoryAdapter, semanticMemoryAdapter, sqlDbAdapter, logger }) {
     this.contextAdapter = contextAdapter;
-    this.memoryAdapter = memoryAdapter;
+    this.ticketMemoryAdapter = ticketMemoryAdapter;
+    this.semanticMemoryAdapter = semanticMemoryAdapter;
     this.sqlDbAdapter = sqlDbAdapter;
+    this.logger = logger;
     this.service = new TriageService();
   }
 
@@ -45,7 +48,7 @@ export class TriageAgent {
 
   async run(tickets) {
     const prompt = await loadPrompt("triage-agent.md");
-    const existingMemory = await this.memoryAdapter.listRecords();
+    const existingMemory = await this.ticketMemoryAdapter.listRecords();
     const memoryByTicket = new Map(existingMemory.map((record) => [record.ticket_key, record]));
     const decisions = [];
 
@@ -62,9 +65,21 @@ export class TriageAgent {
       });
       decisions.push(decision);
       memoryByTicket.set(ticket.key, createMemoryRecord(decision));
+
+      try {
+        const insight = buildTriageInsight(ticket, mapping, decision);
+        if (insight) {
+          await this.semanticMemoryAdapter?.captureTriageInsight?.(insight);
+        }
+      } catch (error) {
+        this.logger?.debug("Semantic memory triage capture skipped", {
+          ticketKey: ticket.key,
+          error: error.message
+        });
+      }
     }
 
-    await this.memoryAdapter.upsertRecords(decisions);
+    await this.ticketMemoryAdapter.upsertRecords(decisions);
 
     return decisions;
   }

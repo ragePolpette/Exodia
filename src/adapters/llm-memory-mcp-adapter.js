@@ -1,5 +1,3 @@
-import { createMemoryRecord, normalizeMemoryRecord } from "../contracts/memory-record.js";
-
 export class McpLlmMemoryAdapter {
   constructor(options = {}) {
     this.options = options;
@@ -7,31 +5,27 @@ export class McpLlmMemoryAdapter {
     this.kind = "mcp";
   }
 
-  async listRecords() {
-    const response = await this.client.request({
+  async captureTriageInsight(insight) {
+    return this.client.request({
       server: this.options.server,
-      action: "listTicketMemoryRecords",
-      payload: {
-        namespace: this.options.namespace
-      }
-    });
-
-    const records = Array.isArray(response?.records) ? response.records : response;
-    return records.map(normalizeMemoryRecord);
-  }
-
-  async upsertRecords(records) {
-    const payloadRecords = records.map(createMemoryRecord);
-    const response = await this.client.request({
-      server: this.options.server,
-      action: "upsertTicketMemoryRecords",
+      action: "captureInferenceMemory",
       payload: {
         namespace: this.options.namespace,
-        records: payloadRecords
+        phase: "triage",
+        insight
       }
     });
+  }
 
-    const saved = Array.isArray(response?.records) ? response.records : payloadRecords;
-    return saved.map(normalizeMemoryRecord);
+  async captureExecutionInsight(insight) {
+    return this.client.request({
+      server: this.options.server,
+      action: "captureInferenceMemory",
+      payload: {
+        namespace: this.options.namespace,
+        phase: "execution",
+        insight
+      }
+    });
   }
 }

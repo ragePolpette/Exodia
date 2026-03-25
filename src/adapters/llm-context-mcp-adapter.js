@@ -24,6 +24,8 @@ export class McpLlmContextAdapter {
       action: "mapTicketToCodebase",
       payload: {
         workspaceRoot: this.options.workspaceRoot,
+        projectId: this.options.projectId,
+        topK: this.options.topK,
         ticket
       }
     });

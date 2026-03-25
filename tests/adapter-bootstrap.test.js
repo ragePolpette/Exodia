@@ -67,8 +67,9 @@ function createConfig(overrides = {}) {
       fixtures: {
         "jira-official.searchTicketsByJql": [],
         "llm-context.mapTicketToCodebase": {},
-        "llm-memory.listTicketMemoryRecords": [],
-        "llm-memory.upsertTicketMemoryRecords": []
+        "llm-memory.captureInferenceMemory": {
+          "stored": true
+        }
       },
       fixtureFile: "",
       command: "",
@@ -80,7 +81,7 @@ function createConfig(overrides = {}) {
 }
 
 test("adapter bootstrap selects mock adapters from explicit config", () => {
-  const { adapters, kinds } = buildAdapters({
+  const { adapters, ticketMemoryAdapter, kinds } = buildAdapters({
     config: createConfig(),
     logger: { debug() {} }
   });
@@ -91,6 +92,7 @@ test("adapter bootstrap selects mock adapters from explicit config", () => {
   assert.equal(adapters.llmMemory.kind, "mock");
   assert.equal(adapters.llmSqlDb.kind, "mock");
   assert.equal(adapters.bitbucket.kind, "mock");
+  assert.equal(ticketMemoryAdapter.kind, "file");
 });
 
 test("adapter bootstrap registers mcp stubs when requested by config", () => {

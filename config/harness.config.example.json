@@ -34,7 +34,7 @@
       },
       "mcp": {
         "server": "llm_memory",
-        "namespace": "bpopilot-ticket-harness"
+        "namespace": "malkuth-harness"
       }
     },
     "llmSqlDb": {
@@ -45,7 +45,7 @@
       "mcp": {
         "server": "llm_db_prod_mcp",
         "enabled": false,
-        "namespace": "bpopilot-ticket-harness",
+        "namespace": "malkuth-harness",
         "topology": "unified",
         "operations": {
           "recordRun": {
@@ -70,14 +70,14 @@
     "bitbucket": {
       "kind": "mock",
       "mock": {
-        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth\\bpopilot-ticket-harness",
+        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth",
         "existingPullRequests": []
       },
       "mcp": {
         "server": "llm_bitbucket_mcp",
         "repository": "BPOFH",
         "project": "BPO",
-        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth\\bpopilot-ticket-harness",
+        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth",
         "operations": {
           "findOpenPullRequest": {
             "action": "findOpenPullRequest",
@@ -105,7 +105,7 @@
     "baseBranch": "BPOFH",
     "allowRealPrs": false,
     "allowMerge": false,
-    "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth\\bpopilot-ticket-harness"
+    "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth"
   },
   "mcpBridge": {
     "mode": "fixture",

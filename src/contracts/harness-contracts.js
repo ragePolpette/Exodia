@@ -12,6 +12,8 @@ export const triageStatuses = [
   "blocked"
 ];
 
+export const verificationStatuses = ["approved", "blocked", "needs_review"];
+
 export const terminalOutcomes = ["not_feasible", "pr_opened", "implemented", "blocked"];
 
 export function assertTriageStatus(status) {
@@ -29,5 +31,11 @@ export function assertProductTarget(target) {
 export function assertMode(mode) {
   if (!supportedModes.includes(mode)) {
     throw new Error(`Unsupported mode: ${mode}`);
+  }
+}
+
+export function assertVerificationStatus(status) {
+  if (!verificationStatuses.includes(status)) {
+    throw new Error(`Unsupported verification status: ${status}`);
   }
 }

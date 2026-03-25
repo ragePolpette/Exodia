@@ -113,6 +113,12 @@ const defaultConfig = {
     allowMerge: false,
     workspaceRoot: ""
   },
+  verification: {
+    enabled: true,
+    minConfidence: 0.75,
+    maxCommitMessageLength: 120,
+    maxPullRequestTitleLength: 120
+  },
   mcpBridge: {
     mode: "fixture",
     fixtureFile: "",

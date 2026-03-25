@@ -106,6 +106,7 @@ function renderSummary(summary) {
     `Adapters: jira=${summary.adapterKinds.jira}, llmContext=${summary.adapterKinds.llmContext}, llmMemory=${summary.adapterKinds.llmMemory}, llmSqlDb=${summary.adapterKinds.llmSqlDb}, bitbucket=${summary.adapterKinds.bitbucket}`,
     `Tickets loaded: ${summary.ticketCount}`,
     `Tickets triaged: ${summary.triage.length}`,
+    `Verification results: ${summary.verification?.length ?? 0}`,
     `Execution plans: ${summary.execution.length}`,
     `Memory file: ${summary.memoryFile}`,
     `Resume reused: rejected=${summary.resumeStats.skippedAlreadyRejected} in_progress=${summary.resumeStats.skippedAlreadyInProgress}`

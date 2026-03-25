@@ -208,6 +208,7 @@ test("sql diagnostics are used on demand in triage and execution", async () => {
         key: "BPO-502",
         projectKey: "BPO",
         summary: "Use diagnostics on demand",
+        productTarget: "legacy",
         repoTarget: "BPOFH",
         contextMapping: {
           inScope: true,

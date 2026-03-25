@@ -11,6 +11,10 @@ async function runExecutionScenario({ mockTickets, existingMemory = [] }) {
   const workspace = await mkdtemp(path.join(os.tmpdir(), "bpopilot-execution-"));
   const configPath = path.join(workspace, "harness.config.json");
   const memoryPath = path.join(workspace, "memory.json");
+  const normalizedMockTickets = mockTickets.map((ticket) => ({
+    productTarget: ticket.productTarget ?? "legacy",
+    ...ticket
+  }));
   const config = {
     mode: "triage-and-execution",
     dryRun: true,
@@ -26,7 +30,7 @@ async function runExecutionScenario({ mockTickets, existingMemory = [] }) {
       allowMerge: false,
       workspaceRoot: workspace
     },
-    mockTickets
+    mockTickets: normalizedMockTickets
   };
 
   await writeFile(configPath, JSON.stringify(config, null, 2));
@@ -93,12 +97,13 @@ test("execution skips feasible_low_confidence tickets", async () => {
     ]
   });
 
-  assert.equal(summary.execution.length, 1);
-  assert.equal(summary.execution[0].status, "skipped_low_confidence");
-  assert.equal(memory[0].last_outcome, "skipped_low_confidence");
+  assert.equal(summary.verification.length, 1);
+  assert.equal(summary.verification[0].status, "needs_review");
+  assert.equal(summary.execution.length, 0);
+  assert.equal(memory[0].last_outcome, "triaged");
 });
 
-test("execution stops on blocked ticket without continuing to next item", async () => {
+test("verification blocks a blocked ticket while allowing later approved execution", async () => {
   const { summary, memory } = await runExecutionScenario({
     mockTickets: [
       {
@@ -129,10 +134,14 @@ test("execution stops on blocked ticket without continuing to next item", async 
     ]
   });
 
+  assert.equal(summary.verification.length, 2);
+  assert.equal(summary.verification[0].ticketKey, "BPO-323");
+  assert.equal(summary.verification[0].status, "blocked");
   assert.equal(summary.execution.length, 1);
-  assert.equal(summary.execution[0].ticketKey, "BPO-323");
-  assert.equal(summary.execution[0].status, "blocked");
-  assert.equal(memory.find((item) => item.ticket_key === "BPO-324").last_outcome, "triaged");
+  assert.equal(summary.execution[0].ticketKey, "BPO-324");
+  assert.equal(summary.execution[0].status, "pr_opened");
+  assert.equal(memory.find((item) => item.ticket_key === "BPO-323").last_outcome, "blocked");
+  assert.equal(memory.find((item) => item.ticket_key === "BPO-324").last_outcome, "pr_opened");
 });
 
 test("execution creates a simulated pull request for feasible tickets", async () => {
@@ -160,6 +169,58 @@ test("execution creates a simulated pull request for feasible tickets", async ()
   assert.equal(memory[0].pr_url, summary.execution[0].pullRequestUrl);
 });
 
+test("verification blocks execution when explicit ticket target conflicts with triage target", async () => {
+  const { summary, memory } = await runExecutionScenario({
+    mockTickets: [
+      {
+        key: "BPO-326A",
+        projectKey: "BPO",
+        summary: "Conflicting explicit target",
+        productTarget: "fatturhello",
+        repoTarget: "pubblico",
+        contextMapping: {
+          inScope: true,
+          productTarget: "legacy",
+          repoTarget: "api+asp",
+          feasibility: "feasible",
+          confidence: 0.94
+        }
+      }
+    ]
+  });
+
+  assert.equal(summary.verification.length, 1);
+  assert.equal(summary.verification[0].status, "needs_review");
+  assert.match(summary.verification[0].reason, /conflicts with triage target/i);
+  assert.equal(summary.execution.length, 0);
+  assert.equal(memory[0].last_outcome, "triaged");
+});
+
+test("verification blocks execution when commit payload is not single-line safe", async () => {
+  const { summary } = await runExecutionScenario({
+    mockTickets: [
+      {
+        key: "BPO-326B",
+        projectKey: "BPO",
+        summary: "Unsafe summary\nwith newline",
+        repoTarget: "BPOFH",
+        contextMapping: {
+          inScope: true,
+          productTarget: "legacy",
+          repoTarget: "BPOFH",
+          feasibility: "feasible",
+          confidence: 0.95
+        }
+      }
+    ]
+  });
+
+  assert.equal(summary.verification.length, 1);
+  assert.equal(summary.verification[0].status, "blocked");
+  assert.match(summary.verification[0].reason, /commit message must stay on a single line/i);
+  assert.equal(summary.execution.length, 0);
+});
+
 test("guardrail blocks real execution when bitbucket adapter is not mcp", async () => {
   const workspace = await mkdtemp(path.join(os.tmpdir(), "bpopilot-execution-guard-"));
   const configPath = path.join(workspace, "harness.config.json");
@@ -183,6 +244,7 @@ test("guardrail blocks real execution when bitbucket adapter is not mcp", async 
         key: "BPO-327",
         projectKey: "BPO",
         summary: "Should fail guardrail",
+        productTarget: "legacy",
         repoTarget: "BPOFH",
         contextMapping: {
           inScope: true,
@@ -275,6 +337,7 @@ test("guardrail blocks real execution when allowRealPrs is false", async () => {
         key: "BPO-328",
         projectKey: "BPO",
         summary: "Should fail allowRealPrs guardrail",
+        productTarget: "legacy",
         repoTarget: "BPOFH",
         contextMapping: {
           inScope: true,
@@ -384,6 +447,7 @@ test("mcp execution can create branch, commit and pull request when config is co
         key: "BPO-329",
         projectKey: "BPO",
         summary: "Real MCP execution",
+        productTarget: "legacy",
         repoTarget: "BPOFH",
         contextMapping: {
           inScope: true,
@@ -485,6 +549,7 @@ test("execution reuses an already open pull request when found in bitbucket", as
         key: "BPO-330",
         projectKey: "BPO",
         summary: "Reuse existing PR",
+        productTarget: "legacy",
         repoTarget: "BPOFH",
         contextMapping: {
           inScope: true,

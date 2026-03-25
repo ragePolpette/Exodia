@@ -35,14 +35,14 @@ Per ogni milestone o sottostep:
 
 ## Milestone 1 - Verification Agent
 
-- [ ] introdurre `VerificationAgent` tra triage ed execution
-- [ ] definire contratto di output del verification step: `approved | blocked | needs_review`
-- [ ] verificare coerenza ticket -> product target -> repo target
-- [ ] bloccare execution su mapping ambiguo o su evidenza insufficiente
-- [ ] verificare che branch, commit message e PR payload siano conformi alle policy
+- [x] introdurre `VerificationAgent` tra triage ed execution
+- [x] definire contratto di output del verification step: `approved | blocked | needs_review`
+- [x] verificare coerenza ticket -> product target -> repo target
+- [x] bloccare execution su mapping ambiguo o su evidenza insufficiente
+- [x] verificare che branch, commit message e PR payload siano conformi alle policy
 - [ ] verificare che il diff resti entro path consentiti
 - [ ] eseguire comandi di verifica configurabili prima di aprire PR
-- [ ] aggiungere test dedicati per il nuovo agente e per i blocchi attesi
+- [x] aggiungere test dedicati per il nuovo agente e per i blocchi attesi
 
 ## Milestone 2 - Externalizzazione completa della config sensibile
 
@@ -110,4 +110,5 @@ Per ogni milestone o sottostep:
 
 - [x] roadmap iniziale creata
 - [x] milestone 0 completata: identita` progetto e framing portfolio-safe allineati
+- [x] milestone 1 avviata: verification gate introdotto tra triage ed execution
 - [x] sviluppo milestone operative avviato

@@ -1,6 +1,7 @@
 import { buildAdapters } from "../adapters/bootstrap-adapters.js";
 import { ExecutionAgent } from "../agents/execution-agent.js";
 import { TriageAgent } from "../agents/triage-agent.js";
+import { VerificationAgent } from "../agents/verification-agent.js";
 import { loadConfig } from "../config/load-config.js";
 import { assertMode } from "../contracts/harness-contracts.js";
 import { renderExecutionReport } from "../execution/render-execution-report.js";
@@ -50,6 +51,11 @@ export async function runHarness({
     sqlDbAdapter,
     logger
   });
+  const verificationAgent = new VerificationAgent({
+    bitbucketAdapter,
+    verificationConfig: config.verification,
+    logger
+  });
   const executionAgent = new ExecutionAgent({
     bitbucketAdapter,
     ticketMemoryAdapter,
@@ -71,7 +77,7 @@ export async function runHarness({
     count: triage.length,
     feasible: triage.filter((item) => item.status_decision === "feasible").length
   });
-  const executionCandidates = triage
+  const candidateItems = triage
     .filter((decision) =>
       ["feasible", "feasible_low_confidence", "blocked", "not_feasible"].includes(
         decision.status_decision
@@ -82,6 +88,25 @@ export async function runHarness({
       ticket: tickets.find((ticket) => ticket.key === decision.ticket_key)
     }))
     .filter((item) => item.ticket);
+  const verification =
+    mode === "triage-and-execution" ? await verificationAgent.run(candidateItems) : [];
+  logger.info("Verification completed", {
+    count: verification.length,
+    approved: verification.filter((item) => item.status === "approved").length
+  });
+  const executionCandidates =
+    mode === "triage-and-execution" && config.verification.enabled !== false
+      ? candidateItems
+          .filter((item) =>
+            verification.some(
+              (result) => result.ticketKey === item.ticket.key && result.status === "approved"
+            )
+          )
+          .map((item) => ({
+            ...item,
+            verification: verification.find((result) => result.ticketKey === item.ticket.key) ?? null
+          }))
+      : candidateItems;
 
   const execution =
     mode === "triage-and-execution" ? await executionAgent.run(executionCandidates) : [];
@@ -96,6 +121,7 @@ export async function runHarness({
   logger.debug("Run recorded in sql-db adapter", runRecord);
 
   const triageCounts = countBy(triage, "status_decision");
+  const verificationCounts = countBy(verification, "status");
   const executionCounts = countBy(execution, "status");
   const resumeStats = {
     memoryRecordsBefore: memoryBefore.length,
@@ -122,6 +148,8 @@ export async function runHarness({
     triage,
     execution,
     triageCounts,
+    verification,
+    verificationCounts,
     executionCounts,
     resumeStats,
     memoryFile: config.memory.filePath,
@@ -141,6 +169,8 @@ export async function runHarness({
       dryRun,
       adapterKinds: kinds,
       runId: runRecord.runId ?? "",
+      verification,
+      verificationCounts,
       executionCounts,
       resumeStats,
       triage,

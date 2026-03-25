@@ -92,25 +92,9 @@ test("triage works in mcp mode through the configured bridge client", async () =
           "confidence": 0.88,
           "implementationHint": "Inspect mapped BpoPilot context"
         },
-        "llm-memory.listTicketMemoryRecords": {
-          "records": []
-        },
-        "llm-memory.upsertTicketMemoryRecords": {
-          "records": [
-            {
-              "ticket_key": "BPO-401",
-              "project_key": "BPO",
-              "repo_target": "BPOFH",
-              "status_decision": "feasible",
-              "confidence": 0.88,
-              "short_reason": "ticket mapped to BpoPilot and looks actionable",
-              "implementation_hint": "Inspect mapped BpoPilot context",
-              "branch_name": "",
-              "pr_url": "",
-              "last_outcome": "triaged",
-              "recheck_conditions": []
-            }
-          ]
+        "llm-memory.captureInferenceMemory": {
+          "stored": true,
+          "source": "fixture"
         }
       },
       command: "",
@@ -132,4 +116,5 @@ test("triage works in mcp mode through the configured bridge client", async () =
   assert.equal(summary.adapterKinds.llmMemory, "mcp");
   assert.equal(summary.triage.length, 1);
   assert.equal(summary.triage[0].status_decision, "feasible");
+  assert.equal(summary.resumeStats.memoryRecordsAfter, 1);
 });

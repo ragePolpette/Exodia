@@ -16,8 +16,11 @@ const defaultConfig = {
       },
       mcp: {
         server: "atlassian_rovo_mcp",
+        cloudId: "",
         jql: "",
-        filterId: ""
+        filterId: "",
+        maxResults: 50,
+        responseContentFormat: "markdown"
       }
     },
     llmContext: {

@@ -33,11 +33,11 @@ export async function runHarness({
 
   assertMode(mode);
   logger.info("Harness run started", { mode, dryRun, configPath: config.configPath });
-  const { adapters, kinds } = buildAdapters({ config, logger });
+  const { adapters, ticketMemoryAdapter, kinds } = buildAdapters({ config, logger });
   const {
     jira: jiraAdapter,
     llmContext: contextAdapter,
-    llmMemory: memoryAdapter,
+    llmMemory: semanticMemoryAdapter,
     llmSqlDb: sqlDbAdapter,
     bitbucket: bitbucketAdapter
   } = adapters;
@@ -45,12 +45,15 @@ export async function runHarness({
 
   const triageAgent = new TriageAgent({
     contextAdapter,
-    memoryAdapter,
-    sqlDbAdapter
+    ticketMemoryAdapter,
+    semanticMemoryAdapter,
+    sqlDbAdapter,
+    logger
   });
   const executionAgent = new ExecutionAgent({
     bitbucketAdapter,
-    memoryAdapter,
+    ticketMemoryAdapter,
+    semanticMemoryAdapter,
     sqlDbAdapter,
     executionConfig: {
       ...config.execution,
@@ -60,7 +63,7 @@ export async function runHarness({
     logger
   });
 
-  const memoryBefore = await memoryAdapter.listRecords();
+  const memoryBefore = await ticketMemoryAdapter.listRecords();
   const tickets = await jiraAdapter.listOpenTickets();
   logger.debug("Tickets loaded", { count: tickets.length });
   const triage = await triageAgent.run(tickets);
@@ -82,7 +85,7 @@ export async function runHarness({
 
   const execution =
     mode === "triage-and-execution" ? await executionAgent.run(executionCandidates) : [];
-  const memoryAfter = await memoryAdapter.listRecords();
+  const memoryAfter = await ticketMemoryAdapter.listRecords();
   logger.info("Execution completed", { count: execution.length });
 
   const runRecord = await sqlDbAdapter.recordRun({

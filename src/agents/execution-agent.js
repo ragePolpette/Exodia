@@ -1,10 +1,19 @@
 import { loadPrompt } from "../prompts/load-prompt.js";
 import { ExecutionService } from "../execution/execution-service.js";
+import { buildExecutionInsight } from "../memory/semantic-insights.js";
 
 export class ExecutionAgent {
-  constructor({ bitbucketAdapter, memoryAdapter, sqlDbAdapter, executionConfig, logger }) {
+  constructor({
+    bitbucketAdapter,
+    ticketMemoryAdapter,
+    semanticMemoryAdapter,
+    sqlDbAdapter,
+    executionConfig,
+    logger
+  }) {
     this.bitbucketAdapter = bitbucketAdapter;
-    this.memoryAdapter = memoryAdapter;
+    this.ticketMemoryAdapter = ticketMemoryAdapter;
+    this.semanticMemoryAdapter = semanticMemoryAdapter;
     this.sqlDbAdapter = sqlDbAdapter;
     this.executionConfig = executionConfig;
     this.logger = logger;
@@ -47,7 +56,7 @@ export class ExecutionAgent {
       const result = await this.executeItem(item, prompt, executionMode);
       results.push(result);
 
-      await this.memoryAdapter.upsertRecords([
+      await this.ticketMemoryAdapter.upsertRecords([
         {
           ticket_key: result.ticketKey,
           project_key: result.projectKey,
@@ -63,6 +72,18 @@ export class ExecutionAgent {
           recheck_conditions: item.decision.recheck_conditions ?? []
         }
       ]);
+
+      try {
+        const insight = buildExecutionInsight(item.ticket, item.decision, result);
+        if (insight) {
+          await this.semanticMemoryAdapter?.captureExecutionInsight?.(insight);
+        }
+      } catch (error) {
+        this.logger?.debug("Semantic memory execution capture skipped", {
+          ticketKey: item.ticket?.key ?? result.ticketKey,
+          error: error.message
+        });
+      }
 
       if (result.status === "blocked" || result.status === "not_feasible") {
         break;

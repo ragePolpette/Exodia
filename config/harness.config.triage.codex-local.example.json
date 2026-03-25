@@ -1,6 +1,6 @@
 {
-  "mode": "triage-and-execution",
-  "dryRun": false,
+  "mode": "triage-only",
+  "dryRun": true,
   "memory": {
     "backend": "file",
     "filePath": "../data/memory.json"
@@ -12,9 +12,12 @@
         "ticketSource": "config.mockTickets"
       },
       "mcp": {
-        "server": "atlassian_rovo_mcp",
-        "jql": "project = BPO AND statusCategory != Done",
-        "filterId": ""
+        "server": "atlassian-rovo-mcp",
+        "cloudId": "studioboost.atlassian.net",
+        "jql": "project = DEVFH AND statusCategory != Done ORDER BY created DESC",
+        "filterId": "",
+        "maxResults": 25,
+        "responseContentFormat": "markdown"
       }
     },
     "llmContext": {
@@ -23,8 +26,10 @@
         "mappingSource": "ticket.contextMapping"
       },
       "mcp": {
-        "server": "llm_context",
-        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth"
+        "server": "llm-context",
+        "workspaceRoot": "C:\\inetpub\\wwwroot\\Bpopilot",
+        "projectId": "myproj",
+        "topK": 6
       }
     },
     "llmMemory": {
@@ -33,8 +38,8 @@
         "backend": "file"
       },
       "mcp": {
-        "server": "llm_memory",
-        "namespace": "malkuth-harness"
+        "server": "llm-memory",
+        "namespace": "malkuth-triage"
       }
     },
     "llmSqlDb": {
@@ -43,23 +48,23 @@
         "recordRuns": true
       },
       "mcp": {
-        "server": "llm_db_prod_mcp",
+        "server": "llm-db-prod-mcp",
         "enabled": true,
-        "namespace": "malkuth-harness",
-        "topology": "unified",
+        "namespace": "malkuth-triage",
+        "topology": "split",
         "operations": {
           "recordRun": {
-            "server": "llm_db_prod_mcp"
+            "server": "llm-db-prod-mcp"
           }
         },
         "targets": {
           "prod": {
-            "server": "llm_db_prod_mcp",
+            "server": "llm-db-prod-mcp",
             "database": "prod",
             "access": "read-only"
           },
           "dev": {
-            "server": "llm_db_dev_mcp",
+            "server": "llm-db-dev-mcp",
             "database": "dev",
             "access": "schema-and-tests"
           }
@@ -70,14 +75,13 @@
     "bitbucket": {
       "kind": "mcp",
       "mock": {
-        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth",
-        "existingPullRequests": []
+        "workspaceRoot": "C:\\inetpub\\wwwroot\\Bpopilot"
       },
       "mcp": {
-        "server": "llm_bitbucket_mcp",
+        "server": "llm-bitbucket-mcp",
         "repository": "BPOFH",
         "project": "BPO",
-        "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth",
+        "workspaceRoot": "C:\\inetpub\\wwwroot\\Bpopilot",
         "operations": {
           "findOpenPullRequest": {
             "action": "findOpenPullRequest",
@@ -100,19 +104,25 @@
     }
   },
   "execution": {
-    "enabled": true,
-    "dryRun": false,
+    "enabled": false,
+    "dryRun": true,
     "baseBranch": "BPOFH",
-    "allowRealPrs": true,
+    "allowRealPrs": false,
     "allowMerge": false,
-    "workspaceRoot": "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth"
+    "workspaceRoot": "C:\\inetpub\\wwwroot\\Bpopilot"
   },
   "mcpBridge": {
     "mode": "external",
     "fixtureFile": "",
     "fixtures": {},
-    "command": "your-mcp-bridge-command",
-    "args": []
+    "command": "node",
+    "args": [
+      "./src/mcp/run-bridge.js",
+      "--registry",
+      "./config/codex.mcp.reference.toml",
+      "--shadow-memory-file",
+      "./data/mcp-memory-shadow.json"
+    ]
   },
   "logging": {
     "level": "info",

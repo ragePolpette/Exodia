@@ -24,8 +24,13 @@ export class McpJiraAdapter {
   async listOpenTickets() {
     const action = this.options.filterId ? "searchTicketsByFilter" : "searchTicketsByJql";
     const payload = this.options.filterId
-      ? { filterId: this.options.filterId }
-      : { jql: this.options.jql };
+      ? { filterId: this.options.filterId, cloudId: this.options.cloudId }
+      : {
+          jql: this.options.jql,
+          cloudId: this.options.cloudId,
+          maxResults: this.options.maxResults,
+          responseContentFormat: this.options.responseContentFormat
+        };
     const response = await this.client.request({
       server: this.options.server,
       action,

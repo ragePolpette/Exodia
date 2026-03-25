@@ -9,6 +9,8 @@ Il progetto separa:
 - orchestrazione generale del run
 - `Triage Agent`
 - `Execution Agent`
+- storico ticket operativo su file
+- memoria semantica opzionale via `llm-memory`
 - contratti agent e memory
 - adapter MCP
 
@@ -54,7 +56,9 @@ Malkuth/
 │  ├─ memory/
 │  │  └─ file-memory-store.js
 │  ├─ mcp/
-│  │  └─ create-mcp-client.js
+│  │  ├─ bridge-core.js
+│  │  ├─ create-mcp-client.js
+│  │  └─ run-bridge.js
 │  ├─ orchestration/
 │  │  └─ run-harness.js
 │  ├─ prompts/
@@ -80,13 +84,14 @@ Malkuth/
 - [bootstrap-adapters.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/adapters/bootstrap-adapters.js): registry centrale che seleziona adapter `mock` o `mcp` in base alla config.
 - [triage-agent.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/agents/triage-agent.js): legge memoria esistente, usa `llm_context` come fonte primaria per il mapping ticket -> codebase e salva decisioni persistenti.
 - [create-mcp-client.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/mcp/create-mcp-client.js): bridge MCP generico, con modalita` `fixture` per test e `external` per integrazione reale.
+- [run-bridge.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/mcp/run-bridge.js): bridge MCP `stdio` reale che legge un registry TOML dei server MCP e inoltra le action del harness ai tool reali.
 - [execution-agent.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/agents/execution-agent.js): esegue flow mock o reale via `llm_bitbucket_mcp`, con guardrail su `enabled`, `dryRun`, `allowRealPrs`, anti-merge e riuso di PR gia` aperte.
 - [memory-record.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/contracts/memory-record.js): contratto persistente del ticket memory layer.
 - [logger.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/logging/logger.js): logging minimale a livelli `silent`, `error`, `info`, `debug`.
 
 ## Contratto Memoria
 
-Per ogni ticket il memory layer persistente conserva:
+Per ogni ticket lo storico operativo persistente su file conserva:
 
 - `ticket_key`
 - `project_key`
@@ -100,6 +105,8 @@ Per ogni ticket il memory layer persistente conserva:
 - `pr_url`
 - `last_outcome`
 - `recheck_conditions`
+
+`llm-memory` non e` la fonte autorevole di questo storico. Quando attivo, serve solo a salvare concetti e inferenze riutilizzabili tra run.
 
 Stati ammessi di triage:
 
@@ -146,7 +153,7 @@ Il progetto e` strutturato per integrare questi MCP:
 
 - Jira/Confluence tramite server `atlassian_rovo_mcp` e [jira-adapter.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/adapters/jira-adapter.js)
 - `llm_context` tramite [llm-context-adapter.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/adapters/llm-context-adapter.js)
-- `llm_memory` tramite [llm-memory-adapter.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/adapters/llm-memory-adapter.js)
+- `llm_memory` tramite [llm-memory-adapter.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/adapters/llm-memory-adapter.js) come memoria semantica opzionale
 - `llm_db_prod_mcp` / `llm_db_dev_mcp` tramite [llm-sql-db-adapter.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/adapters/llm-sql-db-adapter.js)
 - `llm_bitbucket_mcp` tramite [bitbucket-adapter.js](C:/Users/Gianmarco/Urgewalt/Malkuth/src/adapters/bitbucket-adapter.js)
 
@@ -177,7 +184,7 @@ node src/cli.js run --config ./config/harness.config.example.json --dry-run
 
 1. parti da [harness.config.mcp.example.json](C:/Users/Gianmarco/Urgewalt/Malkuth/config/harness.config.mcp.example.json) per triage MCP
 2. parti da [harness.config.real.example.json](C:/Users/Gianmarco/Urgewalt/Malkuth/config/harness.config.real.example.json) per execution MCP reale controllata
-3. configura `mcpBridge.command` e `mcpBridge.args`
+3. configura `mcpBridge.command` e `mcpBridge.args`, oppure usa [harness.config.triage.codex-local.example.json](C:/Users/Gianmarco/Urgewalt/Malkuth/config/harness.config.triage.codex-local.example.json) con [codex.mcp.reference.toml](C:/Users/Gianmarco/Urgewalt/Malkuth/config/codex.mcp.reference.toml)
 4. verifica che `execution.allowMerge = false`
 5. usa `--real-run` solo quando vuoi davvero disattivare il dry-run
 
@@ -185,6 +192,12 @@ Triage MCP:
 
 ```bash
 node src/cli.js triage --config ./config/harness.config.mcp.example.json --dry-run
+```
+
+Triage MCP con i server locali del tuo Codex:
+
+```bash
+node src/cli.js triage --config ./config/harness.config.triage.codex-local.example.json --dry-run
 ```
 
 Execution MCP reale controllata:
@@ -201,12 +214,13 @@ Esempio separato per triage MCP:
 
 - [harness.config.mcp.example.json](C:/Users/Gianmarco/Urgewalt/Malkuth/config/harness.config.mcp.example.json)
 - [harness.config.real.example.json](C:/Users/Gianmarco/Urgewalt/Malkuth/config/harness.config.real.example.json)
+- [harness.config.triage.codex-local.example.json](C:/Users/Gianmarco/Urgewalt/Malkuth/config/harness.config.triage.codex-local.example.json)
 
 Campi principali:
 
 - `mode`: `triage-only` oppure `triage-and-execution`
 - `dryRun`: forza esecuzione sicura
-- `memory.filePath`: path del backend locale compatibile/mockabile
+- `memory.filePath`: path dello storico ticket operativo locale
 - `mockTickets[].productTarget`: target canonico del ticket quando noto in input
 - `adapters.<name>.kind`: `mock` oppure `mcp`
 - `adapters.<name>.mock`: parametri della modalita' fake/mock
@@ -237,6 +251,7 @@ Campi principali:
 - `mcpBridge.mode`: `fixture` oppure `external`
 - `mcpBridge.fixtureFile` o `mcpBridge.fixtures`: per test e bootstrap controllato
 - `mcpBridge.command` e `mcpBridge.args`: bridge reale per i server MCP
+- `config/codex.mcp.reference.toml`: registry dei server MCP locali copiato dal tuo Codex
 - `logging.level`: `silent`, `error`, `info`, `debug`
 - `mockTickets`: dataset locale per bootstrap e test
 
@@ -304,7 +319,7 @@ Resume con memoria esistente:
 node src/cli.js triage --config ./config/harness.config.example.json --dry-run
 ```
 
-Il resume usa [memory.json](C:/Users/Gianmarco/Urgewalt/Malkuth/data/memory.json) per evitare rivalutazioni inutili e loop sui ticket gia` rifiutati, bloccati o gia` in lavorazione.
+Il resume usa [memory.json](C:/Users/Gianmarco/Urgewalt/Malkuth/data/memory.json) come storico ticket operativo per evitare rivalutazioni inutili e loop sui ticket gia` rifiutati, bloccati o gia` in lavorazione.
 
 Help CLI:
 

@@ -8,6 +8,7 @@ import { LlmMemoryAdapter } from "./llm-memory-adapter.js";
 import { McpLlmMemoryAdapter } from "./llm-memory-mcp-adapter.js";
 import { LlmSqlDbAdapter } from "./llm-sql-db-adapter.js";
 import { McpLlmSqlDbAdapter } from "./llm-sql-db-mcp-adapter.js";
+import { TicketMemoryAdapter } from "./ticket-memory-adapter.js";
 import { createMcpClient } from "../mcp/create-mcp-client.js";
 import { FileMemoryStore } from "../memory/file-memory-store.js";
 
@@ -23,6 +24,7 @@ function resolveMemoryStore(config) {
 
 export function buildAdapters({ config, logger }) {
   const memoryStore = resolveMemoryStore(config);
+  const ticketMemoryAdapter = new TicketMemoryAdapter(memoryStore);
   const needsMcpClient = Object.values(config.adapters).some(
     (adapterConfig) => adapterConfig.kind === "mcp"
   );
@@ -45,11 +47,7 @@ export function buildAdapters({ config, logger }) {
         })
     },
     llmMemory: {
-      mock: () =>
-        new LlmMemoryAdapter(memoryStore, {
-          ...config.adapters.llmMemory.mock,
-          backend: config.memory.backend
-        }),
+      mock: () => new LlmMemoryAdapter(config.adapters.llmMemory.mock),
       mcp: () =>
         new McpLlmMemoryAdapter({
           ...config.adapters.llmMemory.mcp,
@@ -96,6 +94,7 @@ export function buildAdapters({ config, logger }) {
 
   return {
     adapters,
+    ticketMemoryAdapter,
     memoryStore,
     kinds
   };

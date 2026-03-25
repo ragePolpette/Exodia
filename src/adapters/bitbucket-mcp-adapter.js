@@ -51,6 +51,7 @@ export class McpBitbucketAdapter {
       payload: {
         repository: this.repository,
         project: this.project,
+        workspaceRoot: this.workspaceRoot,
         baseBranch: this.baseBranch,
         branchName,
         ticket

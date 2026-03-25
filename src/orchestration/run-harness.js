@@ -66,6 +66,7 @@ export async function runHarness({
       enabled: executionEnabled,
       dryRun: executionDryRun
     },
+    verificationConfig: config.verification,
     logger
   });
 

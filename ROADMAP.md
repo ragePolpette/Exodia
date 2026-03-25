@@ -40,8 +40,8 @@ Per ogni milestone o sottostep:
 - [x] verificare coerenza ticket -> product target -> repo target
 - [x] bloccare execution su mapping ambiguo o su evidenza insufficiente
 - [x] verificare che branch, commit message e PR payload siano conformi alle policy
-- [ ] verificare che il diff resti entro path consentiti
-- [ ] eseguire comandi di verifica configurabili prima di aprire PR
+- [x] verificare che il diff resti entro path consentiti
+- [x] eseguire comandi di verifica configurabili prima di aprire PR
 - [x] aggiungere test dedicati per il nuovo agente e per i blocchi attesi
 
 ## Milestone 2 - Externalizzazione completa della config sensibile
@@ -111,4 +111,5 @@ Per ogni milestone o sottostep:
 - [x] roadmap iniziale creata
 - [x] milestone 0 completata: identita` progetto e framing portfolio-safe allineati
 - [x] milestone 1 avviata: verification gate introdotto tra triage ed execution
+- [x] milestone 1 completata: verification gate, preflight path policy e command checks attivi
 - [x] sviluppo milestone operative avviato

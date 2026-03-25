@@ -117,7 +117,9 @@ const defaultConfig = {
     enabled: true,
     minConfidence: 0.75,
     maxCommitMessageLength: 120,
-    maxPullRequestTitleLength: 120
+    maxPullRequestTitleLength: 120,
+    allowedPathPrefixesByRepo: {},
+    preflightCommands: []
   },
   mcpBridge: {
     mode: "fixture",

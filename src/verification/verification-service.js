@@ -1,6 +1,35 @@
 import { assertVerificationStatus } from "../contracts/harness-contracts.js";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
 
 const branchNamePattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+function normalizePath(value) {
+  return `${value ?? ""}`
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^\.\//, "")
+    .replace(/\/+/g, "/");
+}
+
+function parseGitStatusPaths(stdout) {
+  return `${stdout ?? ""}`
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter(Boolean)
+    .map((line) => line.slice(3).trim())
+    .map((entry) => {
+      if (entry.includes(" -> ")) {
+        return entry.split(" -> ").at(-1);
+      }
+
+      return entry;
+    })
+    .map((entry) => normalizePath(entry))
+    .filter(Boolean);
+}
 
 function normalizeStatus(status) {
   assertVerificationStatus(status);
@@ -13,7 +42,9 @@ export class VerificationService {
       enabled: config.enabled ?? true,
       minConfidence: config.minConfidence ?? 0.75,
       maxCommitMessageLength: config.maxCommitMessageLength ?? 120,
-      maxPullRequestTitleLength: config.maxPullRequestTitleLength ?? 120
+      maxPullRequestTitleLength: config.maxPullRequestTitleLength ?? 120,
+      allowedPathPrefixesByRepo: config.allowedPathPrefixesByRepo ?? {},
+      preflightCommands: config.preflightCommands ?? []
     };
   }
 
@@ -116,5 +147,110 @@ export class VerificationService {
     }
 
     return this.buildResult(item, "approved", "verification approved execution payload", payload);
+  }
+
+  resolveAllowedPathPrefixes(repoTarget) {
+    const entries = this.config.allowedPathPrefixesByRepo ?? {};
+    const explicit = entries[repoTarget] ?? entries.default ?? [];
+    return explicit.map((value) => normalizePath(value)).filter(Boolean);
+  }
+
+  async collectChangedPaths(workspaceRoot) {
+    try {
+      const { stdout } = await execFileAsync(
+        "git",
+        ["status", "--porcelain", "--untracked-files=all"],
+        {
+          cwd: workspaceRoot,
+          windowsHide: true
+        }
+      );
+
+      return parseGitStatusPaths(stdout);
+    } catch (error) {
+      throw new Error(
+        `verification path policy requires a readable git workspace at ${workspaceRoot}: ${error.message}`
+      );
+    }
+  }
+
+  async enforcePathPolicy({ item, workspaceRoot, payload }) {
+    const allowedPrefixes = this.resolveAllowedPathPrefixes(item.decision.repo_target);
+    if (allowedPrefixes.length === 0) {
+      return null;
+    }
+
+    const changedPaths = await this.collectChangedPaths(workspaceRoot);
+    const disallowedPaths = changedPaths.filter(
+      (entry) => !allowedPrefixes.some((prefix) => entry === prefix || entry.startsWith(`${prefix}/`))
+    );
+
+    if (disallowedPaths.length === 0) {
+      return null;
+    }
+
+    return this.buildResult(
+      item,
+      "blocked",
+      `changed paths outside allowlist: ${disallowedPaths.join(", ")}`,
+      payload
+    );
+  }
+
+  async runPreflightCommands({ item, workspaceRoot, payload }) {
+    for (const command of this.config.preflightCommands) {
+      if (command?.enabled === false) {
+        continue;
+      }
+
+      const label = command.label ?? command.command ?? "unnamed preflight command";
+      const args = Array.isArray(command.args) ? command.args : [];
+      const allowedExitCodes = Array.isArray(command.allowedExitCodes)
+        ? command.allowedExitCodes
+        : [0];
+
+      try {
+        await execFileAsync(command.command, args, {
+          cwd: command.cwd ? workspaceRoot : workspaceRoot,
+          windowsHide: true
+        });
+      } catch (error) {
+        const exitCode = typeof error.code === "number" ? error.code : null;
+        if (exitCode !== null && allowedExitCodes.includes(exitCode)) {
+          continue;
+        }
+
+        const output = [error.stdout, error.stderr]
+          .filter(Boolean)
+          .join(" ")
+          .trim()
+          .slice(0, 240);
+
+        return this.buildResult(
+          item,
+          "blocked",
+          output
+            ? `preflight command failed (${label}): ${output}`
+            : `preflight command failed (${label})`,
+          payload
+        );
+      }
+    }
+
+    return null;
+  }
+
+  async runPreflight({ item, workspaceRoot, payload }) {
+    const pathResult = await this.enforcePathPolicy({ item, workspaceRoot, payload });
+    if (pathResult) {
+      return pathResult;
+    }
+
+    const commandResult = await this.runPreflightCommands({ item, workspaceRoot, payload });
+    if (commandResult) {
+      return commandResult;
+    }
+
+    return this.buildResult(item, "approved", "preflight checks passed", payload);
   }
 }

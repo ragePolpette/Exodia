@@ -1,6 +1,7 @@
 import { loadPrompt } from "../prompts/load-prompt.js";
 import { ExecutionService } from "../execution/execution-service.js";
 import { buildExecutionInsight } from "../memory/semantic-insights.js";
+import { VerificationService } from "../verification/verification-service.js";
 
 export class ExecutionAgent {
   constructor({
@@ -9,6 +10,7 @@ export class ExecutionAgent {
     semanticMemoryAdapter,
     sqlDbAdapter,
     executionConfig,
+    verificationConfig,
     logger
   }) {
     this.bitbucketAdapter = bitbucketAdapter;
@@ -18,6 +20,26 @@ export class ExecutionAgent {
     this.executionConfig = executionConfig;
     this.logger = logger;
     this.service = new ExecutionService();
+    this.verificationService = new VerificationService(verificationConfig);
+  }
+
+  resolveWorkspaceRoot() {
+    return (
+      this.executionConfig.workspaceRoot ||
+      this.bitbucketAdapter.workspaceRoot ||
+      process.cwd()
+    );
+  }
+
+  async runPreflightChecks(item, scopedTicket, payload) {
+    return this.verificationService.runPreflight({
+      item: {
+        ...item,
+        ticket: scopedTicket
+      },
+      workspaceRoot: this.resolveWorkspaceRoot(),
+      payload
+    });
   }
 
   async maybeRunDiagnostics(ticket) {
@@ -127,6 +149,8 @@ export class ExecutionAgent {
 
     const branchName = this.bitbucketAdapter.planBranch(scopedTicket);
     const diagnostics = await this.maybeRunDiagnostics(scopedTicket);
+    const commitMessage = this.service.buildCommitMessage(scopedTicket, prompt);
+    const pullRequestTitle = `[${scopedTicket.key}] ${scopedTicket.summary}`;
 
     if (diagnostics?.used && (diagnostics.shouldBlock || (diagnostics.blockers ?? []).length > 0)) {
       return this.service.buildPlannedResult(
@@ -150,6 +174,16 @@ export class ExecutionAgent {
         );
       }
 
+      const preflightResult = await this.runPreflightChecks(item, scopedTicket, {
+        branchName,
+        commitMessage,
+        pullRequestTitle
+      });
+
+      if (preflightResult.status !== "approved") {
+        return this.service.buildPlannedResult(scopedTicket, "blocked", preflightResult.reason);
+      }
+
       return {
         ...this.service.buildPlannedResult(
           scopedTicket,
@@ -159,8 +193,8 @@ export class ExecutionAgent {
             : "execution dry-run planned with MCP adapter; no real PR opened"
         ),
         branchName,
-        commitMessage: this.service.buildCommitMessage(scopedTicket, prompt),
-        pullRequestTitle: `[${scopedTicket.key}] ${scopedTicket.summary}`,
+        commitMessage,
+        pullRequestTitle,
         pullRequestUrl: ""
       };
     }
@@ -180,7 +214,16 @@ export class ExecutionAgent {
 
     await this.bitbucketAdapter.createBranch(scopedTicket, branchName);
     await this.bitbucketAdapter.checkoutBranch(scopedTicket, branchName);
-    const commitMessage = this.service.buildCommitMessage(scopedTicket, prompt);
+    const preflightResult = await this.runPreflightChecks(item, scopedTicket, {
+      branchName,
+      commitMessage,
+      pullRequestTitle
+    });
+
+    if (preflightResult.status !== "approved") {
+      return this.service.buildPlannedResult(scopedTicket, "blocked", preflightResult.reason);
+    }
+
     const commitResult = await this.bitbucketAdapter.createCommit(
       scopedTicket,
       branchName,

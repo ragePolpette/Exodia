@@ -1,9 +1,9 @@
 {
-  "name": "bpopilot-ticket-harness",
+  "name": "malkuth-local-ticket-harness",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Autonomous dry-run harness for BpoPilot ticket triage and execution orchestration.",
+  "description": "Local-first ticket triage and controlled execution harness with MCP-ready adapters.",
   "scripts": {
     "start": "node src/cli.js run",
     "dry-run": "node src/cli.js run --config ./config/harness.config.example.json --dry-run",

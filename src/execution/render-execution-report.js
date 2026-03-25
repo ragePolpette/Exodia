@@ -1,6 +1,6 @@
 export function renderExecutionReport(summary) {
   const lines = [
-    "BpoPilot Execution Report",
+    "Malkuth Execution Report",
     `Mode: ${summary.mode}`,
     `Dry run: ${summary.dryRun}`,
     `Run id: ${summary.runId || "n/a"}`,

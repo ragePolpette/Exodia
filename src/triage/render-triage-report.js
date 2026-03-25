@@ -1,6 +1,6 @@
 export function renderTriageReport(summary) {
   const lines = [
-    "BpoPilot Triage Report",
+    "Malkuth Triage Report",
     `Mode: ${summary.mode}`,
     `Dry run: ${summary.dryRun}`,
     `Run id: ${summary.runId || "n/a"}`,

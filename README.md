@@ -1,8 +1,30 @@
-# BpoPilot Ticket Harness
+# Malkuth
 
-Harness autonomo per orchestrare triage ed execution di ticket BpoPilot con Codex come motore operativo, con bootstrap centralizzato degli adapter e supporto sia `mock` sia `mcp`. Il triage puo` lavorare in modalita` mock o MCP e l'execution puo` usare `llm_bitbucket_mcp` solo quando la config lo consente esplicitamente.
+Harness locale e local-first per orchestrare triage ed execution controllata di ticket tecnici con bootstrap centralizzato degli adapter e supporto sia `mock` sia `mcp`.
 
-## Obiettivo
+Il progetto e` pensato per:
+
+- uso personale e di team in ambiente enterprise
+- portfolio tecnico pubblico su GitHub una volta ripulito dai riferimenti sensibili
+- esecuzione da workstation o ambiente locale controllato
+
+Il progetto non e` pensato per:
+
+- deploy pubblico come servizio esposto
+- funzionamento out-of-the-box con tenant, repository o tool aziendali reali
+- includere nel repository chiavi, tenant, path locali o naming sensibili
+
+## Posizionamento
+
+Malkuth e` un local-first ticket automation harness. Il suo scopo e`:
+
+- raccogliere ticket da una sorgente configurata
+- fare triage e mappatura verso il codebase corretto
+- riusare memoria operativa locale e memoria semantica opzionale
+- applicare guardrail prima di branch, commit e PR
+- mantenere le integrazioni reali dietro config esplicite e locali
+
+## Architettura Logica
 
 Il progetto separa:
 
@@ -14,7 +36,21 @@ Il progetto separa:
 - contratti agent e memory
 - adapter MCP
 
-Il bootstrap corrente non richiede ticket reali, non apre PR reali sui repository business e mantiene `allowMerge = false`.
+Il bootstrap corrente non richiede ticket reali, non apre PR reali per default e mantiene `allowMerge = false`.
+
+## Sicurezza E Portfolio
+
+Direzione del progetto:
+
+- il repository pubblico deve restare privo di valori sensibili o specifici dell'azienda
+- ogni integrazione reale deve essere reindirizzabile tramite config locale fuori repo
+- le azioni irreversibili devono restare bloccate da guardrail espliciti
+
+Nota sullo stato attuale:
+
+- il codice e la documentazione contengono ancora alcuni esempi e naming di dominio
+- questi riferimenti verranno progressivamente spostati in config nelle milestone successive
+- questo step allinea il framing del progetto, non conclude ancora la completa sanitizzazione del dominio
 
 ## Struttura Finale
 

@@ -97,7 +97,7 @@ function renderSummary(summary) {
   }
 
   const lines = [
-    "BpoPilot Ticket Harness",
+    "Malkuth Local Ticket Harness",
     `Mode: ${summary.mode}`,
     `Dry run: ${summary.dryRun}`,
     `Run id: ${summary.runId || "n/a"}`,

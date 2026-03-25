@@ -13,8 +13,8 @@
       },
       "mcp": {
         "server": "atlassian-rovo-mcp",
-        "cloudId": "studioboost.atlassian.net",
-        "jql": "project = DEVFH AND statusCategory != Done ORDER BY created DESC",
+        "cloudId": "your-site.atlassian.net",
+        "jql": "project = YOUR_PROJECT AND statusCategory != Done ORDER BY created DESC",
         "filterId": "",
         "maxResults": 25,
         "responseContentFormat": "markdown"
@@ -27,8 +27,8 @@
       },
       "mcp": {
         "server": "llm-context",
-        "workspaceRoot": "C:\\inetpub\\wwwroot\\Bpopilot",
-        "projectId": "myproj",
+        "workspaceRoot": "C:\\path\\to\\your\\workspace",
+        "projectId": "your-project-id",
         "topK": 6
       }
     },
@@ -39,7 +39,7 @@
       },
       "mcp": {
         "server": "llm-memory",
-        "namespace": "malkuth-triage"
+        "namespace": "your-local-namespace"
       }
     },
     "llmSqlDb": {
@@ -50,7 +50,7 @@
       "mcp": {
         "server": "llm-db-prod-mcp",
         "enabled": true,
-        "namespace": "malkuth-triage",
+        "namespace": "your-local-namespace",
         "topology": "split",
         "operations": {
           "recordRun": {
@@ -75,13 +75,13 @@
     "bitbucket": {
       "kind": "mcp",
       "mock": {
-        "workspaceRoot": "C:\\inetpub\\wwwroot\\Bpopilot"
+        "workspaceRoot": "C:\\path\\to\\your\\workspace"
       },
       "mcp": {
         "server": "llm-bitbucket-mcp",
-        "repository": "BPOFH",
-        "project": "BPO",
-        "workspaceRoot": "C:\\inetpub\\wwwroot\\Bpopilot",
+        "repository": "your-repository",
+        "project": "YOUR_PROJECT",
+        "workspaceRoot": "C:\\path\\to\\your\\workspace",
         "operations": {
           "findOpenPullRequest": {
             "action": "findOpenPullRequest",
@@ -106,10 +106,10 @@
   "execution": {
     "enabled": false,
     "dryRun": true,
-    "baseBranch": "BPOFH",
+    "baseBranch": "main",
     "allowRealPrs": false,
     "allowMerge": false,
-    "workspaceRoot": "C:\\inetpub\\wwwroot\\Bpopilot"
+    "workspaceRoot": "C:\\path\\to\\your\\workspace"
   },
   "mcpBridge": {
     "mode": "external",

@@ -40,7 +40,7 @@ const defaultConfig = {
       },
       mcp: {
         server: "llm_memory",
-        namespace: "bpopilot-ticket-harness"
+        namespace: "malkuth"
       }
     },
     llmSqlDb: {
@@ -52,7 +52,7 @@ const defaultConfig = {
         server: "llm_db_prod_mcp",
         enabled: false,
         defaultDatabase: "prod",
-        namespace: "bpopilot-ticket-harness",
+        namespace: "malkuth",
         topology: "unified",
         operations: {
           recordRun: {
@@ -108,7 +108,7 @@ const defaultConfig = {
   execution: {
     enabled: true,
     dryRun: true,
-    baseBranch: "BPOFH",
+    baseBranch: "",
     allowRealPrs: false,
     allowMerge: false,
     workspaceRoot: ""

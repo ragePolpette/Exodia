@@ -365,7 +365,7 @@ async function handleJiraRequest(serverDefinition, action, payload) {
     throw new Error(`Unsupported Jira MCP action: ${action}`);
   }
 
-  const cloudId = payload.cloudId ?? "studioboost.atlassian.net";
+  const cloudId = payload.cloudId ?? "";
   const rawResult = await callTool(serverDefinition, "searchJiraIssuesUsingJql", {
     cloudId,
     jql: payload.jql,
@@ -431,7 +431,7 @@ async function handleContextRequest(serverDefinition, action, payload) {
 }
 
 async function handleMemoryRequest(serverDefinition, action, payload, { shadowMemoryFile }) {
-  const namespace = payload.namespace ?? "bpopilot-ticket-harness";
+  const namespace = payload.namespace ?? "malkuth";
   const store = await loadShadowStore(shadowMemoryFile);
   const existingRecords = (store[namespace] ?? []).map(normalizeMemoryRecord);
 

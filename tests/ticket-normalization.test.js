@@ -128,4 +128,7 @@ test("loadConfig normalizes legacy sql db server fields into explicit targets", 
   assert.equal(config.adapters.llmSqlDb.mcp.targets.prod.server, "llm-db-prod-mcp");
   assert.equal(config.adapters.llmSqlDb.mcp.targets.dev.server, "llm-db-dev-mcp");
   assert.equal(config.adapters.llmSqlDb.mcp.operations.recordRun.server, "llm-sql-db-mcp");
+  assert.equal(config.execution.baseBranch, "");
+  assert.equal(config.adapters.llmMemory.mcp.namespace, "malkuth");
+  assert.equal(config.adapters.llmSqlDb.mcp.namespace, "malkuth");
 });

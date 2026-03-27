@@ -14,13 +14,37 @@ export class McpLlmSqlDbAdapter {
       };
     }
 
+    const operation = this.options.operations?.recordRun ?? {};
+    if (operation.enabled === false || !operation.sql) {
+      return {
+        runId: `disabled-${Date.now()}`,
+        mode: summary.mode,
+        stored: false,
+        note: "record run persistence is disabled by local config"
+      };
+    }
+
+    const runId = `malkuth-run-${Date.now()}`;
+
     return this.client.request({
       server: this.resolveRecordRunServer(),
-      action: "recordHarnessRun",
+      action: operation.action ?? "recordHarnessRun",
       payload: {
+        namespace: this.options.namespace ?? "malkuth",
+        database: operation.database ?? "dev",
+        sql: operation.sql,
+        runId,
         mode: summary.mode,
         dryRun: summary.dryRun,
-        ticketCount: summary.ticketCount
+        ticketCount: summary.ticketCount,
+        parameters: {
+          runId,
+          mode: summary.mode,
+          dryRun: summary.dryRun,
+          ticketCount: summary.ticketCount,
+          namespace: this.options.namespace ?? "malkuth",
+          recordedAt: new Date().toISOString()
+        }
       }
     });
   }
@@ -41,14 +65,15 @@ export class McpLlmSqlDbAdapter {
 
     return this.client.request({
       server: target.server,
-      action: "runDiagnosticQuery",
+      action: target.action ?? "runDiagnosticQuery",
       payload: {
         namespace: this.options.namespace ?? "malkuth",
         database: target.database,
         phase: request.phase,
         ticketKey: request.ticketKey,
         query: request.query ?? request.statement,
-        parameters: request.parameters ?? {}
+        parameters: request.parameters ?? {},
+        maxRows: request.maxRows ?? target.maxRows
       }
     });
   }
@@ -67,7 +92,9 @@ export class McpLlmSqlDbAdapter {
     if (configuredTarget?.server) {
       return {
         server: configuredTarget.server,
-        database: configuredTarget.database ?? database
+        database: configuredTarget.database ?? database,
+        action: configuredTarget.action,
+        maxRows: configuredTarget.maxRows
       };
     }
 

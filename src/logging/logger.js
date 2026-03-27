@@ -1,4 +1,6 @@
-export function createLogger({ level = "info", includeTimestamp = false } = {}) {
+import { redactValue } from "../security/redaction.js";
+
+export function createLogger({ level = "info", includeTimestamp = false, redaction } = {}) {
   const levels = {
     silent: 0,
     error: 1,
@@ -21,7 +23,7 @@ export function createLogger({ level = "info", includeTimestamp = false } = {}) 
       return;
     }
 
-    console.error(`${line} ${JSON.stringify(details)}`);
+    console.error(`${line} ${JSON.stringify(redactValue(details, redaction))}`);
   }
 
   return {

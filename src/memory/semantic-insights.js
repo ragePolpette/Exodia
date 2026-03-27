@@ -1,3 +1,5 @@
+import { redactText } from "../security/redaction.js";
+
 function unique(values) {
   return [...new Set(values.filter(Boolean))];
 }
@@ -12,7 +14,7 @@ function extractPathHints(mapping) {
   ).slice(0, 5);
 }
 
-export function buildTriageInsight(ticket, mapping, decision) {
+export function buildTriageInsight(ticket, mapping, decision, redaction) {
   if (!decision || decision.status_decision === "skipped_out_of_scope") {
     return null;
   }
@@ -40,25 +42,25 @@ export function buildTriageInsight(ticket, mapping, decision) {
       decision.product_target,
       decision.repo_target
     ]),
-    content: [
+    content: redactText([
       `${ticket.key} triage => ${decision.product_target}/${decision.repo_target} [${decision.status_decision}]`,
       decision.short_reason,
       decision.implementation_hint ? `hint: ${decision.implementation_hint}` : "",
       pathHints.length > 0 ? `paths: ${pathHints.join(", ")}` : ""
     ]
       .filter(Boolean)
-      .join(" | "),
+      .join(" | "), redaction),
     metadata: {
-      summary: ticket.summary,
+      summary: redactText(ticket.summary, redaction),
       statusDecision: decision.status_decision,
       blockers: mapping?.blockers ?? [],
       recheckConditions: decision.recheck_conditions ?? [],
-      pathHints
+      pathHints: pathHints.map((hint) => redactText(hint, redaction))
     }
   };
 }
 
-export function buildExecutionInsight(ticket, decision, result) {
+export function buildExecutionInsight(ticket, decision, result, redaction) {
   if (!result) {
     return null;
   }
@@ -86,19 +88,19 @@ export function buildExecutionInsight(ticket, decision, result) {
       result.productTarget ?? decision?.product_target,
       result.repoTarget ?? decision?.repo_target
     ]),
-    content: [
+    content: redactText([
       `${ticket.key} execution => ${result.status}`,
       result.reason,
       result.branchName ? `branch: ${result.branchName}` : "",
       result.pullRequestUrl ? `pr: ${result.pullRequestUrl}` : ""
     ]
       .filter(Boolean)
-      .join(" | "),
+      .join(" | "), redaction),
     metadata: {
-      summary: ticket.summary,
+      summary: redactText(ticket.summary, redaction),
       status: result.status,
       branchName: result.branchName ?? "",
-      pullRequestUrl: result.pullRequestUrl ?? ""
+      pullRequestUrl: redactText(result.pullRequestUrl ?? "", redaction)
     }
   };
 }

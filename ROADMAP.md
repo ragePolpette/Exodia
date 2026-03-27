@@ -57,54 +57,54 @@ Per ogni milestone o sottostep:
 
 ## Milestone 3 - Generalizzazione del modello dominio
 
-- [ ] rimuovere dal codice le inferenze hardcoded basate su naming prodotto attuale
-- [ ] introdurre `targetRules` e sinonimi caricati da config
-- [ ] rendere configurabili repo target, aree e policy di mapping
-- [ ] rendere i prompt agent neutrali rispetto al dominio aziendale
-- [ ] rendere i test indipendenti dai nomi prodotto attuali dove non strettamente necessario
+- [x] rimuovere dal codice le inferenze hardcoded basate su naming prodotto attuale
+- [x] introdurre `targetRules` e sinonimi caricati da config
+- [x] rendere configurabili repo target, aree e policy di mapping
+- [x] rendere i prompt agent neutrali rispetto al dominio aziendale
+- [x] rendere i test indipendenti dai nomi prodotto attuali dove non strettamente necessario
 
 ## Milestone 4 - Hardening sicurezza e public hygiene
 
-- [ ] aggiungere scanner interno per riferimenti sensibili nel repo
-- [ ] bloccare path, URL, tenant, namespace e valori vietati prima del commit o della PR
-- [ ] aggiungere controllo su file example per evitare leakage di dati reali
-- [ ] aggiungere redaction policy per report, log e memoria semantica
-- [ ] aggiungere allowlist esplicita per action MCP e comandi eseguibili
-- [ ] rivedere i prompt per evitare output che suggeriscano operazioni non consentite
+- [x] aggiungere scanner interno per riferimenti sensibili nel repo
+- [x] bloccare path, URL, tenant, namespace e valori vietati prima del commit o della PR
+- [x] aggiungere controllo su file example per evitare leakage di dati reali
+- [x] aggiungere redaction policy per report, log e memoria semantica
+- [x] aggiungere allowlist esplicita per action MCP e comandi eseguibili
+- [x] rivedere i prompt per evitare output che suggeriscano operazioni non consentite
 
 ## Milestone 5 - Hardening bridge MCP
 
-- [ ] completare il wiring reale delle operazioni oggi ancora stub
-- [ ] completare o rimuovere i path dichiarati ma non implementati
-- [ ] aggiungere timeout, error taxonomy e retry policy chiari
-- [ ] separare meglio adapter generici da adapter enterprise-specific
-- [ ] aggiungere test sui failure mode del bridge
+- [x] completare il wiring reale delle operazioni oggi ancora stub
+- [x] completare o rimuovere i path dichiarati ma non implementati
+- [x] aggiungere timeout, error taxonomy e retry policy chiari
+- [x] separare meglio adapter generici da adapter enterprise-specific
+- [x] aggiungere test sui failure mode del bridge
 
 ## Milestone 6 - Governance execution
 
-- [ ] rendere configurabili policy di `allowRealPrs`, `allowMerge`, repo consentiti e branch consentiti
-- [ ] impedire qualunque merge automatico se non espressamente autorizzato da policy locale
-- [ ] introdurre livelli di trust per `mock`, `mcp-readonly`, `mcp-write`
-- [ ] aggiungere report finale strutturato per ogni run
-- [ ] aggiungere audit trail minimale ma leggibile
+- [x] rendere configurabili policy di `allowRealPrs`, `allowMerge`, repo consentiti e branch consentiti
+- [x] impedire qualunque merge automatico se non espressamente autorizzato da policy locale
+- [x] introdurre livelli di trust per `mock`, `mcp-readonly`, `mcp-write`
+- [x] aggiungere report finale strutturato per ogni run
+- [x] aggiungere audit trail minimale ma leggibile
 
 ## Milestone 7 - Documentazione finale portfolio-safe
 
-- [ ] riscrivere README con esempio generico e neutro
-- [ ] aggiungere sezione architettura con diagramma logico testuale
-- [ ] aggiungere sezione sicurezza e non-obiettivi
-- [ ] aggiungere quick start solo locale e non deploy
-- [ ] aggiungere guida per configurazione enterprise fuori repo
-- [ ] aggiungere esempio di flusso completo triage -> verification -> execution
+- [x] riscrivere README con esempio generico e neutro
+- [x] aggiungere sezione architettura con diagramma logico testuale
+- [x] aggiungere sezione sicurezza e non-obiettivi
+- [x] aggiungere quick start solo locale e non deploy
+- [x] aggiungere guida per configurazione enterprise fuori repo
+- [x] aggiungere esempio di flusso completo triage -> verification -> execution
 
 ## Milestone 8 - Review finale prima della pubblicazione
 
-- [ ] rieseguire `node --test`
-- [ ] eseguire audit finale su stringhe sensibili residue
-- [ ] verificare che tutti gli example siano generici
-- [ ] verificare che nessun file tracciato punti a tenant o path reali
-- [ ] verificare che il progetto non sia presentato come servizio deployabile
-- [ ] verificare che questo file sia aggiornato e coerente con lo stato reale
+- [x] rieseguire `node --test`
+- [x] eseguire audit finale su stringhe sensibili residue
+- [x] verificare che tutti gli example siano generici
+- [x] verificare che nessun file tracciato punti a tenant o path reali
+- [x] verificare che il progetto non sia presentato come servizio deployabile
+- [x] verificare che questo file sia aggiornato e coerente con lo stato reale
 
 ## Log avanzamento
 
@@ -113,4 +113,13 @@ Per ogni milestone o sottostep:
 - [x] milestone 1 avviata: verification gate introdotto tra triage ed execution
 - [x] milestone 1 completata: verification gate, preflight path policy e command checks attivi
 - [x] milestone 2 completata: config sensibile esterna al repo e example sanificati
+- [x] milestone 3 avviata: target rules e sinonimi spostati in config runtime
+- [x] milestone 3 completata: mapping config-driven, prompt neutrali e test ripuliti dal dominio superfluo
+- [x] milestone 4 completata: scanner, allowlist e redaction pubblica attivi nel runtime
+- [x] milestone 5 avviata: path Jira filter, error taxonomy e retry del bridge allineati
+- [x] milestone 5 completata: sql bridge reale, adapter bootstrap separato e failure mode coperti
+- [x] milestone 6 completata: trust levels, execution policy e final report governati dal runtime
+- [x] milestone 7 completata: README riallineato al runtime locale e portfolio-safe
+- [x] tooling finale aggiunto: comando `review` per publish-readiness e policy `.env`
+- [x] milestone 8 completata: test, audit e review finale tutti verdi
 - [x] sviluppo milestone operative avviato

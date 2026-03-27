@@ -8,6 +8,13 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 
 import { normalizeMemoryRecord } from "../contracts/memory-record.js";
 import { normalizeSupportTicket } from "../tickets/normalize-support-ticket.js";
+import {
+  defaultRepoTarget as resolveDefaultRepoTarget,
+  defaultUnknownTarget,
+  inferTargetFromProjectKey,
+  inferTargetFromTextFragments,
+  resolveMappingDefaults
+} from "../targeting/target-rules.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -220,68 +227,38 @@ function collectContextPaths(value) {
   return [...new Set(matches)];
 }
 
-export function inferProductTargetFromEvidence(ticket, paths = [], searchPayload = null) {
+export function inferProductTargetFromEvidence(ticket, paths = [], searchPayload = null, targeting = {}) {
   if (ticket.productTarget) {
     return ticket.productTarget;
   }
 
-  const combinedText = [ticket.summary, ticket.rawDescription, ticket.pageUrl, ...paths]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  if (combinedText.includes("app.fiscobot.it") || /\bfiscobot\b/.test(combinedText)) {
-    return "fiscobot";
+  const ticketTarget = inferTargetFromTextFragments(
+    [ticket.summary, ticket.rawDescription, ticket.pageUrl, ...paths],
+    targeting
+  );
+  if (ticketTarget) {
+    return ticketTarget;
   }
 
-  if (
-    combinedText.includes("app.fatturhello.it") ||
-    combinedText.includes("impersona.fatturhello.it") ||
-    /\bfatturhello\b/.test(combinedText) ||
-    /\byeti\b/.test(combinedText)
-  ) {
-    return "fatturhello";
+  const searchTarget = inferTargetFromTextFragments(
+    collectNestedStrings(searchPayload?.data ?? searchPayload?.raw ?? searchPayload),
+    targeting
+  );
+  if (searchTarget) {
+    return searchTarget;
   }
 
-  if (/\bbpopilot\b|\bbpo\b/.test(combinedText)) {
-    return "legacy";
-  }
-
-  const searchText = collectNestedStrings(searchPayload?.data ?? searchPayload?.raw ?? searchPayload)
-    .join(" ")
-    .toLowerCase();
-  if (/\bfiscobot\b/.test(searchText)) {
-    return "fiscobot";
-  }
-  if (/\bfatturhello\b|\byeti\b/.test(searchText)) {
-    return "fatturhello";
-  }
-  if (/\bbpopilot\b|\bbpo\b/.test(searchText)) {
-    return "legacy";
-  }
-
-  const projectKey = ticket.projectKey ?? ticket.key?.split("-")?.[0] ?? "";
-  if (projectKey === "DEVFH") {
-    return "fatturhello";
-  }
-
-  return "unknown";
+  return (
+    inferTargetFromProjectKey(ticket.projectKey ?? ticket.key?.split("-")?.[0], targeting) ||
+    defaultUnknownTarget(targeting)
+  );
 }
 
-export function defaultRepoTarget(productTarget) {
-  switch (productTarget) {
-    case "legacy":
-      return "api+asp";
-    case "fatturhello":
-      return "pubblico";
-    case "fiscobot":
-      return "pubblico+bpofh+fiscobot";
-    default:
-      return "UNKNOWN";
-  }
+export function defaultRepoTarget(productTarget, targeting = {}) {
+  return resolveDefaultRepoTarget(productTarget, targeting);
 }
 
-function inferConfidence(ticket, productTarget, paths) {
+function inferConfidence(ticket, productTarget, paths, targeting = {}) {
   if (ticket.productTarget) {
     return 0.92;
   }
@@ -291,7 +268,7 @@ function inferConfidence(ticket, productTarget, paths) {
     return 0.18;
   }
 
-  if (projectKey === "DEVFH" && productTarget === "fatturhello") {
+  if (inferTargetFromProjectKey(projectKey, targeting) === productTarget) {
     return paths.length > 0 ? 0.8 : 0.66;
   }
 
@@ -357,18 +334,18 @@ function mergeRecords(existingRecords, incomingRecords) {
 }
 
 async function handleJiraRequest(serverDefinition, action, payload) {
-  if (action === "searchTicketsByFilter") {
-    throw new Error("searchTicketsByFilter is not wired yet; configure Jira MCP with JQL");
-  }
-
-  if (action !== "searchTicketsByJql") {
+  if (!["searchTicketsByJql", "searchTicketsByFilter"].includes(action)) {
     throw new Error(`Unsupported Jira MCP action: ${action}`);
   }
 
+  const jql =
+    action === "searchTicketsByFilter"
+      ? `filter = ${payload.filterId}`
+      : payload.jql;
   const cloudId = payload.cloudId ?? "";
   const rawResult = await callTool(serverDefinition, "searchJiraIssuesUsingJql", {
     cloudId,
-    jql: payload.jql,
+    jql,
     maxResults: payload.maxResults ?? 50,
     responseContentFormat: payload.responseContentFormat ?? "markdown"
   });
@@ -386,7 +363,7 @@ async function handleContextRequest(serverDefinition, action, payload) {
     throw new Error(`Unsupported llm-context MCP action: ${action}`);
   }
 
-  const ticket = normalizeSupportTicket(payload.ticket ?? {});
+  const ticket = normalizeSupportTicket(payload.ticket ?? {}, { targeting: payload.targeting });
   const queryText = [ticket.summary, ticket.rawDescription, ticket.pageUrl, ticket.productTarget]
     .filter(Boolean)
     .join("\n");
@@ -405,22 +382,32 @@ async function handleContextRequest(serverDefinition, action, payload) {
   }
 
   const contextPaths = collectContextPaths(searchPayload?.data ?? searchPayload?.raw ?? {});
-  const productTarget = inferProductTargetFromEvidence(ticket, contextPaths, searchPayload);
-  const confidence = inferConfidence(ticket, productTarget, contextPaths);
-  const inScope = productTarget !== "unknown";
+  const productTarget = inferProductTargetFromEvidence(
+    ticket,
+    contextPaths,
+    searchPayload,
+    payload.targeting
+  );
+  const defaults = resolveMappingDefaults(productTarget, payload.targeting);
+  const confidence = inferConfidence(ticket, productTarget, contextPaths, payload.targeting);
+  const inScope = defaults.inScope ?? productTarget !== defaultUnknownTarget(payload.targeting);
 
   return {
     productTarget,
-    repoTarget: defaultRepoTarget(productTarget),
-    area: productTarget,
+    repoTarget: defaults.repoTarget,
+    area: defaults.area,
     inScope,
-    feasibility: inScope ? (confidence < 0.7 ? "feasible_low_confidence" : "feasible") : "not_feasible",
+    feasibility: inScope
+      ? confidence < 0.7
+        ? "feasible_low_confidence"
+        : defaults.feasibility
+      : "not_feasible",
     confidence,
     hints: contextPaths.slice(0, 5),
     implementationHint:
       contextPaths.length > 0
         ? `Inspect ${contextPaths.slice(0, 3).join(", ")}`
-        : `Inspect mapped ${productTarget} area`,
+        : defaults.implementationHint,
     blockers: [],
     recheckConditions: [],
     source: {
@@ -608,23 +595,127 @@ async function handleBitbucketRequest(serverDefinition, action, payload) {
   throw new Error(`Unsupported Bitbucket MCP action: ${action}`);
 }
 
-async function handleSqlDbRequest(_serverDefinition, action, payload) {
+function normalizeSqlRows(data) {
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (Array.isArray(data?.rows)) {
+    return data.rows;
+  }
+
+  if (Array.isArray(data?.result)) {
+    return data.result;
+  }
+
+  return [];
+}
+
+function summarizeSqlResult(rows, database) {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return `query on ${database} returned no rows`;
+  }
+
+  if (rows.length === 1) {
+    return `query on ${database} returned 1 row`;
+  }
+
+  return `query on ${database} returned ${rows.length} rows`;
+}
+
+export function resolveSqlBridgeInvocation(serverName, action, payload = {}) {
   if (action === "recordHarnessRun") {
+    if (serverName !== "llm-db-dev-mcp") {
+      return {
+        executable: false,
+        response: {
+          runId: payload.runId ?? `mcp-run-${Date.now()}`,
+          mode: payload.mode,
+          stored: false,
+          note: "record run persistence requires a writable llm-db-dev-mcp target"
+        }
+      };
+    }
+
+    if (!payload.sql?.trim()) {
+      return {
+        executable: false,
+        response: {
+          runId: payload.runId ?? `mcp-run-${Date.now()}`,
+          mode: payload.mode,
+          stored: false,
+          note: "record run persistence is disabled because no SQL statement is configured"
+        }
+      };
+    }
+
     return {
-      runId: `mcp-run-${Date.now()}`,
-      mode: payload.mode,
-      stored: false,
-      note: "DB MCP bridge not wired to a concrete write tool yet"
+      executable: true,
+      toolName: "db_dev_write",
+      toolArgs: {
+        sql: payload.sql,
+        parameters: payload.parameters ?? {},
+        reason: payload.reason ?? `malkuth run log (${payload.mode ?? "unknown"})`
+      }
     };
   }
 
   if (action === "runDiagnosticQuery") {
+    const query = payload.query?.trim();
+    if (!query) {
+      return {
+        executable: false,
+        response: {
+          used: false,
+          source: "mcp-bridge",
+          database: payload.database ?? "prod",
+          rows: [],
+          summary: ""
+        }
+      };
+    }
+
     return {
-      used: false,
+      executable: true,
+      toolName: serverName === "llm-db-dev-mcp" ? "db_dev_read" : "db_prod_read_anonymized",
+      toolArgs: {
+        sql: query,
+        parameters: payload.parameters ?? {},
+        maxRows: payload.maxRows
+      }
+    };
+  }
+
+  throw new Error(`Unsupported llm-sql-db MCP action: ${action}`);
+}
+
+async function handleSqlDbRequest(serverName, serverDefinition, action, payload) {
+  const invocation = resolveSqlBridgeInvocation(serverName, action, payload);
+  if (!invocation.executable) {
+    return invocation.response;
+  }
+
+  if (action === "recordHarnessRun") {
+    await callTool(serverDefinition, invocation.toolName, invocation.toolArgs);
+    return {
+      runId: payload.runId ?? `mcp-run-${Date.now()}`,
+      mode: payload.mode,
+      stored: true,
+      note: "run recorded through llm-db-dev-mcp"
+    };
+  }
+
+  if (action === "runDiagnosticQuery") {
+    const rawResult = await callTool(serverDefinition, invocation.toolName, invocation.toolArgs);
+    const parsed = unwrapToolResult(rawResult);
+    const rows = normalizeSqlRows(parsed.data);
+
+    return {
+      used: true,
       source: "mcp-bridge",
       database: payload.database ?? "prod",
-      rows: [],
-      summary: "DB MCP bridge not wired to a concrete query tool yet"
+      rows,
+      summary: parsed.data?.summary ?? summarizeSqlResult(rows, payload.database ?? "prod")
     };
   }
 
@@ -663,7 +754,7 @@ export async function handleBridgeRequest({
   }
 
   if (serverName === "llm-db-prod-mcp" || serverName === "llm-db-dev-mcp") {
-    return handleSqlDbRequest(serverDefinition, request.action, request.payload ?? {});
+    return handleSqlDbRequest(serverName, serverDefinition, request.action, request.payload ?? {});
   }
 
   throw new Error(`No bridge handler registered for server ${request.server}`);

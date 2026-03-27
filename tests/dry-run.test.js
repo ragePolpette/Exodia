@@ -7,7 +7,7 @@ import os from "node:os";
 import { runHarness } from "../src/orchestration/run-harness.js";
 
 test("dry-run bootstraps triage and execution with mock adapters", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "bpopilot-harness-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-dry-run-"));
   const configPath = path.join(workspace, "harness.config.json");
   const config = {
     mode: "triage-and-execution",
@@ -17,16 +17,28 @@ test("dry-run bootstraps triage and execution with mock adapters", async () => {
       filePath: "./memory.json"
     },
     execution: {
-      baseBranch: "BPOFH",
+      baseBranch: "main",
       allowRealPrs: false
+    },
+    targeting: {
+      rules: [
+        {
+          target: "legacy",
+          repoTarget: "core-app",
+          area: "core-platform",
+          aliases: ["core-suite"],
+          scopeAliases: ["coreapp"],
+          projectKeys: ["GEN"]
+        }
+      ]
     },
     mockTickets: [
       {
-        key: "BPO-101",
-        projectKey: "BPO",
-        summary: "Harness smoke validation",
-        scope: "BpoPilot",
-        repoTarget: "BPOFH"
+        key: "GEN-101",
+        projectKey: "GEN",
+        summary: "Core-suite smoke validation",
+        scope: "CoreApp",
+        repoTarget: "core-app"
       },
       {
         key: "OPS-9",
@@ -48,6 +60,7 @@ test("dry-run bootstraps triage and execution with mock adapters", async () => {
   assert.equal(summary.execution.length, 1);
   assert.equal(summary.triage[0].status_decision, "feasible");
   assert.equal(summary.triage[0].product_target, "legacy");
+  assert.equal(summary.triage[0].repo_target, "core-app");
   assert.equal(summary.execution[0].status, "pr_opened");
   assert.equal(summary.execution[0].productTarget, "legacy");
 

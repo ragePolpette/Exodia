@@ -54,19 +54,27 @@
         "topology": "split",
         "operations": {
           "recordRun": {
-            "server": "llm-db-prod-mcp"
+            "server": "llm-db-dev-mcp",
+            "action": "recordHarnessRun",
+            "enabled": false,
+            "database": "dev",
+            "sql": ""
           }
         },
         "targets": {
           "prod": {
             "server": "llm-db-prod-mcp",
             "database": "prod",
-            "access": "read-only"
+            "access": "read-only",
+            "action": "runDiagnosticQuery",
+            "maxRows": 50
           },
           "dev": {
             "server": "llm-db-dev-mcp",
             "database": "dev",
-            "access": "schema-and-tests"
+            "access": "schema-and-tests",
+            "action": "runDiagnosticQuery",
+            "maxRows": 50
           }
         },
         "defaultDatabase": "prod"
@@ -106,10 +114,51 @@
   "execution": {
     "enabled": false,
     "dryRun": true,
+    "trustLevel": "mcp-readonly",
     "baseBranch": "main",
     "allowRealPrs": false,
     "allowMerge": false,
+    "allowedRepositories": ["your-repository"],
+    "allowedBaseBranches": ["main"],
     "workspaceRoot": "C:\\path\\to\\your\\workspace"
+  },
+  "targeting": {
+    "unknownTarget": "unknown",
+    "rules": [
+      {
+        "target": "legacy",
+        "repoTarget": "core-app",
+        "area": "core-platform",
+        "inScope": true,
+        "feasibility": "feasible",
+        "implementationHint": "Inspect the core platform services before changing the shared pipeline",
+        "aliases": ["legacy-suite", "core-backoffice"],
+        "scopeAliases": ["coreapp"],
+        "projectKeys": ["GEN"]
+      },
+      {
+        "target": "fatturhello",
+        "repoTarget": "public-web",
+        "area": "public-experience",
+        "inScope": true,
+        "feasibility": "feasible",
+        "implementationHint": "Inspect the public experience modules and avoid widening the scope too early",
+        "aliases": ["public-app", "portal-web"],
+        "scopeAliases": ["publicapp"],
+        "projectKeys": ["WEB"]
+      },
+      {
+        "target": "fiscobot",
+        "repoTarget": "automation-suite",
+        "area": "automation-workflows",
+        "inScope": true,
+        "feasibility": "feasible",
+        "implementationHint": "Inspect the automation workflow handlers tied to the failing rule",
+        "aliases": ["automation-bot", "bot-suite"],
+        "scopeAliases": ["automation"],
+        "projectKeys": ["BOT"]
+      }
+    ]
   },
   "mcpBridge": {
     "mode": "external",

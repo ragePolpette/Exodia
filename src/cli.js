@@ -1,5 +1,9 @@
 #!/usr/bin/env node
+import { access } from "node:fs/promises";
 import { runHarness } from "./orchestration/run-harness.js";
+import { loadConfig } from "./config/load-config.js";
+import { renderPublishReadinessReport, runPublishReadinessReview } from "./review/publish-readiness.js";
+import { renderScanReport, scanWorkspace } from "./security/public-hygiene.js";
 
 function parseArgs(argv) {
   const [first, ...remaining] = argv;
@@ -70,11 +74,15 @@ function renderHelp() {
     "  node src/cli.js triage --config ./config/harness.config.example.json --dry-run",
     "  node src/cli.js execute --config ./config/harness.config.example.json --dry-run --report execution",
     "  node src/cli.js execute --config ./config/harness.config.real.example.json --real-run --report execution",
+    "  node src/cli.js audit --config ./config/harness.config.example.json",
+    "  node src/cli.js review --config ./config/harness.config.example.json",
     "",
     "Commands:",
     "  run      triage + execution",
     "  triage   triage only report",
     "  execute  triage + execution with execution report",
+    "  audit    public hygiene scan for tracked source, tests and config",
+    "  review   publish-readiness review for docs, examples and hygiene",
     "",
     "Options:",
     "  --config <path>   config json path",
@@ -82,7 +90,7 @@ function renderHelp() {
     "  --real-run        disable dry-run and allow config to request real execution",
     "  --execution-enabled    force execution on",
     "  --execution-disabled   force execution off",
-    "  --report <name>   default | execution",
+    "  --report <name>   default | execution | final",
     "  --help            show this help"
   ].join("\n");
 }
@@ -92,47 +100,64 @@ function renderSummary(summary) {
     return summary.executionReport;
   }
 
+  if (summary.report === "final") {
+    return summary.finalReport;
+  }
+
   if (summary.mode === "triage-only") {
     return summary.triageReport;
   }
+  return summary.finalReport;
+}
 
-  const lines = [
-    "Malkuth Local Ticket Harness",
-    `Mode: ${summary.mode}`,
-    `Dry run: ${summary.dryRun}`,
-    `Run id: ${summary.runId || "n/a"}`,
-    `Execution enabled: ${summary.executionEnabled}`,
-    `Execution dry run: ${summary.executionDryRun}`,
-    `Adapters: jira=${summary.adapterKinds.jira}, llmContext=${summary.adapterKinds.llmContext}, llmMemory=${summary.adapterKinds.llmMemory}, llmSqlDb=${summary.adapterKinds.llmSqlDb}, bitbucket=${summary.adapterKinds.bitbucket}`,
-    `Tickets loaded: ${summary.ticketCount}`,
-    `Tickets triaged: ${summary.triage.length}`,
-    `Verification results: ${summary.verification?.length ?? 0}`,
-    `Execution plans: ${summary.execution.length}`,
-    `Memory file: ${summary.memoryFile}`,
-    `Resume reused: rejected=${summary.resumeStats.skippedAlreadyRejected} in_progress=${summary.resumeStats.skippedAlreadyInProgress}`
-  ];
+async function resolveWorkspaceRootForChecks(config) {
+  const candidates = [
+    config.verification?.sensitiveScan?.workspaceRoot,
+    process.cwd(),
+    config.execution.workspaceRoot
+  ].filter(Boolean);
 
-  lines.push("Triage:");
-  for (const item of summary.triage) {
-    lines.push(`- ${item.ticket_key}: ${item.status_decision} (${item.short_reason})`);
-  }
-
-  if (summary.execution.length > 0) {
-    lines.push("Execution:");
-    for (const item of summary.execution) {
-      lines.push(
-        `- ${item.ticketKey}: branch=${item.branchName} pr=${item.pullRequestTitle}`
-      );
+  for (const candidate of candidates) {
+    try {
+      await access(candidate);
+      return candidate;
+    } catch {
+      // try the next candidate
     }
   }
 
-  return lines.join("\n");
+  return process.cwd();
 }
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
     console.log(renderHelp());
+    return;
+  }
+
+  if (options.command === "audit") {
+    const config = await loadConfig(options.configPath);
+    const workspaceRoot = await resolveWorkspaceRootForChecks(config);
+    const result = await scanWorkspace(workspaceRoot, {
+      ...config.verification?.sensitiveScan,
+      enabled: true
+    });
+    console.log(renderScanReport(result));
+    if (result.issues.length > 0) {
+      process.exitCode = 1;
+    }
+    return;
+  }
+
+  if (options.command === "review") {
+    const config = await loadConfig(options.configPath);
+    const workspaceRoot = await resolveWorkspaceRootForChecks(config);
+    const result = await runPublishReadinessReview(workspaceRoot, config.verification?.sensitiveScan);
+    console.log(renderPublishReadinessReport(result));
+    if (result.status !== "passed") {
+      process.exitCode = 1;
+    }
     return;
   }
 

@@ -1,14 +1,6 @@
-import { BitbucketAdapter } from "./bitbucket-adapter.js";
-import { McpBitbucketAdapter } from "./bitbucket-mcp-adapter.js";
-import { JiraAdapter } from "./jira-adapter.js";
-import { McpJiraAdapter } from "./jira-mcp-adapter.js";
-import { LlmContextAdapter } from "./llm-context-adapter.js";
-import { McpLlmContextAdapter } from "./llm-context-mcp-adapter.js";
-import { LlmMemoryAdapter } from "./llm-memory-adapter.js";
-import { McpLlmMemoryAdapter } from "./llm-memory-mcp-adapter.js";
-import { LlmSqlDbAdapter } from "./llm-sql-db-adapter.js";
-import { McpLlmSqlDbAdapter } from "./llm-sql-db-mcp-adapter.js";
 import { TicketMemoryAdapter } from "./ticket-memory-adapter.js";
+import { buildEnterpriseAdapters } from "./build-enterprise-adapters.js";
+import { buildGenericAdapters } from "./build-generic-adapters.js";
 import { createMcpClient } from "../mcp/create-mcp-client.js";
 import { FileMemoryStore } from "../memory/file-memory-store.js";
 
@@ -30,54 +22,8 @@ export function buildAdapters({ config, logger }) {
   );
   const mcpClient = needsMcpClient ? createMcpClient(config.mcpBridge) : null;
   const definitions = {
-    jira: {
-      mock: () => new JiraAdapter({ tickets: config.mockTickets }),
-      mcp: () =>
-        new McpJiraAdapter({
-          ...config.adapters.jira.mcp,
-          client: mcpClient
-        })
-    },
-    llmContext: {
-      mock: () => new LlmContextAdapter(config.adapters.llmContext.mock),
-      mcp: () =>
-        new McpLlmContextAdapter({
-          ...config.adapters.llmContext.mcp,
-          client: mcpClient
-        })
-    },
-    llmMemory: {
-      mock: () => new LlmMemoryAdapter(config.adapters.llmMemory.mock),
-      mcp: () =>
-        new McpLlmMemoryAdapter({
-          ...config.adapters.llmMemory.mcp,
-          client: mcpClient
-        })
-    },
-    llmSqlDb: {
-      mock: () => new LlmSqlDbAdapter(config.adapters.llmSqlDb.mock),
-      mcp: () =>
-        new McpLlmSqlDbAdapter({
-          ...config.adapters.llmSqlDb.mcp,
-          client: mcpClient
-        })
-    },
-    bitbucket: {
-      mock: () =>
-        new BitbucketAdapter({
-          ...config.adapters.bitbucket.mock,
-          baseBranch: config.execution.baseBranch,
-          allowMerge: config.execution.allowMerge
-        }),
-      mcp: () =>
-        new McpBitbucketAdapter({
-          ...config.adapters.bitbucket.mcp,
-          baseBranch: config.execution.baseBranch,
-          allowMerge: config.execution.allowMerge,
-          workspaceRoot: config.execution.workspaceRoot || config.adapters.bitbucket.mcp.workspaceRoot,
-          client: mcpClient
-        })
-    }
+    ...buildGenericAdapters({ config, mcpClient }),
+    ...buildEnterpriseAdapters({ config, mcpClient })
   };
 
   const adapters = {};

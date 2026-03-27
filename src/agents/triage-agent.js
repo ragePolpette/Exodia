@@ -4,12 +4,13 @@ import { buildTriageInsight } from "../memory/semantic-insights.js";
 import { TriageService } from "../triage/triage-service.js";
 
 export class TriageAgent {
-  constructor({ contextAdapter, ticketMemoryAdapter, semanticMemoryAdapter, sqlDbAdapter, logger }) {
+  constructor({ contextAdapter, ticketMemoryAdapter, semanticMemoryAdapter, sqlDbAdapter, logger, securityConfig }) {
     this.contextAdapter = contextAdapter;
     this.ticketMemoryAdapter = ticketMemoryAdapter;
     this.semanticMemoryAdapter = semanticMemoryAdapter;
     this.sqlDbAdapter = sqlDbAdapter;
     this.logger = logger;
+    this.securityConfig = securityConfig;
     this.service = new TriageService();
   }
 
@@ -67,7 +68,7 @@ export class TriageAgent {
       memoryByTicket.set(ticket.key, createMemoryRecord(decision));
 
       try {
-        const insight = buildTriageInsight(ticket, mapping, decision);
+        const insight = buildTriageInsight(ticket, mapping, decision, this.securityConfig?.redaction);
         if (insight) {
           await this.semanticMemoryAdapter?.captureTriageInsight?.(insight);
         }

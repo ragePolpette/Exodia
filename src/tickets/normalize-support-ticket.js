@@ -1,3 +1,5 @@
+import { inferTargetFromTextFragments } from "../targeting/target-rules.js";
+
 function cleanLine(value) {
   return `${value ?? ""}`.trim();
 }
@@ -7,31 +9,11 @@ function extractFirstMatch(text, pattern) {
   return match?.[1]?.trim() ?? "";
 }
 
-function inferTargetFromText(summary, description, pageUrl) {
-  const text = [summary, description, pageUrl].filter(Boolean).join(" ").toLowerCase();
-
-  if (text.includes("app.fiscobot.it") || /\bfiscobot\b/.test(text)) {
-    return "fiscobot";
-  }
-
-  if (
-    text.includes("app.fatturhello.it") ||
-    text.includes("impersona.fatturhello.it") ||
-    text.includes("fatturhello=true") ||
-    /\bfatturhello\b/.test(text) ||
-    /\byeti\b/.test(text)
-  ) {
-    return "fatturhello";
-  }
-
-  if (/\bbpopilot\b/.test(text) || /\bbpo\b/.test(text)) {
-    return "legacy";
-  }
-
-  return "";
+function inferTargetFromText(summary, description, pageUrl, targeting) {
+  return inferTargetFromTextFragments([summary, description, pageUrl], targeting);
 }
 
-export function normalizeSupportTicket(ticket) {
+export function normalizeSupportTicket(ticket, options = {}) {
   const description = `${ticket.description ?? ""}`;
   const lines = description
     .split(/\r?\n/)
@@ -43,7 +25,12 @@ export function normalizeSupportTicket(ticket) {
   const pageUrl = extractFirstMatch(description, /\burl\s*:\s*(https?:\/\/\S+)/i);
   const phone = extractFirstMatch(description, /\btel\s*:\s*(.+)/i);
   const studio = lines.find((line, index) => index > 0 && /^studio\b/i.test(line)) ?? "";
-  const productTargetHint = inferTargetFromText(ticket.summary, description, pageUrl);
+  const productTargetHint = inferTargetFromText(
+    ticket.summary,
+    description,
+    pageUrl,
+    options.targeting
+  );
 
   return {
     ...ticket,

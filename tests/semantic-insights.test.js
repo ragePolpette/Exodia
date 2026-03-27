@@ -8,37 +8,37 @@ import {
 
 test("buildTriageInsight stores high-signal feasible mappings", () => {
   const insight = buildTriageInsight(
-    { key: "DEVFH-1", summary: "Errore fattura" },
+    { key: "WEB-1", summary: "Public portal invoice issue" },
     {
-      hints: ["pubblico\\api\\Controllers\\Fattura.cs"],
+      hints: ["public-web\\api\\Controllers\\InvoiceController.cs"],
       blockers: []
     },
     {
       product_target: "fatturhello",
-      repo_target: "pubblico",
+      repo_target: "public-web",
       status_decision: "feasible",
       confidence: 0.82,
       short_reason: "ticket mapped to fatturhello and looks actionable",
-      implementation_hint: "Inspect pubblico/api/Controllers/Fattura.cs",
+      implementation_hint: "Inspect public-web/api/Controllers/InvoiceController.cs",
       recheck_conditions: []
     }
   );
 
   assert.equal(insight.phase, "triage");
-  assert.equal(insight.ticketKey, "DEVFH-1");
-  assert.match(insight.content, /Fattura\.cs/);
+  assert.equal(insight.ticketKey, "WEB-1");
+  assert.match(insight.content, /InvoiceController\.cs/);
 });
 
 test("buildTriageInsight skips low-signal feasible mappings", () => {
   const insight = buildTriageInsight(
-    { key: "DEVFH-2", summary: "Errore generico" },
+    { key: "WEB-2", summary: "Generic portal issue" },
     {
       hints: [],
       blockers: []
     },
     {
       product_target: "fatturhello",
-      repo_target: "pubblico",
+      repo_target: "public-web",
       status_decision: "feasible",
       confidence: 0.61,
       short_reason: "generic mapping",
@@ -52,23 +52,23 @@ test("buildTriageInsight skips low-signal feasible mappings", () => {
 
 test("buildExecutionInsight stores meaningful execution outcomes", () => {
   const insight = buildExecutionInsight(
-    { key: "BPO-1", summary: "Apri PR" },
+    { key: "GEN-1", summary: "Open PR" },
     {
       product_target: "legacy",
-      repo_target: "api+asp",
+      repo_target: "core-app",
       confidence: 0.9
     },
     {
       status: "pr_opened",
       reason: "opened pull request",
-      branchName: "bpo-1-apri-pr",
+      branchName: "gen-1-open-pr",
       pullRequestUrl: "https://example.invalid/pr/1",
       productTarget: "legacy",
-      repoTarget: "api+asp"
+      repoTarget: "core-app"
     }
   );
 
   assert.equal(insight.phase, "execution");
   assert.match(insight.content, /opened pull request/);
-  assert.match(insight.content, /example\.invalid/);
+  assert.match(insight.content, /\[redacted:url\]/);
 });

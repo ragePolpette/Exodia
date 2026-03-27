@@ -73,7 +73,8 @@ function createConfig(overrides = {}) {
       },
       fixtureFile: "",
       command: "",
-      args: []
+      args: [],
+      allowedActionsByServer: {}
     },
     mockTickets: [],
     ...overrides

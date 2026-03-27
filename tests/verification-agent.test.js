@@ -6,16 +6,16 @@ import { VerificationService } from "../src/verification/verification-service.js
 function createItem(overrides = {}) {
   return {
     ticket: {
-      key: "BPO-900",
-      projectKey: "BPO",
+      key: "GEN-900",
+      projectKey: "GEN",
       summary: "Safe verification ticket",
       productTarget: "legacy",
-      repoTarget: "api+asp",
+      repoTarget: "core-app",
       ...overrides.ticket
     },
     decision: {
       product_target: "legacy",
-      repo_target: "api+asp",
+      repo_target: "core-app",
       status_decision: "feasible",
       confidence: 0.91,
       ...overrides.decision
@@ -25,9 +25,9 @@ function createItem(overrides = {}) {
 
 function createPayload(overrides = {}) {
   return {
-    branchName: "bpo-900-safe-verification-ticket",
-    commitMessage: "feat(BPO-900): Safe verification ticket",
-    pullRequestTitle: "[BPO-900] Safe verification ticket",
+    branchName: "gen-900-safe-verification-ticket",
+    commitMessage: "feat(GEN-900): Safe verification ticket",
+    pullRequestTitle: "[GEN-900] Safe verification ticket",
     ...overrides
   };
 }
@@ -59,7 +59,7 @@ test("verification service blocks multiline pull request titles", () => {
   const result = service.verify(
     createItem(),
     createPayload({
-      pullRequestTitle: "[BPO-900] Unsafe title\nsecond line"
+      pullRequestTitle: "[GEN-900] Unsafe title\nsecond line"
     })
   );
 

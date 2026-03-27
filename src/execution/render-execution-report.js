@@ -1,8 +1,12 @@
+import { redactText } from "../security/redaction.js";
+
 export function renderExecutionReport(summary) {
+  const redaction = summary.redaction;
   const lines = [
     "Malkuth Execution Report",
     `Mode: ${summary.mode}`,
     `Dry run: ${summary.dryRun}`,
+    `Execution trust: ${summary.executionTrustLevel ?? "n/a"}`,
     `Run id: ${summary.runId || "n/a"}`,
     `Adapters: jira=${summary.adapterKinds.jira}, llmContext=${summary.adapterKinds.llmContext}, llmMemory=${summary.adapterKinds.llmMemory}, llmSqlDb=${summary.adapterKinds.llmSqlDb}, bitbucket=${summary.adapterKinds.bitbucket}`,
     `Tickets triaged: ${summary.triage.length}`,
@@ -10,6 +14,7 @@ export function renderExecutionReport(summary) {
     `Execution results: ${summary.execution.length}`,
     `Memory file: ${summary.memoryFile}`,
     `Resume: before=${summary.resumeStats.memoryRecordsBefore} after=${summary.resumeStats.memoryRecordsAfter}`,
+    `Audit entries: ${summary.auditTrail?.length ?? 0}`,
     "Verification status counts:"
   ];
 
@@ -49,15 +54,15 @@ export function renderExecutionReport(summary) {
 
   for (const item of summary.verification) {
     lines.push(`- ${item.ticketKey}: ${item.status} | product=${item.productTarget} | repo=${item.repoTarget}`);
-    lines.push(`  reason: ${item.reason}`);
+    lines.push(`  reason: ${redactText(item.reason, redaction)}`);
     if (item.branchName) {
       lines.push(`  branch: ${item.branchName}`);
     }
     if (item.commitMessage) {
-      lines.push(`  commit: ${item.commitMessage}`);
+      lines.push(`  commit: ${redactText(item.commitMessage, redaction)}`);
     }
     if (item.pullRequestTitle) {
-      lines.push(`  pr_title: ${item.pullRequestTitle}`);
+      lines.push(`  pr_title: ${redactText(item.pullRequestTitle, redaction)}`);
     }
   }
 
@@ -69,15 +74,22 @@ export function renderExecutionReport(summary) {
 
   for (const item of summary.execution) {
     lines.push(`- ${item.ticketKey}: ${item.status} | product=${item.productTarget} | repo=${item.repoTarget}`);
-    lines.push(`  reason: ${item.reason}`);
+    lines.push(`  reason: ${redactText(item.reason, redaction)}`);
     if (item.branchName) {
       lines.push(`  branch: ${item.branchName}`);
     }
     if (item.commitMessage) {
-      lines.push(`  commit: ${item.commitMessage}`);
+      lines.push(`  commit: ${redactText(item.commitMessage, redaction)}`);
     }
     if (item.pullRequestUrl) {
-      lines.push(`  pr: ${item.pullRequestUrl}`);
+      lines.push(`  pr: ${redactText(item.pullRequestUrl, redaction)}`);
+    }
+  }
+
+  if ((summary.auditTrail?.length ?? 0) > 0) {
+    lines.push("Audit trail:");
+    for (const entry of summary.auditTrail) {
+      lines.push(`- ${entry.phase}: ${entry.message}`);
     }
   }
 

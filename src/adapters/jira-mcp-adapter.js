@@ -8,17 +8,20 @@ export class McpJiraAdapter {
   }
 
   normalizeTicket(ticket) {
-    return normalizeSupportTicket({
-      key: ticket.key,
-      projectKey: ticket.projectKey ?? ticket.project_key ?? ticket.project?.key ?? "UNKNOWN",
-      summary: ticket.summary,
-      description: ticket.description,
-      productTarget: ticket.productTarget ?? ticket.product_target,
-      scope: ticket.scope ?? "Unspecified",
-      repoTarget: ticket.repoTarget ?? ticket.repo_target ?? "UNKNOWN",
-      contextMapping: ticket.contextMapping ?? ticket.context_mapping,
-      recheckConditions: ticket.recheckConditions ?? ticket.recheck_conditions ?? []
-    });
+    return normalizeSupportTicket(
+      {
+        key: ticket.key,
+        projectKey: ticket.projectKey ?? ticket.project_key ?? ticket.project?.key ?? "UNKNOWN",
+        summary: ticket.summary,
+        description: ticket.description,
+        productTarget: ticket.productTarget ?? ticket.product_target,
+        scope: ticket.scope ?? "Unspecified",
+        repoTarget: ticket.repoTarget ?? ticket.repo_target ?? "UNKNOWN",
+        contextMapping: ticket.contextMapping ?? ticket.context_mapping,
+        recheckConditions: ticket.recheckConditions ?? ticket.recheck_conditions ?? []
+      },
+      { targeting: this.options.targeting }
+    );
   }
 
   async listOpenTickets() {

@@ -22,6 +22,32 @@ async function runTriageScenario({ mockTickets, existingMemory = [] }) {
       baseBranch: "BPOFH",
       allowRealPrs: false
     },
+    targeting: {
+      rules: [
+        {
+          target: "legacy",
+          repoTarget: "core-app",
+          area: "core-platform",
+          inScope: true,
+          feasibility: "feasible",
+          implementationHint: "Inspect core platform code",
+          aliases: ["legacy-suite"],
+          scopeAliases: ["coreapp"],
+          projectKeys: ["BPO"]
+        },
+        {
+          target: "fiscobot",
+          repoTarget: "automation-suite",
+          area: "automation-workflows",
+          inScope: true,
+          feasibility: "feasible",
+          implementationHint: "Inspect automation workflows",
+          aliases: ["fiscobot"],
+          scopeAliases: ["automation"],
+          projectKeys: ["FH"]
+        }
+      ]
+    },
     mockTickets
   };
 
@@ -158,4 +184,25 @@ test("triage classifies explicit fiscobot tickets into the fiscobot target", asy
   assert.equal(summary.triage[0].status_decision, "feasible");
   assert.equal(summary.triage[0].product_target, "fiscobot");
   assert.equal(summary.triage[0].repo_target, "pubblico+bpofh+fiscobot");
+});
+
+test("triage uses configured mapping defaults when context omits area and feasibility", async () => {
+  const summary = await runTriageScenario({
+    mockTickets: [
+      {
+        key: "BPO-206",
+        projectKey: "BPO",
+        summary: "Legacy-suite dashboard issue",
+        contextMapping: {
+          inScope: true,
+          productTarget: "legacy",
+          confidence: 0.84
+        }
+      }
+    ]
+  });
+
+  assert.equal(summary.triage[0].status_decision, "feasible");
+  assert.equal(summary.triage[0].repo_target, "core-app");
+  assert.equal(summary.triage[0].implementation_hint, "Inspect core platform code");
 });

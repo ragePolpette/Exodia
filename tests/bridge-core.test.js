@@ -5,6 +5,7 @@ import {
   defaultRepoTarget,
   inferProductTargetFromEvidence,
   parseServerRegistryToml,
+  resolveSqlBridgeInvocation,
   resolveServerDefinition,
   unwrapToolResult
 } from "../src/mcp/bridge-core.js";
@@ -116,4 +117,78 @@ test("defaultRepoTarget matches harness repo conventions", () => {
   assert.equal(defaultRepoTarget("fatturhello"), "pubblico");
   assert.equal(defaultRepoTarget("fiscobot"), "pubblico+bpofh+fiscobot");
   assert.equal(defaultRepoTarget("unknown"), "UNKNOWN");
+});
+
+test("target rules can override aliases, project keys and repo defaults", () => {
+  const targeting = {
+    rules: [
+      {
+        target: "legacy",
+        repoTarget: "core-app",
+        area: "core-platform",
+        inScope: true,
+        feasibility: "feasible",
+        implementationHint: "Inspect core platform code",
+        aliases: ["legacy-suite"],
+        scopeAliases: ["coreapp"],
+        projectKeys: ["GEN"]
+      }
+    ]
+  };
+
+  assert.equal(
+    inferProductTargetFromEvidence(
+      {
+        summary: "Issue in Legacy-Suite dashboard",
+        rawDescription: "",
+        pageUrl: ""
+      },
+      [],
+      null,
+      targeting
+    ),
+    "legacy"
+  );
+
+  assert.equal(
+    inferProductTargetFromEvidence(
+      {
+        key: "GEN-10",
+        projectKey: "GEN",
+        summary: "Generic ticket",
+        rawDescription: "",
+        pageUrl: ""
+      },
+      [],
+      null,
+      targeting
+    ),
+    "legacy"
+  );
+
+  assert.equal(defaultRepoTarget("legacy", targeting), "core-app");
+});
+
+test("bridge SQL diagnostics resolve anonymized prod reads for prod targets", () => {
+  const invocation = resolveSqlBridgeInvocation("llm-db-prod-mcp", "runDiagnosticQuery", {
+    database: "prod",
+    query: "select 1",
+    parameters: {}
+  });
+
+  assert.equal(invocation.executable, true);
+  assert.equal(invocation.toolName, "db_prod_read_anonymized");
+  assert.equal(invocation.toolArgs.sql, "select 1");
+});
+
+test("bridge SQL run logging refuses non-writable targets without configured dev server", async () => {
+  const invocation = resolveSqlBridgeInvocation("llm-db-prod-mcp", "recordHarnessRun", {
+    runId: "run-1",
+    mode: "triage-only",
+    sql: "insert into harness_runs values (@runId)"
+  });
+
+  assert.equal(invocation.executable, false);
+  assert.equal(invocation.response.stored, false);
+  assert.match(invocation.response.note, /requires a writable llm-db-dev-mcp/i);
 });

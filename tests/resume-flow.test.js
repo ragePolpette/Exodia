@@ -7,7 +7,7 @@ import os from "node:os";
 import { runHarness } from "../src/orchestration/run-harness.js";
 
 test("resume reuses memory and skips tickets already in progress", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "bpopilot-resume-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-resume-"));
   const configPath = path.join(workspace, "harness.config.json");
   const memoryPath = path.join(workspace, "memory.json");
   const config = {
@@ -20,20 +20,33 @@ test("resume reuses memory and skips tickets already in progress", async () => {
     execution: {
       enabled: true,
       dryRun: true,
-      baseBranch: "BPOFH",
+      baseBranch: "main",
       allowRealPrs: false,
       allowMerge: false,
       workspaceRoot: workspace
     },
+    targeting: {
+      rules: [
+        {
+          target: "legacy",
+          repoTarget: "core-app",
+          area: "core-platform",
+          aliases: ["core-suite"],
+          scopeAliases: ["coreapp"],
+          projectKeys: ["GEN"]
+        }
+      ]
+    },
     mockTickets: [
       {
-        key: "BPO-601",
-        projectKey: "BPO",
+        key: "GEN-601",
+        projectKey: "GEN",
         summary: "Resume existing work",
-        repoTarget: "BPOFH",
+        repoTarget: "core-app",
         contextMapping: {
           inScope: true,
-          repoTarget: "BPOFH",
+          productTarget: "legacy",
+          repoTarget: "core-app",
           feasibility: "feasible",
           confidence: 0.91
         }
@@ -47,15 +60,16 @@ test("resume reuses memory and skips tickets already in progress", async () => {
     JSON.stringify(
       [
         {
-          ticket_key: "BPO-601",
-          project_key: "BPO",
-          repo_target: "BPOFH",
+          ticket_key: "GEN-601",
+          project_key: "GEN",
+          product_target: "legacy",
+          repo_target: "core-app",
           status_decision: "feasible",
           confidence: 0.91,
           short_reason: "already being worked",
           implementation_hint: "",
-          branch_name: "bpo-601-resume-existing-work",
-          pr_url: "mock://pull-request/bpo-601",
+          branch_name: "gen-601-resume-existing-work",
+          pr_url: "mock://pull-request/gen-601",
           last_outcome: "pr_opened",
           recheck_conditions: [],
           updated_at: "2026-03-23T00:00:00.000Z"

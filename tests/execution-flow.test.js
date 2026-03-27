@@ -234,6 +234,7 @@ test("guardrail blocks real execution when bitbucket adapter is not mcp", async 
     execution: {
       enabled: true,
       dryRun: false,
+      trustLevel: "mcp-write",
       baseBranch: "BPOFH",
       allowRealPrs: true,
       allowMerge: false,
@@ -359,6 +360,156 @@ test("guardrail blocks real execution when allowRealPrs is false", async () => {
         dryRunOverride: false
       }),
     /Real execution requires execution\.allowRealPrs = true/
+  );
+});
+
+test("guardrail blocks MCP dry-run when trust level stays on mock", async () => {
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-execution-trust-guard-"));
+  const configPath = path.join(workspace, "harness.config.json");
+  const config = {
+    mode: "triage-and-execution",
+    dryRun: true,
+    memory: {
+      backend: "file",
+      filePath: "./memory.json"
+    },
+    adapters: {
+      jira: {
+        kind: "mock",
+        mock: { ticketSource: "config.mockTickets" },
+        mcp: { server: "atlassian_rovo_mcp" }
+      },
+      llmContext: {
+        kind: "mock",
+        mock: { mappingSource: "ticket.contextMapping" },
+        mcp: { server: "llm_context" }
+      },
+      llmMemory: {
+        kind: "mock",
+        mock: { backend: "file" },
+        mcp: { server: "llm_memory" }
+      },
+      llmSqlDb: {
+        kind: "mock",
+        mock: { recordRuns: true },
+        mcp: { server: "llm_db_prod_mcp" }
+      },
+      bitbucket: {
+        kind: "mcp",
+        mock: { workspaceRoot: workspace },
+        mcp: {
+          server: "llm_bitbucket_mcp",
+          repository: "your-repository",
+          project: "YOUR_PROJECT",
+          workspaceRoot: workspace
+        }
+      }
+    },
+    execution: {
+      enabled: true,
+      dryRun: true,
+      trustLevel: "mock",
+      baseBranch: "main",
+      allowRealPrs: false,
+      allowMerge: false,
+      workspaceRoot: workspace
+    },
+    mcpBridge: {
+      mode: "fixture",
+      fixtureFile: "",
+      fixtures: {},
+      command: "",
+      args: []
+    },
+    mockTickets: []
+  };
+
+  await writeFile(configPath, JSON.stringify(config, null, 2));
+
+  await assert.rejects(
+    () =>
+      runHarness({
+        configPath,
+        modeOverride: "triage-and-execution",
+        dryRunOverride: true
+      }),
+    /MCP dry-run requires execution\.trustLevel/
+  );
+});
+
+test("guardrail blocks execution when repository is outside the allowlist", async () => {
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-execution-repo-policy-"));
+  const configPath = path.join(workspace, "harness.config.json");
+  const config = {
+    mode: "triage-and-execution",
+    dryRun: false,
+    memory: {
+      backend: "file",
+      filePath: "./memory.json"
+    },
+    adapters: {
+      jira: {
+        kind: "mock",
+        mock: { ticketSource: "config.mockTickets" },
+        mcp: { server: "atlassian_rovo_mcp" }
+      },
+      llmContext: {
+        kind: "mock",
+        mock: { mappingSource: "ticket.contextMapping" },
+        mcp: { server: "llm_context" }
+      },
+      llmMemory: {
+        kind: "mock",
+        mock: { backend: "file" },
+        mcp: { server: "llm_memory" }
+      },
+      llmSqlDb: {
+        kind: "mock",
+        mock: { recordRuns: true },
+        mcp: { server: "llm_db_prod_mcp" }
+      },
+      bitbucket: {
+        kind: "mcp",
+        mock: { workspaceRoot: workspace },
+        mcp: {
+          server: "llm_bitbucket_mcp",
+          repository: "your-repository",
+          project: "YOUR_PROJECT",
+          workspaceRoot: workspace
+        }
+      }
+    },
+    execution: {
+      enabled: true,
+      dryRun: false,
+      trustLevel: "mcp-write",
+      baseBranch: "main",
+      allowRealPrs: true,
+      allowMerge: false,
+      allowedRepositories: ["different-repository"],
+      allowedBaseBranches: ["main"],
+      workspaceRoot: workspace
+    },
+    mcpBridge: {
+      mode: "fixture",
+      fixtureFile: "",
+      fixtures: {},
+      command: "",
+      args: []
+    },
+    mockTickets: []
+  };
+
+  await writeFile(configPath, JSON.stringify(config, null, 2));
+
+  await assert.rejects(
+    () =>
+      runHarness({
+        configPath,
+        modeOverride: "triage-and-execution",
+        dryRunOverride: false
+      }),
+    /repository is not allowed by execution policy/i
   );
 });
 
@@ -572,4 +723,28 @@ test("execution reuses an already open pull request when found in bitbucket", as
   assert.equal(summary.execution[0].status, "pr_opened");
   assert.equal(summary.execution[0].pullRequestUrl, "https://example.invalid/pr/330");
   assert.match(summary.execution[0].reason, /already open pull request/i);
+});
+
+test("run summary includes a readable audit trail", async () => {
+  const { summary } = await runExecutionScenario({
+    mockTickets: [
+      {
+        key: "BPO-331",
+        projectKey: "BPO",
+        summary: "Audit trail sample",
+        repoTarget: "BPOFH",
+        contextMapping: {
+          inScope: true,
+          repoTarget: "BPOFH",
+          feasibility: "feasible",
+          confidence: 0.95
+        }
+      }
+    ]
+  });
+
+  assert.ok(Array.isArray(summary.auditTrail));
+  assert.ok(summary.auditTrail.length >= 4);
+  assert.equal(summary.auditTrail[0].phase, "run");
+  assert.match(summary.finalReport, /Malkuth Final Report/);
 });

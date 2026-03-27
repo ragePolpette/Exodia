@@ -1,6 +1,7 @@
 import { assertVerificationStatus } from "../contracts/harness-contracts.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { scanWorkspace } from "../security/public-hygiene.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -12,6 +13,17 @@ function normalizePath(value) {
     .replace(/\\/g, "/")
     .replace(/^\.\//, "")
     .replace(/\/+/g, "/");
+}
+
+function isAllowedCommand(command, args, allowedPrefixes) {
+  if (!Array.isArray(allowedPrefixes) || allowedPrefixes.length === 0) {
+    return true;
+  }
+
+  const sequence = [command, ...args];
+  return allowedPrefixes.some((prefix) =>
+    Array.isArray(prefix) && prefix.every((segment, index) => sequence[index] === segment)
+  );
 }
 
 function parseGitStatusPaths(stdout) {
@@ -44,7 +56,9 @@ export class VerificationService {
       maxCommitMessageLength: config.maxCommitMessageLength ?? 120,
       maxPullRequestTitleLength: config.maxPullRequestTitleLength ?? 120,
       allowedPathPrefixesByRepo: config.allowedPathPrefixesByRepo ?? {},
-      preflightCommands: config.preflightCommands ?? []
+      preflightCommands: config.preflightCommands ?? [],
+      allowedCommandPrefixes: config.allowedCommandPrefixes ?? [],
+      sensitiveScan: config.sensitiveScan ?? { enabled: false }
     };
   }
 
@@ -209,6 +223,15 @@ export class VerificationService {
         ? command.allowedExitCodes
         : [0];
 
+      if (!isAllowedCommand(command.command, args, this.config.allowedCommandPrefixes)) {
+        return this.buildResult(
+          item,
+          "blocked",
+          `preflight command is not allowed by policy (${label})`,
+          payload
+        );
+      }
+
       try {
         await execFileAsync(command.command, args, {
           cwd: command.cwd ? workspaceRoot : workspaceRoot,
@@ -241,6 +264,22 @@ export class VerificationService {
   }
 
   async runPreflight({ item, workspaceRoot, payload }) {
+    const scanWorkspaceRoot = this.config.sensitiveScan?.workspaceRoot || workspaceRoot;
+    const scanResult = await scanWorkspace(scanWorkspaceRoot, this.config.sensitiveScan);
+    if (scanResult.issues.length > 0) {
+      const topIssues = scanResult.issues
+        .slice(0, 3)
+        .map((issue) => `${issue.filePath}: ${issue.reason}`)
+        .join(", ");
+
+      return this.buildResult(
+        item,
+        "blocked",
+        `public hygiene scan failed: ${topIssues}`,
+        payload
+      );
+    }
+
     const pathResult = await this.enforcePathPolicy({ item, workspaceRoot, payload });
     if (pathResult) {
       return pathResult;

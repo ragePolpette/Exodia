@@ -11,7 +11,8 @@ export class ExecutionAgent {
     sqlDbAdapter,
     executionConfig,
     verificationConfig,
-    logger
+    logger,
+    securityConfig
   }) {
     this.bitbucketAdapter = bitbucketAdapter;
     this.ticketMemoryAdapter = ticketMemoryAdapter;
@@ -19,6 +20,7 @@ export class ExecutionAgent {
     this.sqlDbAdapter = sqlDbAdapter;
     this.executionConfig = executionConfig;
     this.logger = logger;
+    this.securityConfig = securityConfig;
     this.service = new ExecutionService();
     this.verificationService = new VerificationService(verificationConfig);
   }
@@ -58,13 +60,16 @@ export class ExecutionAgent {
   async run(items) {
     const prompt = await loadPrompt("execution-agent.md");
     await this.bitbucketAdapter.assertNoMergePolicy();
-    const executionMode = this.service.resolveMode({
+    const policy = this.service.resolveMode({
       executionConfig: this.executionConfig,
-      bitbucketKind: this.bitbucketAdapter.kind
+      bitbucketKind: this.bitbucketAdapter.kind,
+      bitbucketAdapter: this.bitbucketAdapter
     });
+    const executionMode = policy.mode;
 
     this.logger?.info("Execution mode resolved", {
       mode: executionMode,
+      trustLevel: policy.trustLevel,
       adapter: this.bitbucketAdapter.kind
     });
 
@@ -96,7 +101,12 @@ export class ExecutionAgent {
       ]);
 
       try {
-        const insight = buildExecutionInsight(item.ticket, item.decision, result);
+        const insight = buildExecutionInsight(
+          item.ticket,
+          item.decision,
+          result,
+          this.securityConfig?.redaction
+        );
         if (insight) {
           await this.semanticMemoryAdapter?.captureExecutionInsight?.(insight);
         }

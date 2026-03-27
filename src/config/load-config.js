@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { resolveTargetingConfig } from "../targeting/target-rules.js";
 
 const defaultConfig = {
   mode: "triage-and-execution",
@@ -56,19 +57,27 @@ const defaultConfig = {
         topology: "unified",
         operations: {
           recordRun: {
-            server: "llm_db_prod_mcp"
+            server: "llm_db_dev_mcp",
+            action: "recordHarnessRun",
+            enabled: false,
+            database: "dev",
+            sql: ""
           }
         },
         targets: {
           prod: {
             server: "llm_db_prod_mcp",
             database: "prod",
-            access: "read-only"
+            access: "read-only",
+            action: "runDiagnosticQuery",
+            maxRows: 50
           },
           dev: {
             server: "llm_db_dev_mcp",
             database: "dev",
-            access: "schema-and-tests"
+            access: "schema-and-tests",
+            action: "runDiagnosticQuery",
+            maxRows: 50
           }
         }
       }
@@ -108,9 +117,12 @@ const defaultConfig = {
   execution: {
     enabled: true,
     dryRun: true,
+    trustLevel: "",
     baseBranch: "",
     allowRealPrs: false,
     allowMerge: false,
+    allowedRepositories: [],
+    allowedBaseBranches: [],
     workspaceRoot: ""
   },
   verification: {
@@ -119,18 +131,41 @@ const defaultConfig = {
     maxCommitMessageLength: 120,
     maxPullRequestTitleLength: 120,
     allowedPathPrefixesByRepo: {},
-    preflightCommands: []
+    preflightCommands: [],
+    allowedCommandPrefixes: [],
+    sensitiveScan: {
+      enabled: false,
+      workspaceRoot: "",
+      includePaths: ["src", "tests", "config", "README.md", "package.json"],
+      forbiddenLiteralPatterns: [],
+      forbiddenRegexPatterns: [],
+      exampleFiles: []
+    }
   },
+  targeting: resolveTargetingConfig(),
   mcpBridge: {
     mode: "fixture",
     fixtureFile: "",
     fixtures: {},
     command: "",
-    args: []
+    args: [],
+    allowedActionsByServer: {},
+    timeoutMs: 30000,
+    retries: 0,
+    retryDelayMs: 250
   },
   logging: {
     level: "info",
     includeTimestamp: false
+  },
+  security: {
+    redaction: {
+      enabled: true,
+      redactUrls: true,
+      redactPaths: true,
+      redactPhones: true,
+      redactTaxIds: true
+    }
   },
   mockTickets: []
 };
@@ -210,17 +245,54 @@ function normalizeSqlDbMcpConfig(config = {}, explicitConfig = {}) {
       recordRun: {
         server:
           explicitConfig.operations?.recordRun?.server ??
-          explicitConfig.server ??
           config.operations?.recordRun?.server ??
+          devTarget.server ??
+          explicitConfig.server ??
           config.server ??
-          prodTarget.server ??
-          devTarget.server
+          prodTarget.server,
+        action:
+          explicitConfig.operations?.recordRun?.action ??
+          config.operations?.recordRun?.action ??
+          "recordHarnessRun",
+        enabled:
+          explicitConfig.operations?.recordRun?.enabled ??
+          config.operations?.recordRun?.enabled ??
+          false,
+        database:
+          explicitConfig.operations?.recordRun?.database ??
+          config.operations?.recordRun?.database ??
+          devTarget.database ??
+          "dev",
+        sql:
+          explicitConfig.operations?.recordRun?.sql ??
+          config.operations?.recordRun?.sql ??
+          ""
       }
     },
     targets: {
       ...config.targets,
-      prod: prodTarget,
-      dev: devTarget
+      prod: {
+        ...prodTarget,
+        action:
+          explicitConfig.targets?.prod?.action ??
+          config.targets?.prod?.action ??
+          "runDiagnosticQuery",
+        maxRows:
+          explicitConfig.targets?.prod?.maxRows ??
+          config.targets?.prod?.maxRows ??
+          50
+      },
+      dev: {
+        ...devTarget,
+        action:
+          explicitConfig.targets?.dev?.action ??
+          config.targets?.dev?.action ??
+          "runDiagnosticQuery",
+        maxRows:
+          explicitConfig.targets?.dev?.maxRows ??
+          config.targets?.dev?.maxRows ??
+          50
+      }
     }
   };
 }
@@ -238,9 +310,11 @@ export async function loadConfig(configPath) {
     merged.adapters.llmSqlDb?.mcp,
     parsed.adapters?.llmSqlDb?.mcp
   );
+  const normalizedTargetingConfig = resolveTargetingConfig(merged.targeting);
 
   return {
     ...merged,
+    targeting: normalizedTargetingConfig,
     configPath: resolvedPath,
     adapters: {
       ...merged.adapters,

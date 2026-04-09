@@ -8,7 +8,7 @@ import { BitbucketAdapter } from "../src/adapters/bitbucket-adapter.js";
 import { runHarness } from "../src/orchestration/run-harness.js";
 
 async function runExecutionScenario({ mockTickets, existingMemory = [] }) {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "bpopilot-execution-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "legacy-suite-execution-"));
   const configPath = path.join(workspace, "harness.config.json");
   const memoryPath = path.join(workspace, "memory.json");
   const normalizedMockTickets = mockTickets.map((ticket) => ({
@@ -25,7 +25,7 @@ async function runExecutionScenario({ mockTickets, existingMemory = [] }) {
     execution: {
       enabled: true,
       dryRun: true,
-      baseBranch: "BPOFH",
+      baseBranch: "main",
       allowRealPrs: false,
       allowMerge: false,
       workspaceRoot: workspace
@@ -47,26 +47,26 @@ async function runExecutionScenario({ mockTickets, existingMemory = [] }) {
 }
 
 test("bitbucket adapter creates policy-compliant branch names", () => {
-  const adapter = new BitbucketAdapter({ baseBranch: "BPOFH" });
+  const adapter = new BitbucketAdapter({ baseBranch: "main" });
   const branchName = adapter.planBranch({
-    key: "BPO-321",
+    key: "LEG-321",
     summary: "Fix complex payment timeout bug"
   });
 
-  assert.equal(branchName, "bpo-321-fix-complex-payment-timeout-bug");
+  assert.equal(branchName, "leg-321-fix-complex-payment-timeout-bug");
 });
 
 test("dry-run mock execution stays on the safe mock path", async () => {
   const { summary } = await runExecutionScenario({
     mockTickets: [
       {
-        key: "BPO-326",
-        projectKey: "BPO",
+        key: "LEG-326",
+        projectKey: "LEG",
         summary: "Dry run mock execution",
-        repoTarget: "BPOFH",
+        repoTarget: "core-app",
         contextMapping: {
           inScope: true,
-          repoTarget: "BPOFH",
+          repoTarget: "core-app",
           feasibility: "feasible",
           confidence: 0.93
         }
@@ -83,13 +83,13 @@ test("execution skips feasible_low_confidence tickets", async () => {
   const { summary, memory } = await runExecutionScenario({
     mockTickets: [
       {
-        key: "BPO-322",
-        projectKey: "BPO",
+        key: "LEG-322",
+        projectKey: "LEG",
         summary: "Low confidence mapping",
-        repoTarget: "BPOFH",
+        repoTarget: "core-app",
         contextMapping: {
           inScope: true,
-          repoTarget: "BPOFH",
+          repoTarget: "core-app",
           feasibility: "feasible_low_confidence",
           confidence: 0.51
         }
@@ -107,26 +107,26 @@ test("verification blocks a blocked ticket while allowing later approved executi
   const { summary, memory } = await runExecutionScenario({
     mockTickets: [
       {
-        key: "BPO-323",
-        projectKey: "BPO",
+        key: "LEG-323",
+        projectKey: "LEG",
         summary: "Blocked by missing dependency",
-        repoTarget: "BPOFH",
+        repoTarget: "core-app",
         contextMapping: {
           inScope: true,
-          repoTarget: "BPOFH",
+          repoTarget: "core-app",
           feasibility: "blocked",
           blockers: ["missing test fixture"],
           confidence: 0.44
         }
       },
       {
-        key: "BPO-324",
-        projectKey: "BPO",
+        key: "LEG-324",
+        projectKey: "LEG",
         summary: "Should never execute",
-        repoTarget: "BPOFH",
+        repoTarget: "core-app",
         contextMapping: {
           inScope: true,
-          repoTarget: "BPOFH",
+          repoTarget: "core-app",
           feasibility: "feasible",
           confidence: 0.93
         }
@@ -135,26 +135,26 @@ test("verification blocks a blocked ticket while allowing later approved executi
   });
 
   assert.equal(summary.verification.length, 2);
-  assert.equal(summary.verification[0].ticketKey, "BPO-323");
+  assert.equal(summary.verification[0].ticketKey, "LEG-323");
   assert.equal(summary.verification[0].status, "blocked");
   assert.equal(summary.execution.length, 1);
-  assert.equal(summary.execution[0].ticketKey, "BPO-324");
+  assert.equal(summary.execution[0].ticketKey, "LEG-324");
   assert.equal(summary.execution[0].status, "pr_opened");
-  assert.equal(memory.find((item) => item.ticket_key === "BPO-323").last_outcome, "blocked");
-  assert.equal(memory.find((item) => item.ticket_key === "BPO-324").last_outcome, "pr_opened");
+  assert.equal(memory.find((item) => item.ticket_key === "LEG-323").last_outcome, "blocked");
+  assert.equal(memory.find((item) => item.ticket_key === "LEG-324").last_outcome, "pr_opened");
 });
 
 test("execution creates a simulated pull request for feasible tickets", async () => {
   const { summary, memory } = await runExecutionScenario({
     mockTickets: [
       {
-        key: "BPO-325",
-        projectKey: "BPO",
+        key: "LEG-325",
+        projectKey: "LEG",
         summary: "Create mock PR flow",
-        repoTarget: "BPOFH",
+        repoTarget: "core-app",
         contextMapping: {
           inScope: true,
-          repoTarget: "BPOFH",
+          repoTarget: "core-app",
           feasibility: "feasible",
           confidence: 0.95,
           implementationHint: "Update execution flow"
@@ -173,11 +173,11 @@ test("verification blocks execution when explicit ticket target conflicts with t
   const { summary, memory } = await runExecutionScenario({
     mockTickets: [
       {
-        key: "BPO-326A",
-        projectKey: "BPO",
+        key: "LEG-326A",
+        projectKey: "LEG",
         summary: "Conflicting explicit target",
-        productTarget: "fatturhello",
-        repoTarget: "pubblico",
+        productTarget: "webportal",
+        repoTarget: "public-web",
         contextMapping: {
           inScope: true,
           productTarget: "legacy",
@@ -200,14 +200,14 @@ test("verification blocks execution when commit payload is not single-line safe"
   const { summary } = await runExecutionScenario({
     mockTickets: [
       {
-        key: "BPO-326B",
-        projectKey: "BPO",
+        key: "LEG-326B",
+        projectKey: "LEG",
         summary: "Unsafe summary\nwith newline",
-        repoTarget: "BPOFH",
+        repoTarget: "core-app",
         contextMapping: {
           inScope: true,
           productTarget: "legacy",
-          repoTarget: "BPOFH",
+          repoTarget: "core-app",
           feasibility: "feasible",
           confidence: 0.95
         }
@@ -222,7 +222,7 @@ test("verification blocks execution when commit payload is not single-line safe"
 });
 
 test("guardrail blocks real execution when bitbucket adapter is not mcp", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "bpopilot-execution-guard-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "legacy-suite-execution-guard-"));
   const configPath = path.join(workspace, "harness.config.json");
   const config = {
     mode: "triage-and-execution",
@@ -235,21 +235,21 @@ test("guardrail blocks real execution when bitbucket adapter is not mcp", async 
       enabled: true,
       dryRun: false,
       trustLevel: "mcp-write",
-      baseBranch: "BPOFH",
+      baseBranch: "main",
       allowRealPrs: true,
       allowMerge: false,
       workspaceRoot: workspace
     },
     mockTickets: [
       {
-        key: "BPO-327",
-        projectKey: "BPO",
+        key: "LEG-327",
+        projectKey: "LEG",
         summary: "Should fail guardrail",
         productTarget: "legacy",
-        repoTarget: "BPOFH",
+        repoTarget: "core-app",
         contextMapping: {
           inScope: true,
-          repoTarget: "BPOFH",
+          repoTarget: "core-app",
           feasibility: "feasible",
           confidence: 0.95
         }
@@ -271,7 +271,7 @@ test("guardrail blocks real execution when bitbucket adapter is not mcp", async 
 });
 
 test("guardrail blocks real execution when allowRealPrs is false", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "bpopilot-execution-mcp-guard-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "legacy-suite-execution-mcp-guard-"));
   const configPath = path.join(workspace, "harness.config.json");
   const config = {
     mode: "triage-and-execution",
@@ -306,8 +306,8 @@ test("guardrail blocks real execution when allowRealPrs is false", async () => {
         mock: { workspaceRoot: workspace },
         mcp: {
           server: "llm_bitbucket_mcp",
-          repository: "BPOFH",
-          project: "BPO",
+          repository: "core-app",
+          project: "LEG",
           workspaceRoot: workspace,
           operations: {
             findOpenPullRequest: {
@@ -321,7 +321,7 @@ test("guardrail blocks real execution when allowRealPrs is false", async () => {
     execution: {
       enabled: true,
       dryRun: false,
-      baseBranch: "BPOFH",
+      baseBranch: "main",
       allowRealPrs: false,
       allowMerge: false,
       workspaceRoot: workspace
@@ -335,14 +335,14 @@ test("guardrail blocks real execution when allowRealPrs is false", async () => {
     },
     mockTickets: [
       {
-        key: "BPO-328",
-        projectKey: "BPO",
+        key: "LEG-328",
+        projectKey: "LEG",
         summary: "Should fail allowRealPrs guardrail",
         productTarget: "legacy",
-        repoTarget: "BPOFH",
+        repoTarget: "core-app",
         contextMapping: {
           inScope: true,
-          repoTarget: "BPOFH",
+          repoTarget: "core-app",
           feasibility: "feasible",
           confidence: 0.95
         }
@@ -514,7 +514,7 @@ test("guardrail blocks execution when repository is outside the allowlist", asyn
 });
 
 test("mcp execution can create branch, commit and pull request when config is coherent", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "bpopilot-execution-mcp-real-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "legacy-suite-execution-mcp-real-"));
   const configPath = path.join(workspace, "harness.config.json");
   const config = {
     mode: "triage-and-execution",
@@ -549,8 +549,8 @@ test("mcp execution can create branch, commit and pull request when config is co
         mock: { workspaceRoot: workspace },
         mcp: {
           server: "llm_bitbucket_mcp",
-          repository: "BPOFH",
-          project: "BPO",
+          repository: "core-app",
+          project: "LEG",
           workspaceRoot: workspace,
           operations: {
             findOpenPullRequest: {
@@ -564,7 +564,7 @@ test("mcp execution can create branch, commit and pull request when config is co
     execution: {
       enabled: true,
       dryRun: false,
-      baseBranch: "BPOFH",
+      baseBranch: "main",
       allowRealPrs: true,
       allowMerge: false,
       workspaceRoot: workspace
@@ -575,18 +575,18 @@ test("mcp execution can create branch, commit and pull request when config is co
       fixtures: {
         "llm_bitbucket_mcp.findOpenPullRequest": null,
         "llm_bitbucket_mcp.createBranch": {
-          branchName: "bpo-329-real-mcp-execution",
-          baseBranch: "BPOFH"
+          branchName: "leg-329-real-mcp-execution",
+          baseBranch: "main"
         },
         "llm_bitbucket_mcp.checkoutBranch": {
-          branchName: "bpo-329-real-mcp-execution",
+          branchName: "leg-329-real-mcp-execution",
           workspaceRoot: workspace
         },
         "llm_bitbucket_mcp.createCommit": {
           commitSha: "abc123"
         },
         "llm_bitbucket_mcp.openPullRequest": {
-          title: "[BPO-329] Real MCP execution",
+          title: "[LEG-329] Real MCP execution",
           link: "https://example.invalid/pr/329"
         }
       },
@@ -595,14 +595,14 @@ test("mcp execution can create branch, commit and pull request when config is co
     },
     mockTickets: [
       {
-        key: "BPO-329",
-        projectKey: "BPO",
+        key: "LEG-329",
+        projectKey: "LEG",
         summary: "Real MCP execution",
         productTarget: "legacy",
-        repoTarget: "BPOFH",
+        repoTarget: "core-app",
         contextMapping: {
           inScope: true,
-          repoTarget: "BPOFH",
+          repoTarget: "core-app",
           feasibility: "feasible",
           confidence: 0.96
         }
@@ -625,7 +625,7 @@ test("mcp execution can create branch, commit and pull request when config is co
 });
 
 test("execution reuses an already open pull request when found in bitbucket", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "bpopilot-execution-existing-pr-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "legacy-suite-execution-existing-pr-"));
   const configPath = path.join(workspace, "harness.config.json");
   const config = {
     mode: "triage-and-execution",
@@ -660,8 +660,8 @@ test("execution reuses an already open pull request when found in bitbucket", as
         mock: { workspaceRoot: workspace },
         mcp: {
           server: "llm_bitbucket_mcp",
-          repository: "BPOFH",
-          project: "BPO",
+          repository: "core-app",
+          project: "LEG",
           workspaceRoot: workspace,
           operations: {
             findOpenPullRequest: {
@@ -675,7 +675,7 @@ test("execution reuses an already open pull request when found in bitbucket", as
     execution: {
       enabled: true,
       dryRun: false,
-      baseBranch: "BPOFH",
+      baseBranch: "main",
       allowRealPrs: true,
       allowMerge: false,
       workspaceRoot: workspace
@@ -686,9 +686,9 @@ test("execution reuses an already open pull request when found in bitbucket", as
       fixtures: {
         "llm_bitbucket_mcp.findOpenPullRequest": {
           pullRequest: {
-            title: "[BPO-330] Existing pull request",
+            title: "[LEG-330] Existing pull request",
             link: "https://example.invalid/pr/330",
-            sourceBranch: "bpo-330-reuse-existing-pr"
+            sourceBranch: "leg-330-reuse-existing-pr"
           }
         }
       },
@@ -697,14 +697,14 @@ test("execution reuses an already open pull request when found in bitbucket", as
     },
     mockTickets: [
       {
-        key: "BPO-330",
-        projectKey: "BPO",
+        key: "LEG-330",
+        projectKey: "LEG",
         summary: "Reuse existing PR",
         productTarget: "legacy",
-        repoTarget: "BPOFH",
+        repoTarget: "core-app",
         contextMapping: {
           inScope: true,
-          repoTarget: "BPOFH",
+          repoTarget: "core-app",
           feasibility: "feasible",
           confidence: 0.96
         }
@@ -729,13 +729,13 @@ test("run summary includes a readable audit trail", async () => {
   const { summary } = await runExecutionScenario({
     mockTickets: [
       {
-        key: "BPO-331",
-        projectKey: "BPO",
+        key: "LEG-331",
+        projectKey: "LEG",
         summary: "Audit trail sample",
-        repoTarget: "BPOFH",
+        repoTarget: "core-app",
         contextMapping: {
           inScope: true,
-          repoTarget: "BPOFH",
+          repoTarget: "core-app",
           feasibility: "feasible",
           confidence: 0.95
         }

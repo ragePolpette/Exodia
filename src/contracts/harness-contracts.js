@@ -1,6 +1,6 @@
 export const supportedModes = ["triage-only", "triage-and-execution"];
 
-export const productTargets = ["legacy", "fatturhello", "fiscobot", "unknown"];
+export const productTargets = ["legacy", "webportal", "financebot", "unknown"];
 
 export const triageStatuses = [
   "skipped_out_of_scope",

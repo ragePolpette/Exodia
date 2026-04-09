@@ -5,9 +5,9 @@ Template compatto per il passaggio assistenza -> tecnico.
 ## Regole
 
 - usare sempre un solo target principale
-- se il ticket parla di `bpo` o `bpopilot`, il target e` `legacy`
-- se il ticket parla di `fatturhello` o `yeti`, il target e` `fatturhello`
-- se il ticket parla di `fiscobot`, il target e` `fiscobot`
+- se il ticket parla di `legacy-suite` o `classic-asp`, il target e` `legacy`
+- se il ticket parla di `webportal` o `portal-web`, il target e` `webportal`
+- se il ticket parla di `financebot`, il target e` `financebot`
 - evitare testo narrativo lungo e screenshot senza contesto
 
 ## Template Compatto
@@ -15,7 +15,7 @@ Template compatto per il passaggio assistenza -> tecnico.
 ```md
 Titolo: [TARGET] azione + oggetto + effetto
 
-Target: legacy | fatturhello | fiscobot
+Target: legacy | webportal | financebot
 Ambiente: produzione
 Partita IVA azienda: ...
 Studio: ... (se presente)
@@ -55,9 +55,9 @@ Vincoli:
 ## Esempio Buono
 
 ```md
-Titolo: [fatturhello] salvataggio anagrafica cliente blocca modifica PEC
+Titolo: [webportal] salvataggio anagrafica cliente blocca modifica PEC
 
-Target: fatturhello
+Target: webportal
 Ambiente: produzione
 Partita IVA azienda: 01234567890
 Studio: Studio Rossi
@@ -85,13 +85,13 @@ Dati utili:
 
 Evidenza:
 - messaggio errore: "errore durante il salvataggio"
-- endpoint/pagina: yeti anagrafica cliente
+- endpoint/pagina: portal-web anagrafica cliente
 - allegato o esempio input: PEC prova@test.it
 
 Vincoli:
 - urgenza: media
 - impatto: il cliente non puo aggiornare i dati di fatturazione
-- note operative: non riguarda bpofh o fiscobot
+- note operative: non riguarda shared-lib o financebot
 ```
 
 ## Anti-Pattern

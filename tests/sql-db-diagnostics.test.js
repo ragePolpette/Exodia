@@ -7,7 +7,7 @@ import os from "node:os";
 import { runHarness } from "../src/orchestration/run-harness.js";
 
 test("triage does not require sql diagnostics when tickets do not request them", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "bpopilot-sqldb-skip-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "legacy-suite-sqldb-skip-"));
   const configPath = path.join(workspace, "harness.config.json");
   const config = {
     mode: "triage-only",
@@ -20,7 +20,7 @@ test("triage does not require sql diagnostics when tickets do not request them",
       jira: {
         kind: "mcp",
         mock: { ticketSource: "config.mockTickets" },
-        mcp: { server: "jira-official", jql: "project = BPO" }
+        mcp: { server: "jira-official", jql: "project = LEG" }
       },
       llmContext: {
         kind: "mcp",
@@ -30,7 +30,7 @@ test("triage does not require sql diagnostics when tickets do not request them",
       llmMemory: {
         kind: "mcp",
         mock: { backend: "file" },
-        mcp: { server: "llm-memory", namespace: "bpopilot-ticket-harness" }
+        mcp: { server: "llm-memory", namespace: "malkuth-ticket-harness" }
       },
       llmSqlDb: {
         kind: "mcp",
@@ -54,7 +54,7 @@ test("triage does not require sql diagnostics when tickets do not request them",
           devServer: "llm-db-dev-mcp",
           defaultDatabase: "prod",
           enabled: true,
-          namespace: "bpopilot-ticket-harness"
+          namespace: "malkuth-ticket-harness"
         }
       },
       bitbucket: {
@@ -66,7 +66,7 @@ test("triage does not require sql diagnostics when tickets do not request them",
     execution: {
       enabled: false,
       dryRun: true,
-      baseBranch: "BPOFH",
+      baseBranch: "main",
       allowRealPrs: false,
       allowMerge: false,
       workspaceRoot: workspace
@@ -76,11 +76,11 @@ test("triage does not require sql diagnostics when tickets do not request them",
       fixtureFile: "",
       fixtures: {
         "jira-official.searchTicketsByJql": {
-          tickets: [{ key: "BPO-501", projectKey: "BPO", summary: "No DB needed" }]
+          tickets: [{ key: "LEG-501", projectKey: "LEG", summary: "No DB needed" }]
         },
         "llm-context.mapTicketToCodebase": {
-          repoTarget: "BPOFH",
-          area: "BpoPilot",
+          repoTarget: "core-app",
+          area: "core-platform",
           inScope: true,
           feasibility: "feasible",
           confidence: 0.9,
@@ -112,7 +112,7 @@ test("triage does not require sql diagnostics when tickets do not request them",
 });
 
 test("sql diagnostics are used on demand in triage and execution", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "bpopilot-sqldb-use-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "legacy-suite-sqldb-use-"));
   const configPath = path.join(workspace, "harness.config.json");
   const config = {
     mode: "triage-and-execution",
@@ -159,7 +159,7 @@ test("sql diagnostics are used on demand in triage and execution", async () => {
           devServer: "llm-db-dev-mcp",
           defaultDatabase: "prod",
           enabled: true,
-          namespace: "bpopilot-ticket-harness"
+          namespace: "malkuth-ticket-harness"
         }
       },
       bitbucket: {
@@ -171,7 +171,7 @@ test("sql diagnostics are used on demand in triage and execution", async () => {
     execution: {
       enabled: true,
       dryRun: true,
-      baseBranch: "BPOFH",
+      baseBranch: "main",
       allowRealPrs: false,
       allowMerge: false,
       workspaceRoot: workspace
@@ -205,14 +205,14 @@ test("sql diagnostics are used on demand in triage and execution", async () => {
     },
     mockTickets: [
       {
-        key: "BPO-502",
-        projectKey: "BPO",
+        key: "LEG-502",
+        projectKey: "LEG",
         summary: "Use diagnostics on demand",
         productTarget: "legacy",
-        repoTarget: "BPOFH",
+        repoTarget: "core-app",
         contextMapping: {
           inScope: true,
-          repoTarget: "BPOFH",
+          repoTarget: "core-app",
           feasibility: "feasible",
           confidence: 0.92,
           implementationHint: "Base implementation hint"

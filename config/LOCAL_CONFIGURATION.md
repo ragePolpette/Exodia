@@ -13,7 +13,7 @@ Regola imperativa:
 
 - non usare file `.env`
 - non salvare chiavi o token dentro il repository
-- l'autenticazione va passata al lancio del `.ps1` oppure gestita dalla dashboard locale in `C:\Users\Gianmarco\Urgewalt\Yetzirah\mcp-dashboard`
+- l'autenticazione va passata al lancio del `.ps1` oppure gestita da una dashboard locale separata
 
 ## Cosa personalizzare localmente
 

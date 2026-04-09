@@ -9,7 +9,7 @@ function extractPathHints(mapping) {
     (mapping?.hints ?? []).filter(
       (hint) =>
         typeof hint === "string" &&
-        /(?:api|pubblico|librerie)[\\/]|\.asp$|\.cs$|\.js$/i.test(hint)
+        /(?:api|public-web|shared-lib)[\\/]|\.asp$|\.cs$|\.js$/i.test(hint)
     )
   ).slice(0, 5);
 }

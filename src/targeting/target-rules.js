@@ -4,29 +4,29 @@ const defaultTargetingConfig = {
     {
       target: "legacy",
       repoTarget: "api+asp",
-      aliases: ["bpo", "bpopilot"],
-      scopeAliases: ["bpopilot"],
-      projectKeys: []
+      aliases: ["legacy-suite", "classic-asp"],
+      scopeAliases: ["legacy", "legacy-suite"],
+      projectKeys: ["LEG"]
     },
     {
-      target: "fatturhello",
-      repoTarget: "pubblico",
+      target: "webportal",
+      repoTarget: "public-web",
       aliases: [
-        "fatturhello",
-        "yeti",
-        "app.fatturhello.it",
-        "impersona.fatturhello.it",
-        "fatturhello=true"
+        "webportal",
+        "portal-web",
+        "portal.example.com",
+        "accounts.portal.example.com",
+        "webportal=true"
       ],
-      scopeAliases: ["fatturhello", "yeti"],
-      projectKeys: ["DEVFH"]
+      scopeAliases: ["webportal", "publicapp"],
+      projectKeys: ["WEB"]
     },
     {
-      target: "fiscobot",
-      repoTarget: "pubblico+bpofh+fiscobot",
-      aliases: ["fiscobot", "app.fiscobot.it"],
-      scopeAliases: ["fiscobot"],
-      projectKeys: []
+      target: "financebot",
+      repoTarget: "public-web+shared-lib+financebot",
+      aliases: ["financebot", "finance.example.com", "automation-bot"],
+      scopeAliases: ["financebot", "automation"],
+      projectKeys: ["BOT"]
     }
   ]
 };

@@ -31,7 +31,7 @@ test("preflight blocks execution when changed files escape the configured allowl
     execution: {
       enabled: true,
       dryRun: true,
-      baseBranch: "BPOFH",
+      baseBranch: "main",
       allowRealPrs: false,
       allowMerge: false,
       workspaceRoot: workspace
@@ -42,20 +42,20 @@ test("preflight blocks execution when changed files escape the configured allowl
       maxCommitMessageLength: 120,
       maxPullRequestTitleLength: 120,
       allowedPathPrefixesByRepo: {
-        "BPOFH": ["allowed"]
+        "core-app": ["allowed"]
       },
       preflightCommands: []
     },
     mockTickets: [
       {
-        key: "BPO-700",
-        projectKey: "BPO",
+        key: "LEG-700",
+        projectKey: "LEG",
         summary: "Path allowlist block",
         productTarget: "legacy",
-        repoTarget: "BPOFH",
+        repoTarget: "core-app",
         contextMapping: {
           inScope: true,
-          repoTarget: "BPOFH",
+          repoTarget: "core-app",
           feasibility: "feasible",
           confidence: 0.95
         }
@@ -94,7 +94,7 @@ test("preflight blocks execution when a configured command fails", async () => {
     execution: {
       enabled: true,
       dryRun: true,
-      baseBranch: "BPOFH",
+      baseBranch: "main",
       allowRealPrs: false,
       allowMerge: false,
       workspaceRoot: workspace
@@ -115,14 +115,14 @@ test("preflight blocks execution when a configured command fails", async () => {
     },
     mockTickets: [
       {
-        key: "BPO-701",
-        projectKey: "BPO",
+        key: "LEG-701",
+        projectKey: "LEG",
         summary: "Command preflight block",
         productTarget: "legacy",
-        repoTarget: "BPOFH",
+        repoTarget: "core-app",
         contextMapping: {
           inScope: true,
-          repoTarget: "BPOFH",
+          repoTarget: "core-app",
           feasibility: "feasible",
           confidence: 0.95
         }

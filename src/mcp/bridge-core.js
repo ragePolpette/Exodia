@@ -216,7 +216,7 @@ function collectContextPaths(value) {
   for (const item of collectNestedStrings(value)) {
     const normalized = item.replace(/\\\\/g, "\\");
     const pathMatches = normalized.match(
-      /(?:api|pubblico|librerie)[\\/][^\s,:*?"<>|]+(?:\.(?:asp|cs|js))?/gi
+      /(?:api|public-web|shared-lib)[\\/][^\s,:*?"<>|]+(?:\.(?:asp|cs|js))?/gi
     );
 
     if (pathMatches) {

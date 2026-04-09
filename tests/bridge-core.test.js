@@ -50,13 +50,13 @@ test("unwrapToolResult parses JSON text payloads emitted by MCP tools", () => {
     content: [
       {
         type: "text",
-        text: "{\"issues\":[{\"key\":\"DEVFH-1\"}]}"
+        text: "{\"issues\":[{\"key\":\"WEB-1\"}]}"
       }
     ]
   });
 
   assert.deepEqual(result.data, {
-    issues: [{ key: "DEVFH-1" }]
+    issues: [{ key: "WEB-1" }]
   });
 });
 
@@ -64,19 +64,19 @@ test("inferProductTargetFromEvidence honors canonical target semantics", () => {
   assert.equal(
     inferProductTargetFromEvidence(
       {
-        summary: "Errore fiscobot registrazione",
+        summary: "Errore financebot registrazione",
         rawDescription: "",
         pageUrl: ""
       },
       []
     ),
-    "fiscobot"
+    "financebot"
   );
 
   assert.equal(
     inferProductTargetFromEvidence(
       {
-        summary: "Problema BPO anagrafica",
+        summary: "Problema legacy-suite anagrafica",
         rawDescription: "",
         pageUrl: ""
       },
@@ -88,34 +88,34 @@ test("inferProductTargetFromEvidence honors canonical target semantics", () => {
   assert.equal(
     inferProductTargetFromEvidence(
       {
-        summary: "Errore yeti in fattura",
+        summary: "Errore portal-web in fattura",
         rawDescription: "",
         pageUrl: ""
       },
       []
     ),
-    "fatturhello"
+    "webportal"
   );
 
   assert.equal(
     inferProductTargetFromEvidence(
       {
-        key: "DEVFH-10",
-        projectKey: "DEVFH",
+        key: "WEB-10",
+        projectKey: "WEB",
         summary: "Errore salvataggio documento",
         rawDescription: "",
         pageUrl: ""
       },
       []
     ),
-    "fatturhello"
+    "webportal"
   );
 });
 
 test("defaultRepoTarget matches harness repo conventions", () => {
   assert.equal(defaultRepoTarget("legacy"), "api+asp");
-  assert.equal(defaultRepoTarget("fatturhello"), "pubblico");
-  assert.equal(defaultRepoTarget("fiscobot"), "pubblico+bpofh+fiscobot");
+  assert.equal(defaultRepoTarget("webportal"), "public-web");
+  assert.equal(defaultRepoTarget("financebot"), "public-web+shared-lib+financebot");
   assert.equal(defaultRepoTarget("unknown"), "UNKNOWN");
 });
 

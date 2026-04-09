@@ -59,7 +59,7 @@ function createConfig(overrides = {}) {
       }
     },
     execution: {
-      baseBranch: "BPOFH",
+      baseBranch: "main",
       allowMerge: false
     },
     mcpBridge: {
@@ -108,7 +108,7 @@ test("adapter bootstrap registers mcp stubs when requested by config", () => {
           },
           mcp: {
             server: "jira-official",
-            jql: "project = BPO"
+            jql: "project = LEG"
           }
         },
         llmContext: {

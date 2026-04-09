@@ -133,7 +133,7 @@
         "projectKeys": ["GEN"]
       },
       {
-        "target": "fatturhello",
+        "target": "webportal",
         "repoTarget": "public-web",
         "area": "public-experience",
         "inScope": true,
@@ -144,7 +144,7 @@
         "projectKeys": ["WEB"]
       },
       {
-        "target": "fiscobot",
+        "target": "financebot",
         "repoTarget": "automation-suite",
         "area": "automation-workflows",
         "inScope": true,
@@ -195,12 +195,12 @@
       "key": "WEB-101",
       "projectKey": "WEB",
       "summary": "Validation regression on the public application",
-      "productTarget": "fatturhello",
+      "productTarget": "webportal",
       "scope": "PublicApp",
       "repoTarget": "public-web",
       "contextMapping": {
         "inScope": true,
-        "productTarget": "fatturhello",
+        "productTarget": "webportal",
         "repoTarget": "public-web",
         "feasibility": "feasible_low_confidence",
         "confidence": 0.63,
@@ -219,12 +219,12 @@
       "key": "BOT-7",
       "projectKey": "BOT",
       "summary": "Automation rule fails on document import",
-      "productTarget": "fiscobot",
+      "productTarget": "financebot",
       "scope": "Automation",
       "repoTarget": "automation-suite",
       "contextMapping": {
         "inScope": true,
-        "productTarget": "fiscobot",
+        "productTarget": "financebot",
         "repoTarget": "automation-suite",
         "feasibility": "feasible",
         "confidence": 0.76,

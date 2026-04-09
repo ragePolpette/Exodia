@@ -44,7 +44,7 @@ test("verification service requests review on target mismatch", () => {
   const result = service.verify(
     createItem({
       ticket: {
-        productTarget: "fatturhello"
+        productTarget: "webportal"
       }
     }),
     createPayload()

@@ -1,4 +1,5 @@
 import { redactText } from "../security/redaction.js";
+import { collectInteractionTags } from "../interaction/interaction-contracts.js";
 
 function unique(values) {
   return [...new Set(values.filter(Boolean))];
@@ -101,6 +102,50 @@ export function buildExecutionInsight(ticket, decision, result, redaction) {
       status: result.status,
       branchName: result.branchName ?? "",
       pullRequestUrl: redactText(result.pullRequestUrl ?? "", redaction)
+    }
+  };
+}
+
+export function buildClarificationInsight(ticket, interaction, summary, redaction) {
+  if (!interaction?.response?.text || !summary) {
+    return null;
+  }
+
+  const source = interaction.response.source ?? "human";
+  const productTarget =
+    interaction.context?.productTarget ??
+    ticket.productTarget ??
+    ticket.product_target ??
+    "unknown";
+  const repoTarget =
+    interaction.context?.repoTarget ??
+    ticket.repoTarget ??
+    ticket.repo_target ??
+    "UNKNOWN";
+
+  return {
+    phase: "interaction",
+    ticketKey: ticket.key,
+    productTarget,
+    repoTarget,
+    confidence: 0.82,
+    tags: collectInteractionTags(
+      interaction.phase,
+      source,
+      productTarget,
+      repoTarget
+    ),
+    content: redactText(
+      `${ticket.key} clarification via ${source}: ${summary}`,
+      redaction
+    ),
+    metadata: {
+      summary: redactText(ticket.summary, redaction),
+      question: redactText(interaction.question ?? "", redaction),
+      response: redactText(interaction.response.text, redaction),
+      interactionId: interaction.id,
+      source,
+      phase: interaction.phase
     }
   };
 }

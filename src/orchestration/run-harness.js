@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { buildAdapters } from "../adapters/bootstrap-adapters.js";
 import { ExecutionAgent } from "../agents/execution-agent.js";
 import { TriageAgent } from "../agents/triage-agent.js";
@@ -5,7 +6,10 @@ import { VerificationAgent } from "../agents/verification-agent.js";
 import { loadConfig } from "../config/load-config.js";
 import { assertMode } from "../contracts/harness-contracts.js";
 import { renderExecutionReport } from "../execution/render-execution-report.js";
+import { InteractionService } from "../interaction/interaction-service.js";
+import { InteractionStore } from "../interaction/interaction-store.js";
 import { createLogger } from "../logging/logger.js";
+import { resolveRunLogPaths, RunLogStore } from "../logging/run-log-store.js";
 import { renderFinalReport } from "../reporting/render-final-report.js";
 import { renderTriageReport } from "../triage/render-triage-report.js";
 
@@ -33,6 +37,10 @@ export async function runHarness({
   executionEnabledOverride
 } = {}) {
   const config = await loadConfig(configPath);
+  const localRunId = `malkuth-${randomUUID()}`;
+  const runStartedAt = new Date().toISOString();
+  const logPaths = resolveRunLogPaths(config.logging, localRunId, runStartedAt);
+  const runLogStore = new RunLogStore(logPaths);
   const mode = modeOverride ?? config.mode;
   const executionDryRun = dryRunOverride ?? config.execution.dryRun ?? config.dryRun;
   const dryRun = executionDryRun;
@@ -40,14 +48,16 @@ export async function runHarness({
   const logger = createLogger({
     level: config.logging?.level ?? "info",
     includeTimestamp: config.logging?.includeTimestamp ?? false,
-    redaction: config.security?.redaction
+    redaction: config.security?.redaction,
+    runId: localRunId,
+    sink: runLogStore
   });
   const auditTrail = [];
   auditTrail.push(createAuditEntry("run", "harness run started", { mode, dryRun }));
 
   assertMode(mode);
   logger.info("Harness run started", { mode, dryRun, configPath: config.configPath });
-  const { adapters, ticketMemoryAdapter, kinds } = buildAdapters({ config, logger });
+  const { adapters, ticketMemoryAdapter, kinds, mcpClient } = buildAdapters({ config, logger });
   const {
     jira: jiraAdapter,
     llmContext: contextAdapter,
@@ -55,6 +65,19 @@ export async function runHarness({
     llmSqlDb: sqlDbAdapter,
     bitbucket: bitbucketAdapter
   } = adapters;
+  const interactionService = config.interaction?.enabled
+    ? new InteractionService({
+        config: config.interaction,
+        store: new InteractionStore(config.interaction.storeFile),
+        jiraAdapter,
+        semanticMemoryAdapter,
+        ticketMemoryAdapter,
+        mcpClient,
+        logger,
+        securityConfig: config.security,
+        targeting: config.targeting
+      })
+    : null;
   auditTrail.push(createAuditEntry("bootstrap", "adapters bootstrapped", kinds));
   logger.info("Adapter modes selected", kinds);
 
@@ -63,12 +86,14 @@ export async function runHarness({
     ticketMemoryAdapter,
     semanticMemoryAdapter,
     sqlDbAdapter,
+    interactionService,
     logger,
     securityConfig: config.security
   });
   const verificationAgent = new VerificationAgent({
     bitbucketAdapter,
     verificationConfig: config.verification,
+    interactionService,
     logger
   });
   const executionAgent = new ExecutionAgent({
@@ -87,8 +112,20 @@ export async function runHarness({
   });
 
   const memoryBefore = await ticketMemoryAdapter.listRecords();
-  const tickets = await jiraAdapter.listOpenTickets();
+  const loadedTickets = await jiraAdapter.listOpenTickets();
+  const interactionPreparation = interactionService
+    ? await interactionService.prepareTickets(loadedTickets)
+    : { tickets: loadedTickets, pending: [], resolved: [] };
+  const tickets = interactionPreparation.tickets;
   auditTrail.push(createAuditEntry("input", "tickets loaded", { count: tickets.length }));
+  if (interactionPreparation.pending.length > 0 || interactionPreparation.resolved.length > 0) {
+    auditTrail.push(
+      createAuditEntry("interaction", "interaction state synchronized", {
+        pending: interactionPreparation.pending.length,
+        resolved: interactionPreparation.resolved.length
+      })
+    );
+  }
   logger.debug("Tickets loaded", { count: tickets.length });
   const triage = await triageAgent.run(tickets);
   auditTrail.push(
@@ -151,7 +188,8 @@ export async function runHarness({
   const runRecord = await sqlDbAdapter.recordRun({
     mode,
     dryRun,
-    ticketCount: tickets.length
+    ticketCount: tickets.length,
+    runId: localRunId
   });
   auditTrail.push(
     createAuditEntry("run-record", "run record handled", {
@@ -192,7 +230,20 @@ export async function runHarness({
     executionEnabled,
     executionDryRun,
     executionTrustLevel,
-    runId: runRecord.runId ?? "",
+    interactionStats: {
+      pending: interactionPreparation.pending.length,
+      resolved: interactionPreparation.resolved.length
+    },
+    runId: localRunId,
+    recordedRunId: runRecord.runId ?? "",
+    runStartedAt,
+    logFiles: logPaths
+      ? {
+          jsonl: logPaths.jsonlFile,
+          summaryText: logPaths.summaryTextFile,
+          summaryJson: logPaths.summaryJsonFile
+        }
+      : null,
     ticketCount: tickets.length,
     triage,
     execution,
@@ -208,8 +259,19 @@ export async function runHarness({
       dryRun,
       executionTrustLevel,
       adapterKinds: kinds,
-      runId: runRecord.runId ?? "",
+      runId: localRunId,
       ticketCount: tickets.length,
+      interactionStats: {
+        pending: interactionPreparation.pending.length,
+        resolved: interactionPreparation.resolved.length
+      },
+      logFiles: logPaths
+        ? {
+            jsonl: logPaths.jsonlFile,
+            summaryText: logPaths.summaryTextFile,
+            summaryJson: logPaths.summaryJsonFile
+          }
+        : null,
       triageCounts,
       auditTrail,
       resumeStats,
@@ -222,10 +284,21 @@ export async function runHarness({
       dryRun,
       executionTrustLevel,
       adapterKinds: kinds,
-      runId: runRecord.runId ?? "",
+      runId: localRunId,
       verification,
       verificationCounts,
       executionCounts,
+      interactionStats: {
+        pending: interactionPreparation.pending.length,
+        resolved: interactionPreparation.resolved.length
+      },
+      logFiles: logPaths
+        ? {
+            jsonl: logPaths.jsonlFile,
+            summaryText: logPaths.summaryTextFile,
+            summaryJson: logPaths.summaryJsonFile
+          }
+        : null,
       auditTrail,
       resumeStats,
       triage,
@@ -235,8 +308,28 @@ export async function runHarness({
     })
   };
 
+  const finalReport = renderFinalReport(summary);
+  runLogStore.writeSummary({
+    text: finalReport,
+    json: {
+      runId: localRunId,
+      recordedRunId: runRecord.runId ?? "",
+      startedAt: runStartedAt,
+      mode,
+      dryRun,
+      adapterKinds: kinds,
+      ticketCount: tickets.length,
+      triageCounts,
+      verificationCounts,
+      executionCounts,
+      interactionStats: summary.interactionStats,
+      resumeStats,
+      auditTrail
+    }
+  });
+
   return {
     ...summary,
-    finalReport: renderFinalReport(summary)
+    finalReport
   };
 }

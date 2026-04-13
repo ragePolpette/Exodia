@@ -20,4 +20,26 @@ export class JiraAdapter {
       )
     );
   }
+
+  async postInteractionQuestion(ticket, interaction, body) {
+    return {
+      commentId: `mock-comment-${interaction.id}`,
+      body,
+      sentAt: new Date().toISOString(),
+      ticketKey: ticket.key
+    };
+  }
+
+  async listInteractionResponses(ticket, interaction) {
+    return (ticket.interactionResponses ?? [])
+      .filter((response) => !response.interactionId || response.interactionId === interaction.id)
+      .map((response, index) => ({
+        source: "ticket",
+        text: response.text ?? response.body ?? "",
+        author: response.author ?? "mock-user",
+        respondedAt:
+          response.respondedAt ?? response.createdAt ?? response.created ?? new Date().toISOString(),
+        externalId: response.externalId ?? response.id ?? `mock-ticket-response-${interaction.id}-${index + 1}`
+      }));
+  }
 }

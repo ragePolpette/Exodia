@@ -20,8 +20,10 @@ async function createWorkspace() {
     path.join(workspace, "README.md"),
     [
       "# Malkuth",
-      "Il progetto non e` pensato per deploy pubblico come servizio esposto.",
-      "Autenticazione: non usare file `.env`."
+      "It is not intended for deployment as a publicly exposed service.",
+      "Human-in-the-loop questions can be routed to Slack.",
+      "The next run can resume from the first valid answer.",
+      "Authentication: do not use file `.env`."
     ].join("\n")
   );
   await writeFile(

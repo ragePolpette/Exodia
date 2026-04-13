@@ -41,6 +41,20 @@ Compila localmente questi campi:
 - `execution.allowedRepositories`
 - `execution.allowedBaseBranches`
 - `execution.workspaceRoot`
+- `interaction.enabled`
+- `interaction.mode`
+- `interaction.storeFile`
+- `interaction.destinations`
+- `interaction.allowedPhases`
+- `interaction.maxQuestionsPerTicket`
+- `interaction.captureToSemanticMemory`
+- `interaction.captureToTicketMemory`
+- `interaction.transports.slack.server`
+- `interaction.transports.slack.postAction`
+- `interaction.transports.slack.collectRepliesAction`
+- `interaction.transports.slack.channel`
+- `interaction.transports.slack.channelsByPhase`
+- `interaction.transports.ticket.commentPrefix`
 - `targeting.unknownTarget`
 - `targeting.rules`
 - `targeting.rules[*].area`
@@ -57,6 +71,13 @@ Compila localmente questi campi:
 - `mcpBridge.command`
 - `mcpBridge.args`
 - `mcpBridge.allowedActionsByServer`
+- `logging.level`
+- `logging.includeTimestamp`
+- `logging.file.enabled`
+- `logging.file.rootDir`
+- `scheduling.enabled`
+- `scheduling.lockFile`
+- `scheduling.profiles`
 
 ## Regola pratica
 
@@ -86,6 +107,73 @@ Usa solo questi livelli:
 - `mock`: nessuna azione reale su bridge o repo
 - `mcp-readonly`: bridge MCP attivo ma execution reale disabilitata
 - `mcp-write`: branch, commit e PR reali consentiti solo insieme a `allowRealPrs = true`
+
+## Human-In-The-Loop
+
+Il loop domanda/risposta e` configurabile per destinazione:
+
+- `slack`
+- `ticket`
+- `both`
+
+Regole operative:
+
+- il run crea la domanda e salva uno stato `awaiting_response`
+- il ticket resta fermo finche' non arriva una risposta valida
+- non c'e` polling continuo: la risposta viene verificata al run successivo
+- se `slack` e `ticket` sono entrambi attivi, la prima risposta vince
+- se Slack risolve prima, eventuali risposte successive nel ticket vengono ignorate
+- le risposte con valore funzionale vengono distillate in memoria semantica e nel resume del ticket
+
+Per Slack:
+
+- usa un MCP server/config locale dedicato
+- non salvare token nel repo
+- passa auth solo via `.ps1` o dashboard locale
+
+Per Jira ticket comments:
+
+- abilita nel bridge le action `addTicketComment` e `listTicketComments`
+- usa il cloudId locale non tracciato
+
+## Logging Locale
+
+Il logging locale supporta:
+
+- console redatta
+- file JSONL per evento
+- summary testuale e JSON per run
+
+Regole pratiche:
+
+- usa `logging.file.enabled = true` solo su workstation controllate
+- tieni `logging.file.rootDir` fuori da cartelle sync/pubbliche
+- i log passano comunque dalla redaction centrale prima della scrittura
+
+Monitoring locale:
+
+- usa `node src/cli.js monitor --config <config> --limit 20`
+- il comando legge i summary JSON e i JSONL sotto `logging.file.rootDir`
+- se trova run con errori loggati, esce con `exit code 1`
+
+## Scheduling Manual-First
+
+Lo scheduling iniziale e` intenzionalmente manuale:
+
+- definisci i profili in `scheduling.profiles`
+- usa il wrapper `scripts/run-malkuth.ps1`
+- il lock file evita doppie esecuzioni accidentali
+
+Esempi:
+
+- `pwsh -File .\scripts\run-malkuth.ps1 -Profile triage`
+- `pwsh -File .\scripts\run-malkuth.ps1 -Profile execute-readonly`
+
+Regole pratiche:
+
+- usa `execute-write` solo in config locali controllate
+- non mettere auth o parametri sensibili nello script tracciato
+- se il lock resta orfano, rimuovilo solo dopo avere verificato che nessun run sia ancora attivo
 
 ## Nota SQL MCP
 

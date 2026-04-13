@@ -118,6 +118,34 @@
     "allowedBaseBranches": ["main"],
     "workspaceRoot": "C:\\path\\to\\your\\workspace"
   },
+  "interaction": {
+    "enabled": false,
+    "mode": "deferred",
+    "storeFile": "../data/interactions.json",
+    "destinations": "ticket",
+    "allowedPhases": ["triage", "verification"],
+    "maxQuestionsPerTicket": 1,
+    "captureToSemanticMemory": true,
+    "captureToTicketMemory": true,
+    "messagePrefix": "[Malkuth]",
+    "transports": {
+      "slack": {
+        "enabled": false,
+        "server": "your-slack-mcp-server",
+        "postAction": "postMessage",
+        "collectRepliesAction": "listThreadReplies",
+        "channel": "#your-team-channel",
+        "channelsByPhase": {
+          "triage": "#your-team-triage",
+          "verification": "#your-team-review"
+        }
+      },
+      "ticket": {
+        "enabled": true,
+        "commentPrefix": "[Malkuth]"
+      }
+    }
+  },
   "targeting": {
     "unknownTarget": "unknown",
     "rules": [
@@ -164,7 +192,30 @@
     "args": []
   },
   "logging": {
-    "level": "info"
+    "level": "info",
+    "includeTimestamp": false,
+    "file": {
+      "enabled": false,
+      "rootDir": "../data/logs"
+    }
+  },
+  "scheduling": {
+    "enabled": true,
+    "lockFile": "../data/run.lock",
+    "profiles": {
+      "triage": {
+        "command": "triage",
+        "dryRun": true,
+        "executionEnabled": false,
+        "report": "default"
+      },
+      "run-safe": {
+        "command": "run",
+        "dryRun": true,
+        "executionEnabled": true,
+        "report": "final"
+      }
+    }
   },
   "mockTickets": [
     {

@@ -17,9 +17,9 @@ function resolveMemoryStore(config) {
 export function buildAdapters({ config, logger }) {
   const memoryStore = resolveMemoryStore(config);
   const ticketMemoryAdapter = new TicketMemoryAdapter(memoryStore);
-  const needsMcpClient = Object.values(config.adapters).some(
-    (adapterConfig) => adapterConfig.kind === "mcp"
-  );
+  const needsMcpClient =
+    Object.values(config.adapters).some((adapterConfig) => adapterConfig.kind === "mcp") ||
+    Boolean(config.interaction?.enabled && config.interaction?.transports?.slack?.enabled);
   const mcpClient = needsMcpClient ? createMcpClient(config.mcpBridge) : null;
   const definitions = {
     ...buildGenericAdapters({ config, mcpClient }),
@@ -42,6 +42,7 @@ export function buildAdapters({ config, logger }) {
     adapters,
     ticketMemoryAdapter,
     memoryStore,
-    kinds
+    kinds,
+    mcpClient
   };
 }

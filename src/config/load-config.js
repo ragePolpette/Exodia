@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { resolveTargetingConfig } from "../targeting/target-rules.js";
+import { normalizeInteractionDestinations } from "../interaction/interaction-contracts.js";
+import { normalizeSchedulingConfig } from "../scheduling/scheduling-service.js";
 
 const defaultConfig = {
   mode: "triage-and-execution",
@@ -154,9 +156,62 @@ const defaultConfig = {
     retries: 0,
     retryDelayMs: 250
   },
+  interaction: {
+    enabled: false,
+    mode: "deferred",
+    storeFile: "./data/interactions.json",
+    destinations: ["ticket"],
+    allowedPhases: ["triage", "verification"],
+    maxQuestionsPerTicket: 1,
+    captureToSemanticMemory: true,
+    captureToTicketMemory: true,
+    messagePrefix: "[Malkuth]",
+    transports: {
+      slack: {
+        enabled: false,
+        server: "",
+        postAction: "",
+        collectRepliesAction: "",
+        channel: "",
+        channelsByPhase: {}
+      },
+      ticket: {
+        enabled: true,
+        commentPrefix: "[Malkuth]"
+      }
+    }
+  },
   logging: {
     level: "info",
-    includeTimestamp: false
+    includeTimestamp: false,
+    file: {
+      enabled: false,
+      rootDir: "./data/logs"
+    }
+  },
+  scheduling: {
+    enabled: true,
+    lockFile: "./data/run.lock",
+    profiles: {
+      triage: {
+        command: "triage",
+        dryRun: true,
+        executionEnabled: false,
+        report: "default"
+      },
+      "run-safe": {
+        command: "run",
+        dryRun: true,
+        executionEnabled: true,
+        report: "final"
+      },
+      "execute-readonly": {
+        command: "execute",
+        dryRun: true,
+        executionEnabled: true,
+        report: "execution"
+      }
+    }
   },
   security: {
     redaction: {
@@ -297,6 +352,48 @@ function normalizeSqlDbMcpConfig(config = {}, explicitConfig = {}) {
   };
 }
 
+function normalizeInteractionConfig(config = {}) {
+  return {
+    enabled: config.enabled ?? false,
+    mode: config.mode ?? "deferred",
+    storeFile: config.storeFile ?? "./data/interactions.json",
+    destinations:
+      normalizeInteractionDestinations(config.destinations ?? config.destination ?? ["ticket"]),
+    allowedPhases: Array.isArray(config.allowedPhases)
+      ? [...new Set(config.allowedPhases.filter(Boolean))]
+      : ["triage", "verification"],
+    maxQuestionsPerTicket: config.maxQuestionsPerTicket ?? 1,
+    captureToSemanticMemory: config.captureToSemanticMemory ?? true,
+    captureToTicketMemory: config.captureToTicketMemory ?? true,
+    messagePrefix: config.messagePrefix ?? "[Malkuth]",
+    transports: {
+      slack: {
+        enabled: config.transports?.slack?.enabled ?? false,
+        server: config.transports?.slack?.server ?? "",
+        postAction: config.transports?.slack?.postAction ?? "",
+        collectRepliesAction: config.transports?.slack?.collectRepliesAction ?? "",
+        channel: config.transports?.slack?.channel ?? "",
+        channelsByPhase: config.transports?.slack?.channelsByPhase ?? {}
+      },
+      ticket: {
+        enabled: config.transports?.ticket?.enabled ?? true,
+        commentPrefix: config.transports?.ticket?.commentPrefix ?? "[Malkuth]"
+      }
+    }
+  };
+}
+
+function normalizeLoggingConfig(config = {}) {
+  return {
+    level: config.level ?? "info",
+    includeTimestamp: config.includeTimestamp ?? false,
+    file: {
+      enabled: config.file?.enabled ?? false,
+      rootDir: config.file?.rootDir ?? "./data/logs"
+    }
+  };
+}
+
 export async function loadConfig(configPath) {
   const resolvedPath = path.resolve(configPath);
   const configDirectory = path.dirname(resolvedPath);
@@ -311,10 +408,28 @@ export async function loadConfig(configPath) {
     parsed.adapters?.llmSqlDb?.mcp
   );
   const normalizedTargetingConfig = resolveTargetingConfig(merged.targeting);
+  const normalizedInteractionConfig = normalizeInteractionConfig(merged.interaction);
+  const normalizedLoggingConfig = normalizeLoggingConfig(merged.logging);
+  const normalizedSchedulingConfig = normalizeSchedulingConfig(merged.scheduling);
 
   return {
     ...merged,
     targeting: normalizedTargetingConfig,
+    interaction: {
+      ...normalizedInteractionConfig,
+      storeFile: path.resolve(configDirectory, normalizedInteractionConfig.storeFile)
+    },
+    logging: {
+      ...normalizedLoggingConfig,
+      file: {
+        ...normalizedLoggingConfig.file,
+        rootDir: path.resolve(configDirectory, normalizedLoggingConfig.file.rootDir)
+      }
+    },
+    scheduling: {
+      ...normalizedSchedulingConfig,
+      lockFile: path.resolve(configDirectory, normalizedSchedulingConfig.lockFile)
+    },
     configPath: resolvedPath,
     adapters: {
       ...merged.adapters,

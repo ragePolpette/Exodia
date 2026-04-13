@@ -171,6 +171,19 @@ function toJiraTicket(issue) {
   };
 }
 
+function toJiraComment(comment) {
+  return {
+    id: `${comment.id ?? comment.commentId ?? ""}`.trim(),
+    text: adfToPlainText(comment.body ?? comment.text ?? comment.content),
+    createdAt: comment.created ?? comment.createdAt ?? "",
+    author:
+      comment.author?.displayName ??
+      comment.author?.name ??
+      comment.author?.emailAddress ??
+      ""
+  };
+}
+
 function extractJiraIssues(payload) {
   const candidate = payload?.data ?? payload?.raw ?? payload;
   if (Array.isArray(candidate)) {
@@ -182,6 +195,20 @@ function extractJiraIssues(payload) {
     candidate?.results ??
     candidate?.items ??
     candidate?.pull_requests ??
+    []
+  );
+}
+
+function extractJiraComments(payload) {
+  const candidate = payload?.data ?? payload?.raw ?? payload;
+  if (Array.isArray(candidate)) {
+    return candidate;
+  }
+
+  return (
+    candidate?.fields?.comment?.comments ??
+    candidate?.comment?.comments ??
+    candidate?.comments ??
     []
   );
 }
@@ -334,6 +361,35 @@ function mergeRecords(existingRecords, incomingRecords) {
 }
 
 async function handleJiraRequest(serverDefinition, action, payload) {
+  if (action === "addTicketComment") {
+    const rawResult = await callTool(serverDefinition, "addCommentToJiraIssue", {
+      cloudId: payload.cloudId ?? "",
+      issueIdOrKey: payload.ticketKey,
+      commentBody: payload.body,
+      contentFormat: "markdown",
+      responseContentFormat: "markdown"
+    });
+    const parsed = unwrapToolResult(rawResult);
+    return {
+      id: parsed.data?.id ?? parsed.data?.comment?.id ?? "",
+      commentId: parsed.data?.id ?? parsed.data?.comment?.id ?? "",
+      createdAt: parsed.data?.created ?? parsed.data?.createdAt ?? new Date().toISOString()
+    };
+  }
+
+  if (action === "listTicketComments") {
+    const rawResult = await callTool(serverDefinition, "getJiraIssue", {
+      cloudId: payload.cloudId ?? "",
+      issueIdOrKey: payload.ticketKey,
+      fields: ["comment"],
+      responseContentFormat: "markdown"
+    });
+    const parsed = unwrapToolResult(rawResult);
+    return {
+      comments: extractJiraComments(parsed).map(toJiraComment)
+    };
+  }
+
   if (!["searchTicketsByJql", "searchTicketsByFilter"].includes(action)) {
     throw new Error(`Unsupported Jira MCP action: ${action}`);
   }
@@ -356,6 +412,28 @@ async function handleJiraRequest(serverDefinition, action, payload) {
     nextPageToken: parsed.data?.nextPageToken ?? "",
     isLast: parsed.data?.isLast ?? true
   };
+}
+
+async function handleGenericRequest(serverDefinition, action, payload) {
+  const rawResult = await callTool(serverDefinition, action, payload);
+  const parsed = unwrapToolResult(rawResult);
+  if (parsed.data !== null) {
+    return parsed.data;
+  }
+
+  if (parsed.texts.length === 1) {
+    return {
+      text: parsed.texts[0]
+    };
+  }
+
+  if (parsed.texts.length > 1) {
+    return {
+      texts: parsed.texts
+    };
+  }
+
+  return {};
 }
 
 async function handleContextRequest(serverDefinition, action, payload) {
@@ -757,5 +835,5 @@ export async function handleBridgeRequest({
     return handleSqlDbRequest(serverName, serverDefinition, request.action, request.payload ?? {});
   }
 
-  throw new Error(`No bridge handler registered for server ${request.server}`);
+  return handleGenericRequest(serverDefinition, request.action, request.payload ?? {});
 }

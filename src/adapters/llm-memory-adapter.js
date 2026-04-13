@@ -19,4 +19,12 @@ export class LlmMemoryAdapter {
       reason: "semantic memory disabled in mock mode"
     };
   }
+
+  async captureInteractionInsight(_insight) {
+    return {
+      stored: false,
+      source: "mock",
+      reason: "semantic memory disabled in mock mode"
+    };
+  }
 }

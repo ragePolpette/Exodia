@@ -9,7 +9,9 @@ export function renderFinalReport(summary) {
     `Run id: ${summary.runId || "n/a"}`,
     `Adapters: jira=${summary.adapterKinds.jira}, llmContext=${summary.adapterKinds.llmContext}, llmMemory=${summary.adapterKinds.llmMemory}, llmSqlDb=${summary.adapterKinds.llmSqlDb}, bitbucket=${summary.adapterKinds.bitbucket}`,
     `Tickets loaded: ${summary.ticketCount}`,
+    `Interactions: pending=${summary.interactionStats?.pending ?? 0} resolved=${summary.interactionStats?.resolved ?? 0}`,
     `Memory file: ${summary.memoryFile}`,
+    `Log file: ${summary.logFiles?.jsonl ?? "disabled"}`,
     `Resume reused: rejected=${summary.resumeStats.skippedAlreadyRejected} in_progress=${summary.resumeStats.skippedAlreadyInProgress}`,
     "Triage counts:"
   ];

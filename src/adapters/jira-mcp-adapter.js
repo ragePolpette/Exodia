@@ -43,4 +43,43 @@ export class McpJiraAdapter {
     const tickets = Array.isArray(response?.tickets) ? response.tickets : response;
     return tickets.map((ticket) => this.normalizeTicket(ticket));
   }
+
+  async postInteractionQuestion(ticket, interaction, body) {
+    const response = await this.client.request({
+      server: this.options.server,
+      action: "addTicketComment",
+      payload: {
+        cloudId: this.options.cloudId,
+        ticketKey: ticket.key,
+        body,
+        interactionId: interaction.id
+      }
+    });
+
+    return {
+      commentId: `${response?.commentId ?? response?.id ?? ""}`.trim(),
+      sentAt: `${response?.createdAt ?? new Date().toISOString()}`.trim(),
+      ticketKey: ticket.key
+    };
+  }
+
+  async listInteractionResponses(ticket, interaction) {
+    const response = await this.client.request({
+      server: this.options.server,
+      action: "listTicketComments",
+      payload: {
+        cloudId: this.options.cloudId,
+        ticketKey: ticket.key,
+        interactionId: interaction.id
+      }
+    });
+
+    return (response?.comments ?? []).map((comment) => ({
+      source: "ticket",
+      text: comment.text ?? comment.body ?? "",
+      author: comment.author ?? "",
+      respondedAt: comment.respondedAt ?? comment.createdAt ?? comment.created ?? "",
+      externalId: comment.externalId ?? comment.id ?? comment.commentId ?? ""
+    }));
+  }
 }

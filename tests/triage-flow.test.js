@@ -7,7 +7,7 @@ import os from "node:os";
 import { runHarness } from "../src/orchestration/run-harness.js";
 
 async function runTriageScenario({ mockTickets, existingMemory = [] }) {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "bpopilot-triage-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-triage-"));
   const configPath = path.join(workspace, "harness.config.json");
   const memoryPath = path.join(workspace, "memory.json");
 
@@ -19,7 +19,7 @@ async function runTriageScenario({ mockTickets, existingMemory = [] }) {
       filePath: "./memory.json"
     },
     execution: {
-      baseBranch: "BPOFH",
+      baseBranch: "main",
       allowRealPrs: false
     },
     targeting: {
@@ -33,16 +33,16 @@ async function runTriageScenario({ mockTickets, existingMemory = [] }) {
           implementationHint: "Inspect core platform code",
           aliases: ["legacy-suite"],
           scopeAliases: ["coreapp"],
-          projectKeys: ["BPO"]
+          projectKeys: ["GEN"]
         },
         {
-          target: "fiscobot",
+          target: "automation-bot",
           repoTarget: "automation-suite",
           area: "automation-workflows",
           inScope: true,
           feasibility: "feasible",
           implementationHint: "Inspect automation workflows",
-          aliases: ["fiscobot"],
+          aliases: ["automation-bot"],
           scopeAliases: ["automation"],
           projectKeys: ["FH"]
         }
@@ -57,20 +57,20 @@ async function runTriageScenario({ mockTickets, existingMemory = [] }) {
   return runHarness({ configPath, modeOverride: "triage-only", dryRunOverride: true });
 }
 
-test("triage marks mapped BpoPilot ticket as feasible", async () => {
+test("triage marks mapped legacy ticket as feasible", async () => {
   const summary = await runTriageScenario({
     mockTickets: [
       {
-        key: "BPO-201",
-        projectKey: "BPO",
+        key: "GEN-201",
+        projectKey: "GEN",
         summary: "Implement mapped triage decision",
         contextMapping: {
           inScope: true,
           productTarget: "legacy",
-          repoTarget: "BPOFH",
+          repoTarget: "core-app",
           feasibility: "feasible",
           confidence: 0.93,
-          implementationHint: "Update BpoPilot triage pipeline"
+          implementationHint: "Update legacy triage pipeline"
         }
       }
     ]
@@ -84,13 +84,13 @@ test("triage marks non automatable ticket as not_feasible", async () => {
   const summary = await runTriageScenario({
     mockTickets: [
       {
-        key: "BPO-202",
-        projectKey: "BPO",
+        key: "GEN-202",
+        projectKey: "GEN",
         summary: "Unknown legacy dependency",
         contextMapping: {
           inScope: true,
           productTarget: "legacy",
-          repoTarget: "BPOFH",
+          repoTarget: "core-app",
           feasibility: "not_feasible",
           confidence: 0.28,
           implementationHint: "Needs manual domain investigation"
@@ -106,23 +106,23 @@ test("triage skips already rejected ticket when no new conditions exist", async 
   const summary = await runTriageScenario({
     mockTickets: [
       {
-        key: "BPO-203",
-        projectKey: "BPO",
+        key: "GEN-203",
+        projectKey: "GEN",
         summary: "Previously rejected automation",
         contextMapping: {
           inScope: true,
           productTarget: "legacy",
-          repoTarget: "BPOFH",
+          repoTarget: "core-app",
           feasibility: "feasible"
         }
       }
     ],
     existingMemory: [
       {
-        ticket_key: "BPO-203",
-        project_key: "BPO",
+        ticket_key: "GEN-203",
+        project_key: "GEN",
         product_target: "legacy",
-        repo_target: "BPOFH",
+        repo_target: "core-app",
         status_decision: "not_feasible",
         confidence: 0.2,
         short_reason: "rejected before",
@@ -140,13 +140,13 @@ test("triage skips already rejected ticket when no new conditions exist", async 
   assert.equal(summary.triage[0].product_target, "legacy");
 });
 
-test("triage skips out-of-scope ticket when llm-context mapping is not in BpoPilot", async () => {
+test("triage skips out-of-scope ticket when llm-context mapping is not in scope", async () => {
   const summary = await runTriageScenario({
     mockTickets: [
       {
         key: "OPS-204",
         projectKey: "OPS",
-        summary: "Infra task outside BpoPilot",
+        summary: "Infra task outside mapped scope",
         contextMapping: {
           inScope: false,
           productTarget: "unknown",
@@ -162,36 +162,36 @@ test("triage skips out-of-scope ticket when llm-context mapping is not in BpoPil
   assert.equal(summary.triage[0].product_target, "unknown");
 });
 
-test("triage classifies explicit fiscobot tickets into the fiscobot target", async () => {
+test("triage classifies explicit automation tickets into the automation target", async () => {
   const summary = await runTriageScenario({
     mockTickets: [
       {
         key: "FH-205",
         projectKey: "FH",
-        summary: "Fiscobot registrazione contabile fallisce su documento importato",
-        description: "Errore lato fiscobot sulla registrazione automatica.",
+        summary: "Automation bot registration fails on imported document",
+        description: "Workflow bot fails during automated registration.",
         contextMapping: {
           inScope: true,
-          repoTarget: "pubblico+bpofh+fiscobot",
+          repoTarget: "automation-suite",
           feasibility: "feasible",
           confidence: 0.91,
-          implementationHint: "Controllare registrazione contabile fiscobot"
+          implementationHint: "Inspect automated registration workflow"
         }
       }
     ]
   });
 
   assert.equal(summary.triage[0].status_decision, "feasible");
-  assert.equal(summary.triage[0].product_target, "fiscobot");
-  assert.equal(summary.triage[0].repo_target, "pubblico+bpofh+fiscobot");
+  assert.equal(summary.triage[0].product_target, "automation-bot");
+  assert.equal(summary.triage[0].repo_target, "automation-suite");
 });
 
 test("triage uses configured mapping defaults when context omits area and feasibility", async () => {
   const summary = await runTriageScenario({
     mockTickets: [
       {
-        key: "BPO-206",
-        projectKey: "BPO",
+        key: "GEN-206",
+        projectKey: "GEN",
         summary: "Legacy-suite dashboard issue",
         contextMapping: {
           inScope: true,

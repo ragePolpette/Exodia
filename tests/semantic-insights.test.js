@@ -14,11 +14,11 @@ test("buildTriageInsight stores high-signal feasible mappings", () => {
       blockers: []
     },
     {
-      product_target: "fatturhello",
+      product_target: "public-app",
       repo_target: "public-web",
       status_decision: "feasible",
       confidence: 0.82,
-      short_reason: "ticket mapped to fatturhello and looks actionable",
+      short_reason: "ticket mapped to public-app and looks actionable",
       implementation_hint: "Inspect public-web/api/Controllers/InvoiceController.cs",
       recheck_conditions: []
     }
@@ -37,7 +37,7 @@ test("buildTriageInsight skips low-signal feasible mappings", () => {
       blockers: []
     },
     {
-      product_target: "fatturhello",
+      product_target: "public-app",
       repo_target: "public-web",
       status_decision: "feasible",
       confidence: 0.61,

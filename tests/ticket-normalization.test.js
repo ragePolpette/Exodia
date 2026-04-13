@@ -10,12 +10,12 @@ import { loadConfig } from "../src/config/load-config.js";
 
 test("support ticket normalization extracts common assistance fields", () => {
   const ticket = normalizeSupportTicket({
-    key: "DEVFH-9999",
+    key: "BOT-9999",
     summary: "Incasso proforma bloccato",
     description: [
       "InnovaPro Commercialisti Associati",
       "pi: 03680241209",
-      "url: https://app.fiscobot.it/home.aspx",
+      "url: https://automation-bot.example.com/home",
       "tel: 051347850",
       "",
       "Proforma non incassabile lato cliente"
@@ -23,10 +23,10 @@ test("support ticket normalization extracts common assistance fields", () => {
   });
 
   assert.equal(ticket.partitaIva, "03680241209");
-  assert.equal(ticket.pageUrl, "https://app.fiscobot.it/home.aspx");
+  assert.equal(ticket.pageUrl, "https://automation-bot.example.com/home");
   assert.equal(ticket.phone, "051347850");
   assert.equal(ticket.companyOrStudio, "InnovaPro Commercialisti Associati");
-  assert.equal(ticket.productTarget, "fiscobot");
+  assert.equal(ticket.productTarget, "automation-bot");
 });
 
 test("support ticket normalization honors configurable target aliases", () => {
@@ -71,7 +71,7 @@ test("sql db mcp adapter routes diagnostics to the requested database server", a
 
   await adapter.runDiagnosticQuery({
     phase: "execution",
-    ticketKey: "DEVFH-9999",
+    ticketKey: "GEN-9999",
     query: "select 1",
     database: "dev"
   });
@@ -120,7 +120,7 @@ test("sql db mcp adapter supports unified topology through explicit targets", as
 
   await adapter.runDiagnosticQuery({
     phase: "execution",
-    ticketKey: "DEVFH-10000",
+    ticketKey: "GEN-10000",
     query: "select 1",
     database: "dev"
   });
@@ -158,7 +158,7 @@ test("sql db mcp adapter skips run persistence when no writable statement is con
 });
 
 test("loadConfig normalizes legacy sql db server fields into explicit targets", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "bpopilot-config-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-config-"));
   const configPath = path.join(workspace, "harness.config.json");
 
   await writeFile(

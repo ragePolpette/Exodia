@@ -7,7 +7,7 @@ import os from "node:os";
 import { runHarness } from "../src/orchestration/run-harness.js";
 
 test("triage works in mcp mode through the configured bridge client", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "bpopilot-triage-mcp-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-triage-mcp-"));
   const configPath = path.join(workspace, "harness.config.json");
   const config = {
     mode: "triage-only",
@@ -24,7 +24,7 @@ test("triage works in mcp mode through the configured bridge client", async () =
         },
         mcp: {
           server: "jira-official",
-          jql: "project = BPO"
+          jql: "project = GEN"
         }
       },
       llmContext: {
@@ -44,7 +44,7 @@ test("triage works in mcp mode through the configured bridge client", async () =
         },
         mcp: {
           server: "llm-memory",
-          namespace: "bpopilot-ticket-harness"
+          namespace: "malkuth-harness"
         }
       },
       llmSqlDb: {
@@ -67,7 +67,7 @@ test("triage works in mcp mode through the configured bridge client", async () =
       }
     },
     execution: {
-      baseBranch: "BPOFH",
+      baseBranch: "main",
       allowRealPrs: false,
       allowMerge: false
     },
@@ -82,7 +82,7 @@ test("triage works in mcp mode through the configured bridge client", async () =
           implementationHint: "Inspect core platform code",
           aliases: ["legacy-suite"],
           scopeAliases: ["coreapp"],
-          projectKeys: ["BPO"]
+          projectKeys: ["GEN"]
         }
       ]
     },
@@ -93,8 +93,8 @@ test("triage works in mcp mode through the configured bridge client", async () =
         "jira-official.searchTicketsByJql": {
           "tickets": [
             {
-              "key": "BPO-401",
-              "projectKey": "BPO",
+              "key": "GEN-401",
+              "projectKey": "GEN",
               "summary": "Fetch real triage candidates"
             }
           ]

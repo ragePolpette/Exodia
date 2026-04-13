@@ -167,6 +167,12 @@ Do not use file `.env`.
 Do not use file `.env.local`.
 Pass credentials only through a PowerShell launcher or the local MCP dashboard.
 
+## Recommended Ticket Shape
+
+If you want the harness to work well, the incoming work item needs a clean shape.
+
+A compact recommended template lives in [ticket-handoff-template.md](./harness-docs/ticket-handoff-template.md).
+
 ## Project Status
 
 This repository is in active development. The current runtime already demonstrates the intended architecture and safety model, and it is strong enough to show serious engineering decisions around guard rails, memory, MCP integration, and human-in-the-loop recovery.

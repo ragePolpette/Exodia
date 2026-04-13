@@ -1,102 +1,96 @@
-# Ticket Handoff Template
+# Technical Ticket Template
 
-Template compatto per il passaggio assistenza -> tecnico.
+Compact template for a clean support -> engineering handoff.
 
-## Regole
+## Rules
 
-- usare sempre un solo target principale
-- se il ticket parla di `bpo` o `bpopilot`, il target e` `legacy`
-- se il ticket parla di `fatturhello` o `yeti`, il target e` `fatturhello`
-- se il ticket parla di `fiscobot`, il target e` `fiscobot`
-- evitare testo narrativo lungo e screenshot senza contesto
+- use one primary target only
+- keep the title descriptive and action-oriented
+- include exact repro steps
+- include at least one identifying record, document, or user reference when possible
+- avoid long narrative text and screenshots without context
 
-## Template Compatto
+## Recommended Template
 
 ```md
-Titolo: [TARGET] azione + oggetto + effetto
+Title: [TARGET] action + object + visible effect
 
-Target: legacy | fatturhello | fiscobot
-Ambiente: produzione
-Partita IVA azienda: ...
-Studio: ... (se presente)
-Area funzionale: ...
+Target: legacy | public-app | automation-bot | unknown
+Environment: production | staging | local
+Functional area: ...
 
-Problema:
-- cosa non funziona in una frase
+Problem:
+- one sentence describing what is failing
 
-Passi per riprodurre:
+Steps to reproduce:
 1. ...
 2. ...
 3. ...
 
-Atteso:
+Expected:
 - ...
 
-Attuale:
+Actual:
 - ...
 
-Dati utili:
-- utente:
-- partita IVA azienda:
-- studio:
-- id record / numero documento / protocollo:
+Useful identifiers:
+- user:
+- account / tenant / workspace:
+- record id / document id / protocol:
 
-Evidenza:
-- messaggio errore:
-- endpoint/pagina:
-- allegato o esempio input:
+Evidence:
+- error message:
+- endpoint / page / workflow:
+- sample payload or input:
 
-Vincoli:
-- urgenza:
-- impatto:
-- note operative:
+Constraints:
+- urgency:
+- impact:
+- notes:
 ```
 
-## Esempio Buono
+## Good Example
 
 ```md
-Titolo: [fatturhello] salvataggio anagrafica cliente blocca modifica PEC
+Title: [public-app] customer profile save rejects VAT update
 
-Target: fatturhello
-Ambiente: produzione
-Partita IVA azienda: 01234567890
-Studio: Studio Rossi
-Area funzionale: anagrafica clienti
+Target: public-app
+Environment: production
+Functional area: customer profile
 
-Problema:
-- la modifica PEC non viene salvata dalla scheda cliente
+Problem:
+- updating the VAT number fails when saving the customer profile
 
-Passi per riprodurre:
-1. aprire cliente 10244
-2. modificare la PEC
-3. premere salva
+Steps to reproduce:
+1. open customer profile 10244
+2. change the VAT number
+3. press save
 
-Atteso:
-- la nuova PEC viene salvata
+Expected:
+- the new VAT number is stored
 
-Attuale:
-- compare errore generico e il valore precedente resta invariato
+Actual:
+- the form shows a generic save error and restores the previous value
 
-Dati utili:
-- utente: mario.rossi
-- partita IVA azienda: 01234567890
-- studio: Studio Rossi
-- id record / numero documento / protocollo: cliente 10244
+Useful identifiers:
+- user: mario.rossi
+- account / tenant / workspace: studio-rossi
+- record id / document id / protocol: customer 10244
 
-Evidenza:
-- messaggio errore: "errore durante il salvataggio"
-- endpoint/pagina: yeti anagrafica cliente
-- allegato o esempio input: PEC prova@test.it
+Evidence:
+- error message: "save failed"
+- endpoint / page / workflow: public customer profile form
+- sample payload or input: VAT IT01234567890
 
-Vincoli:
-- urgenza: media
-- impatto: il cliente non puo aggiornare i dati di fatturazione
-- note operative: non riguarda bpofh o fiscobot
+Constraints:
+- urgency: medium
+- impact: billing data cannot be updated
+- notes: issue appears isolated to the public profile flow
 ```
 
 ## Anti-Pattern
 
-- `non va`
-- `errore cliente`
-- `sistemare fatture`
-- ticket senza target, senza passi e senza dato identificativo
+- `it does not work`
+- `customer error`
+- `fix invoices`
+- ticket without target, repro steps, or identifying data

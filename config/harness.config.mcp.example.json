@@ -161,7 +161,7 @@
         "projectKeys": ["GEN"]
       },
       {
-        "target": "fatturhello",
+        "target": "public-app",
         "repoTarget": "public-web",
         "area": "public-experience",
         "inScope": true,
@@ -172,7 +172,7 @@
         "projectKeys": ["WEB"]
       },
       {
-        "target": "fiscobot",
+        "target": "automation-bot",
         "repoTarget": "automation-suite",
         "area": "automation-workflows",
         "inScope": true,

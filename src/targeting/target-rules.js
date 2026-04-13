@@ -3,30 +3,34 @@ const defaultTargetingConfig = {
   rules: [
     {
       target: "legacy",
-      repoTarget: "api+asp",
-      aliases: ["bpo", "bpopilot"],
-      scopeAliases: ["bpopilot"],
-      projectKeys: []
+      repoTarget: "core-app",
+      aliases: ["legacy-suite", "legacy suite", "core-backoffice", "core backoffice"],
+      scopeAliases: ["coreapp"],
+      projectKeys: ["GEN"]
     },
     {
-      target: "fatturhello",
-      repoTarget: "pubblico",
+      target: "public-app",
+      repoTarget: "public-web",
       aliases: [
-        "fatturhello",
-        "yeti",
-        "app.fatturhello.it",
-        "impersona.fatturhello.it",
-        "fatturhello=true"
+        "public-app",
+        "public app",
+        "public portal",
+        "portal-web",
+        "portal web",
+        "customer-portal",
+        "customer portal",
+        "public-web",
+        "web-app"
       ],
-      scopeAliases: ["fatturhello", "yeti"],
-      projectKeys: ["DEVFH"]
+      scopeAliases: ["publicapp", "portalweb"],
+      projectKeys: ["WEB"]
     },
     {
-      target: "fiscobot",
-      repoTarget: "pubblico+bpofh+fiscobot",
-      aliases: ["fiscobot", "app.fiscobot.it"],
-      scopeAliases: ["fiscobot"],
-      projectKeys: []
+      target: "automation-bot",
+      repoTarget: "automation-suite",
+      aliases: ["automation-bot", "workflow-bot", "workflow bot", "rule-engine", "rule engine"],
+      scopeAliases: ["automation", "automationbot"],
+      projectKeys: ["BOT"]
     }
   ]
 };

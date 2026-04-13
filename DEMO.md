@@ -65,7 +65,7 @@ The raw answer stays in the interaction store.
 
 The useful part is distilled into memory:
 
-- `product_target=fatturhello`
+- `product_target=public-app`
 - `repo_target=public-web`
 - clarification source: `slack`
 - clarification summary: `public invoice form validation lives in public-web`

@@ -50,13 +50,13 @@ test("unwrapToolResult parses JSON text payloads emitted by MCP tools", () => {
     content: [
       {
         type: "text",
-        text: "{\"issues\":[{\"key\":\"DEVFH-1\"}]}"
+        text: "{\"issues\":[{\"key\":\"GEN-1\"}]}"
       }
     ]
   });
 
   assert.deepEqual(result.data, {
-    issues: [{ key: "DEVFH-1" }]
+    issues: [{ key: "GEN-1" }]
   });
 });
 
@@ -64,19 +64,19 @@ test("inferProductTargetFromEvidence honors canonical target semantics", () => {
   assert.equal(
     inferProductTargetFromEvidence(
       {
-        summary: "Errore fiscobot registrazione",
+        summary: "Workflow bot registration issue",
         rawDescription: "",
         pageUrl: ""
       },
       []
     ),
-    "fiscobot"
+    "automation-bot"
   );
 
   assert.equal(
     inferProductTargetFromEvidence(
       {
-        summary: "Problema BPO anagrafica",
+        summary: "Legacy suite profile issue",
         rawDescription: "",
         pageUrl: ""
       },
@@ -88,34 +88,34 @@ test("inferProductTargetFromEvidence honors canonical target semantics", () => {
   assert.equal(
     inferProductTargetFromEvidence(
       {
-        summary: "Errore yeti in fattura",
+        summary: "Public portal invoice validation error",
         rawDescription: "",
         pageUrl: ""
       },
       []
     ),
-    "fatturhello"
+    "public-app"
   );
 
   assert.equal(
     inferProductTargetFromEvidence(
       {
-        key: "DEVFH-10",
-        projectKey: "DEVFH",
+        key: "WEB-10",
+        projectKey: "WEB",
         summary: "Errore salvataggio documento",
         rawDescription: "",
         pageUrl: ""
       },
       []
     ),
-    "fatturhello"
+    "public-app"
   );
 });
 
 test("defaultRepoTarget matches harness repo conventions", () => {
-  assert.equal(defaultRepoTarget("legacy"), "api+asp");
-  assert.equal(defaultRepoTarget("fatturhello"), "pubblico");
-  assert.equal(defaultRepoTarget("fiscobot"), "pubblico+bpofh+fiscobot");
+  assert.equal(defaultRepoTarget("legacy"), "core-app");
+  assert.equal(defaultRepoTarget("public-app"), "public-web");
+  assert.equal(defaultRepoTarget("automation-bot"), "automation-suite");
   assert.equal(defaultRepoTarget("unknown"), "UNKNOWN");
 });
 

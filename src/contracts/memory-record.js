@@ -33,6 +33,8 @@ export function normalizeMemoryRecord(record) {
     branch_name: record.branch_name ?? record.branchName ?? "",
     pr_url: record.pr_url ?? record.prUrl ?? "",
     last_outcome: record.last_outcome ?? record.lastOutcome ?? "",
+    clarification_summary:
+      record.clarification_summary ?? record.clarificationSummary ?? "",
     recheck_conditions: toArray(record.recheck_conditions),
     updated_at: record.updated_at ?? record.updatedAt ?? new Date().toISOString()
   };
@@ -55,6 +57,8 @@ export function createMemoryRecord(decision) {
     branch_name: decision.branch_name ?? "",
     pr_url: decision.pr_url ?? "",
     last_outcome: decision.last_outcome ?? "",
+    clarification_summary:
+      decision.clarification_summary ?? decision.clarificationSummary ?? "",
     recheck_conditions: toArray(decision.recheck_conditions),
     updated_at: new Date().toISOString()
   };

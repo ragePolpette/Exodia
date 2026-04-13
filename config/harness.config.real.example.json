@@ -118,6 +118,34 @@
     "allowedBaseBranches": ["main"],
     "workspaceRoot": "C:\\path\\to\\your\\workspace"
   },
+  "interaction": {
+    "enabled": true,
+    "mode": "deferred",
+    "storeFile": "../data/interactions.json",
+    "destinations": "both",
+    "allowedPhases": ["triage", "verification"],
+    "maxQuestionsPerTicket": 1,
+    "captureToSemanticMemory": true,
+    "captureToTicketMemory": true,
+    "messagePrefix": "[Malkuth]",
+    "transports": {
+      "slack": {
+        "enabled": true,
+        "server": "your-slack-mcp-server",
+        "postAction": "postMessage",
+        "collectRepliesAction": "listThreadReplies",
+        "channel": "#your-team-channel",
+        "channelsByPhase": {
+          "triage": "#your-team-triage",
+          "verification": "#your-team-review"
+        }
+      },
+      "ticket": {
+        "enabled": true,
+        "commentPrefix": "[Malkuth]"
+      }
+    }
+  },
   "targeting": {
     "unknownTarget": "unknown",
     "rules": [
@@ -161,11 +189,51 @@
     "fixtureFile": "",
     "fixtures": {},
     "command": "your-mcp-bridge-command",
-    "args": []
+    "args": [],
+    "allowedActionsByServer": {
+      "atlassian_rovo_mcp": [
+        "searchTicketsByJql",
+        "searchTicketsByFilter",
+        "addTicketComment",
+        "listTicketComments"
+      ],
+      "your-slack-mcp-server": [
+        "postMessage",
+        "listThreadReplies"
+      ]
+    }
   },
   "logging": {
     "level": "info",
-    "includeTimestamp": true
+    "includeTimestamp": true,
+    "file": {
+      "enabled": true,
+      "rootDir": "../data/logs"
+    }
+  },
+  "scheduling": {
+    "enabled": true,
+    "lockFile": "../data/run.lock",
+    "profiles": {
+      "triage": {
+        "command": "triage",
+        "dryRun": true,
+        "executionEnabled": false,
+        "report": "default"
+      },
+      "execute-readonly": {
+        "command": "execute",
+        "dryRun": true,
+        "executionEnabled": true,
+        "report": "execution"
+      },
+      "execute-write": {
+        "command": "execute",
+        "dryRun": false,
+        "executionEnabled": true,
+        "report": "execution"
+      }
+    }
   },
   "mockTickets": []
 }

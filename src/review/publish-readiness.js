@@ -6,17 +6,19 @@ const publishReadinessDefaults = {
   requiredDocs: [
     {
       path: "README.md",
-      requiredSnippets: [
-        "deploy pubblico come servizio esposto",
-        "non e` pensato per",
-        "non usare file `.env`"
+      requiredRegexPatterns: [
+        "not intended for deployment as a publicly exposed service",
+        "do not use file `\\.env`",
+        "human-in-the-loop",
+        "slack",
+        "resume"
       ]
     },
     {
       path: "config/LOCAL_CONFIGURATION.md",
-      requiredSnippets: [
-        "non usare file `.env`",
-        "non creare `.env.local`",
+      requiredRegexPatterns: [
+        "non usare file `\\.env`",
+        "non creare `\\.env\\.local`",
         "mcp-dashboard"
       ]
     }
@@ -79,11 +81,20 @@ export async function runPublishReadinessReview(workspaceRoot, config = {}) {
     const absolutePath = path.join(workspaceRoot, docRule.path);
     try {
       const content = await readFile(absolutePath, "utf8");
-      for (const snippet of docRule.requiredSnippets) {
+      for (const snippet of docRule.requiredSnippets ?? []) {
         checks.push(
           content.includes(snippet)
             ? formatCheck("passed", `doc_required:${docRule.path}`, snippet)
             : formatCheck("failed", `doc_required:${docRule.path}`, `missing snippet: ${snippet}`)
+        );
+      }
+
+      for (const pattern of docRule.requiredRegexPatterns ?? []) {
+        const expression = new RegExp(pattern, "i");
+        checks.push(
+          expression.test(content)
+            ? formatCheck("passed", `doc_required:${docRule.path}`, pattern)
+            : formatCheck("failed", `doc_required:${docRule.path}`, `missing pattern: ${pattern}`)
         );
       }
     } catch (error) {

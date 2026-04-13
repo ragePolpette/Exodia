@@ -10,9 +10,11 @@ export function renderExecutionReport(summary) {
     `Run id: ${summary.runId || "n/a"}`,
     `Adapters: jira=${summary.adapterKinds.jira}, llmContext=${summary.adapterKinds.llmContext}, llmMemory=${summary.adapterKinds.llmMemory}, llmSqlDb=${summary.adapterKinds.llmSqlDb}, bitbucket=${summary.adapterKinds.bitbucket}`,
     `Tickets triaged: ${summary.triage.length}`,
+    `Interactions: pending=${summary.interactionStats?.pending ?? 0} resolved=${summary.interactionStats?.resolved ?? 0}`,
     `Verification results: ${summary.verification.length}`,
     `Execution results: ${summary.execution.length}`,
     `Memory file: ${summary.memoryFile}`,
+    `Log file: ${summary.logFiles?.jsonl ?? "disabled"}`,
     `Resume: before=${summary.resumeStats.memoryRecordsBefore} after=${summary.resumeStats.memoryRecordsAfter}`,
     `Audit entries: ${summary.auditTrail?.length ?? 0}`,
     "Verification status counts:"

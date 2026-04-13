@@ -28,4 +28,16 @@ export class McpLlmMemoryAdapter {
       }
     });
   }
+
+  async captureInteractionInsight(insight) {
+    return this.client.request({
+      server: this.options.server,
+      action: "captureInferenceMemory",
+      payload: {
+        namespace: this.options.namespace,
+        phase: "interaction",
+        insight
+      }
+    });
+  }
 }

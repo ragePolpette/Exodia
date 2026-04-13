@@ -10,7 +10,9 @@ export function renderTriageReport(summary) {
     `Run id: ${summary.runId || "n/a"}`,
     `Adapters: jira=${summary.adapterKinds.jira}, llmContext=${summary.adapterKinds.llmContext}, llmMemory=${summary.adapterKinds.llmMemory}, llmSqlDb=${summary.adapterKinds.llmSqlDb}, bitbucket=${summary.adapterKinds.bitbucket}`,
     `Tickets loaded: ${summary.ticketCount}`,
+    `Interactions: pending=${summary.interactionStats?.pending ?? 0} resolved=${summary.interactionStats?.resolved ?? 0}`,
     `Memory file: ${summary.memoryFile}`,
+    `Log file: ${summary.logFiles?.jsonl ?? "disabled"}`,
     `Resume: before=${summary.resumeStats.memoryRecordsBefore} after=${summary.resumeStats.memoryRecordsAfter} reused_rejected=${summary.resumeStats.skippedAlreadyRejected} reused_in_progress=${summary.resumeStats.skippedAlreadyInProgress}`,
     `Audit entries: ${summary.auditTrail?.length ?? 0}`,
     "Status counts:"
@@ -30,6 +32,9 @@ export function renderTriageReport(summary) {
     lines.push(`  reason: ${redactText(item.short_reason, redaction)}`);
     if (item.implementation_hint) {
       lines.push(`  hint: ${redactText(item.implementation_hint, redaction)}`);
+    }
+    if (item.clarification_summary) {
+      lines.push(`  clarification: ${redactText(item.clarification_summary, redaction)}`);
     }
     if ((item.recheck_conditions ?? []).length > 0) {
       lines.push(`  recheck: ${redactText(item.recheck_conditions.join(", "), redaction)}`);

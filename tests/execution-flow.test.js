@@ -8,7 +8,7 @@ import { BitbucketAdapter } from "../src/adapters/bitbucket-adapter.js";
 import { runHarness } from "../src/orchestration/run-harness.js";
 
 async function runExecutionScenario({ mockTickets, existingMemory = [] }) {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-execution-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-execution-"));
   const configPath = path.join(workspace, "harness.config.json");
   const memoryPath = path.join(workspace, "memory.json");
   const normalizedMockTickets = mockTickets.map((ticket) => ({
@@ -222,7 +222,7 @@ test("verification blocks execution when commit payload is not single-line safe"
 });
 
 test("guardrail blocks real execution when bitbucket adapter is not mcp", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-execution-guard-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-execution-guard-"));
   const configPath = path.join(workspace, "harness.config.json");
   const config = {
     mode: "triage-and-execution",
@@ -271,7 +271,7 @@ test("guardrail blocks real execution when bitbucket adapter is not mcp", async 
 });
 
 test("guardrail blocks real execution when allowRealPrs is false", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-execution-mcp-guard-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-execution-mcp-guard-"));
   const configPath = path.join(workspace, "harness.config.json");
   const config = {
     mode: "triage-and-execution",
@@ -364,7 +364,7 @@ test("guardrail blocks real execution when allowRealPrs is false", async () => {
 });
 
 test("guardrail blocks MCP dry-run when trust level stays on mock", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-execution-trust-guard-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-execution-trust-guard-"));
   const configPath = path.join(workspace, "harness.config.json");
   const config = {
     mode: "triage-and-execution",
@@ -438,7 +438,7 @@ test("guardrail blocks MCP dry-run when trust level stays on mock", async () => 
 });
 
 test("guardrail blocks execution when repository is outside the allowlist", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-execution-repo-policy-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-execution-repo-policy-"));
   const configPath = path.join(workspace, "harness.config.json");
   const config = {
     mode: "triage-and-execution",
@@ -514,7 +514,7 @@ test("guardrail blocks execution when repository is outside the allowlist", asyn
 });
 
 test("mcp execution can create branch, commit and pull request when config is coherent", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-execution-mcp-real-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-execution-mcp-real-"));
   const configPath = path.join(workspace, "harness.config.json");
   const config = {
     mode: "triage-and-execution",
@@ -625,7 +625,7 @@ test("mcp execution can create branch, commit and pull request when config is co
 });
 
 test("execution reuses an already open pull request when found in bitbucket", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-execution-existing-pr-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-execution-existing-pr-"));
   const configPath = path.join(workspace, "harness.config.json");
   const config = {
     mode: "triage-and-execution",
@@ -746,5 +746,5 @@ test("run summary includes a readable audit trail", async () => {
   assert.ok(Array.isArray(summary.auditTrail));
   assert.ok(summary.auditTrail.length >= 4);
   assert.equal(summary.auditTrail[0].phase, "run");
-  assert.match(summary.finalReport, /Malkuth Final Report/);
+  assert.match(summary.finalReport, /Exodia Final Report/);
 });

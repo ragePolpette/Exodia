@@ -7,7 +7,7 @@ import os from "node:os";
 import { renderScanReport, scanWorkspace } from "../src/security/public-hygiene.js";
 
 test("scanWorkspace reports forbidden literal patterns in tracked files", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-public-hygiene-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-public-hygiene-"));
   await mkdir(path.join(workspace, "src"), { recursive: true });
   await writeFile(path.join(workspace, "src", "index.js"), "const leaked = 'tenant.acme.internal';\n");
 
@@ -25,7 +25,7 @@ test("scanWorkspace reports forbidden literal patterns in tracked files", async 
 });
 
 test("scanWorkspace rejects non-placeholder values in example config fields", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-example-scan-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-example-scan-"));
   await mkdir(path.join(workspace, "config"), { recursive: true });
   await writeFile(
     path.join(workspace, "config", "harness.config.example.json"),

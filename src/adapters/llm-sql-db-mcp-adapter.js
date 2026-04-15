@@ -24,13 +24,13 @@ export class McpLlmSqlDbAdapter {
       };
     }
 
-    const runId = `malkuth-run-${Date.now()}`;
+    const runId = `exodia-run-${Date.now()}`;
 
     return this.client.request({
       server: this.resolveRecordRunServer(),
       action: operation.action ?? "recordHarnessRun",
       payload: {
-        namespace: this.options.namespace ?? "malkuth",
+        namespace: this.options.namespace ?? "exodia",
         database: operation.database ?? "dev",
         sql: operation.sql,
         runId,
@@ -42,7 +42,7 @@ export class McpLlmSqlDbAdapter {
           mode: summary.mode,
           dryRun: summary.dryRun,
           ticketCount: summary.ticketCount,
-          namespace: this.options.namespace ?? "malkuth",
+          namespace: this.options.namespace ?? "exodia",
           recordedAt: new Date().toISOString()
         }
       }
@@ -67,7 +67,7 @@ export class McpLlmSqlDbAdapter {
       server: target.server,
       action: target.action ?? "runDiagnosticQuery",
       payload: {
-        namespace: this.options.namespace ?? "malkuth",
+        namespace: this.options.namespace ?? "exodia",
         database: target.database,
         phase: request.phase,
         ticketKey: request.ticketKey,

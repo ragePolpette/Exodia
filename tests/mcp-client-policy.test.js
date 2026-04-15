@@ -53,7 +53,7 @@ test("external MCP client surfaces a typed error when the bridge is not configur
 });
 
 test("external MCP client surfaces a typed timeout error", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-mcp-timeout-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-mcp-timeout-"));
   const bridgeScript = path.join(workspace, "timeout-bridge.mjs");
 
   await writeFile(
@@ -84,7 +84,7 @@ process.stdin.resume();
 });
 
 test("external MCP client surfaces a typed invalid response error", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-mcp-invalid-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-mcp-invalid-"));
   const bridgeScript = path.join(workspace, "invalid-bridge.mjs");
 
   await writeFile(

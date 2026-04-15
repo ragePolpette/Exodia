@@ -7,7 +7,7 @@ import os from "node:os";
 import { runHarness } from "../src/orchestration/run-harness.js";
 
 async function runTriageScenario({ mockTickets, existingMemory = [] }) {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-triage-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-triage-"));
   const configPath = path.join(workspace, "harness.config.json");
   const memoryPath = path.join(workspace, "memory.json");
 

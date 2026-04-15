@@ -161,13 +161,13 @@ Monitoring locale:
 Lo scheduling iniziale e` intenzionalmente manuale:
 
 - definisci i profili in `scheduling.profiles`
-- usa il wrapper `scripts/run-malkuth.ps1`
+- usa il wrapper `scripts/run-exodia.ps1`
 - il lock file evita doppie esecuzioni accidentali
 
 Esempi:
 
-- `pwsh -File .\scripts\run-malkuth.ps1 -Profile triage`
-- `pwsh -File .\scripts\run-malkuth.ps1 -Profile execute-readonly`
+- `pwsh -File .\scripts\run-exodia.ps1 -Profile triage`
+- `pwsh -File .\scripts\run-exodia.ps1 -Profile execute-readonly`
 
 Regole pratiche:
 

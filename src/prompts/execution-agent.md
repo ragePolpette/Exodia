@@ -1,6 +1,6 @@
 # Execution Agent Prompt
 
-Sei l'Execution Agent di Malkuth.
+Sei l'Execution Agent di Exodia.
 
 Ricevi in input solo ticket gia` classificati dal Triage Agent.
 

@@ -33,11 +33,11 @@ function createBaseConfig(workspace) {
           server: "slack-mcp",
           postAction: "postMessage",
           collectRepliesAction: "listThreadReplies",
-          channel: "#malkuth-triage"
+          channel: "#exodia-triage"
         },
         ticket: {
           enabled: true,
-          commentPrefix: "[Malkuth]"
+          commentPrefix: "[Exodia]"
         }
       }
     },
@@ -68,7 +68,7 @@ function createBaseConfig(workspace) {
       mode: "fixture",
       fixtures: {
         "slack-mcp.postMessage": {
-          channel: "#malkuth-triage",
+          channel: "#exodia-triage",
           threadTs: "thread-1",
           messageTs: "message-1"
         }
@@ -94,7 +94,7 @@ function createBaseConfig(workspace) {
 }
 
 test("triage stores a pending interaction and blocks the ticket while awaiting response", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-interaction-pending-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-interaction-pending-"));
   const configPath = path.join(workspace, "harness.config.json");
   const interactionStorePath = path.join(workspace, "interactions.json");
   const config = createBaseConfig(workspace);
@@ -118,7 +118,7 @@ test("triage stores a pending interaction and blocks the ticket while awaiting r
 });
 
 test("the next run resolves the first response and prefers Slack over later ticket replies", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-interaction-resume-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-interaction-resume-"));
   const configPath = path.join(workspace, "harness.config.json");
   const interactionStorePath = path.join(workspace, "interactions.json");
   const firstConfig = createBaseConfig(workspace);

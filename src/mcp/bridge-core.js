@@ -315,7 +315,7 @@ async function connectServer(serverDefinition) {
     stderr: "pipe"
   });
   const client = new Client({
-    name: "malkuth-mcp-bridge",
+    name: "exodia-mcp-bridge",
     version: "0.1.0"
   });
   await client.connect(transport);
@@ -496,7 +496,7 @@ async function handleContextRequest(serverDefinition, action, payload) {
 }
 
 async function handleMemoryRequest(serverDefinition, action, payload, { shadowMemoryFile }) {
-  const namespace = payload.namespace ?? "malkuth";
+  const namespace = payload.namespace ?? "exodia";
   const store = await loadShadowStore(shadowMemoryFile);
   const existingRecords = (store[namespace] ?? []).map(normalizeMemoryRecord);
 
@@ -526,7 +526,7 @@ async function handleMemoryRequest(serverDefinition, action, payload, { shadowMe
         `repo_target=${repoTarget}`
       ].join(" | ");
     const tags = [...new Set([
-      "malkuth",
+      "exodia",
       "ticket-harness",
       payload.phase ?? "triage",
       productTarget,
@@ -733,7 +733,7 @@ export function resolveSqlBridgeInvocation(serverName, action, payload = {}) {
       toolArgs: {
         sql: payload.sql,
         parameters: payload.parameters ?? {},
-        reason: payload.reason ?? `malkuth run log (${payload.mode ?? "unknown"})`
+        reason: payload.reason ?? `exodia run log (${payload.mode ?? "unknown"})`
       }
     };
   }

@@ -7,7 +7,7 @@ import os from "node:os";
 import { collectMonitoringSnapshot } from "../src/monitoring/monitoring-service.js";
 
 test("monitoring snapshot aggregates recent run summaries and JSONL levels", async () => {
-  const rootDir = await mkdtemp(path.join(os.tmpdir(), "malkuth-monitor-"));
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), "exodia-monitor-"));
   const dayOne = path.join(rootDir, "2026-03-26");
   const dayTwo = path.join(rootDir, "2026-03-27");
   await mkdir(dayOne, { recursive: true });
@@ -16,7 +16,7 @@ test("monitoring snapshot aggregates recent run summaries and JSONL levels", asy
   await writeFile(
     path.join(dayOne, "run-a.summary.json"),
     JSON.stringify({
-      runId: "malkuth-a",
+      runId: "exodia-a",
       startedAt: "2026-03-26T09:00:00.000Z",
       mode: "triage-only",
       dryRun: true,
@@ -39,7 +39,7 @@ test("monitoring snapshot aggregates recent run summaries and JSONL levels", asy
   await writeFile(
     path.join(dayTwo, "run-b.summary.json"),
     JSON.stringify({
-      runId: "malkuth-b",
+      runId: "exodia-b",
       startedAt: "2026-03-27T10:00:00.000Z",
       mode: "triage-and-execution",
       dryRun: false,
@@ -67,7 +67,7 @@ test("monitoring snapshot aggregates recent run summaries and JSONL levels", asy
   assert.equal(snapshot.aggregates.resolvedInteractions, 2);
   assert.equal(snapshot.aggregates.warningRuns, 1);
   assert.equal(snapshot.aggregates.errorRuns, 1);
-  assert.equal(snapshot.runs[0].runId, "malkuth-b");
+  assert.equal(snapshot.runs[0].runId, "exodia-b");
   assert.equal(snapshot.runs[0].status, "error");
   assert.equal(snapshot.runs[1].status, "warning");
 });

@@ -7,7 +7,7 @@ import os from "node:os";
 import { runHarness } from "../src/orchestration/run-harness.js";
 
 test("dry-run bootstraps triage and execution with mock adapters", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-dry-run-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-dry-run-"));
   const configPath = path.join(workspace, "harness.config.json");
   const config = {
     mode: "triage-and-execution",

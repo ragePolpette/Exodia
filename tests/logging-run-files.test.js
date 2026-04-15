@@ -7,7 +7,7 @@ import os from "node:os";
 import { runHarness } from "../src/orchestration/run-harness.js";
 
 test("run harness writes jsonl and summary files when file logging is enabled", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-logging-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-logging-"));
   const configPath = path.join(workspace, "harness.config.json");
 
   const config = {
@@ -73,7 +73,7 @@ test("run harness writes jsonl and summary files when file logging is enabled", 
     dryRunOverride: true
   });
 
-  assert.ok(summary.runId.startsWith("malkuth-"));
+  assert.ok(summary.runId.startsWith("exodia-"));
   assert.ok(summary.logFiles?.jsonl);
   assert.ok(summary.logFiles?.summaryText);
   assert.ok(summary.logFiles?.summaryJson);
@@ -83,11 +83,11 @@ test("run harness writes jsonl and summary files when file logging is enabled", 
   await stat(summary.logFiles.summaryJson);
 
   const jsonlContent = await readFile(summary.logFiles.jsonl, "utf8");
-  assert.match(jsonlContent, /"runId":"malkuth-/);
+  assert.match(jsonlContent, /"runId":"exodia-/);
   assert.match(jsonlContent, /Harness run started/);
 
   const summaryText = await readFile(summary.logFiles.summaryText, "utf8");
-  assert.match(summaryText, /Malkuth Final Report/);
+  assert.match(summaryText, /Exodia Final Report/);
 
   const summaryJson = JSON.parse(await readFile(summary.logFiles.summaryJson, "utf8"));
   assert.equal(summaryJson.runId, summary.runId);

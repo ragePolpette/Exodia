@@ -28,7 +28,7 @@ test("resolveScheduleProfile returns the configured manual profile", () => {
 });
 
 test("withRunLock prevents concurrent runs when the lock file already exists", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-lock-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-lock-"));
   const lockFile = path.join(workspace, "run.lock");
 
   await mkdir(path.dirname(lockFile), { recursive: true });
@@ -41,7 +41,7 @@ test("withRunLock prevents concurrent runs when the lock file already exists", a
 });
 
 test("withRunLock acquires and releases the lock around the callback", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-lock-cycle-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-lock-cycle-"));
   const lockFile = path.join(workspace, "run.lock");
   let executed = false;
 

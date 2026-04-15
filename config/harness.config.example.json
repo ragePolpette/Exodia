@@ -127,7 +127,7 @@
     "maxQuestionsPerTicket": 1,
     "captureToSemanticMemory": true,
     "captureToTicketMemory": true,
-    "messagePrefix": "[Malkuth]",
+    "messagePrefix": "[Exodia]",
     "transports": {
       "slack": {
         "enabled": false,
@@ -142,7 +142,7 @@
       },
       "ticket": {
         "enabled": true,
-        "commentPrefix": "[Malkuth]"
+        "commentPrefix": "[Exodia]"
       }
     }
   },

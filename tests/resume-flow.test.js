@@ -7,7 +7,7 @@ import os from "node:os";
 import { runHarness } from "../src/orchestration/run-harness.js";
 
 test("resume reuses memory and skips tickets already in progress", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-resume-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-resume-"));
   const configPath = path.join(workspace, "harness.config.json");
   const memoryPath = path.join(workspace, "memory.json");
   const config = {

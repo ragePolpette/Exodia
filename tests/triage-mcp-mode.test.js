@@ -7,7 +7,7 @@ import os from "node:os";
 import { runHarness } from "../src/orchestration/run-harness.js";
 
 test("triage works in mcp mode through the configured bridge client", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-triage-mcp-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-triage-mcp-"));
   const configPath = path.join(workspace, "harness.config.json");
   const config = {
     mode: "triage-only",
@@ -34,7 +34,7 @@ test("triage works in mcp mode through the configured bridge client", async () =
         },
         mcp: {
           server: "llm-context",
-          workspaceRoot: "C:\\Users\\Gianmarco\\Urgewalt\\Malkuth"
+          workspaceRoot: "C:\\Users\\Gianmarco\\Urgewalt\\Exodia"
         }
       },
       llmMemory: {
@@ -44,7 +44,7 @@ test("triage works in mcp mode through the configured bridge client", async () =
         },
         mcp: {
           server: "llm-memory",
-          namespace: "malkuth-harness"
+          namespace: "exodia-harness"
         }
       },
       llmSqlDb: {
@@ -135,7 +135,7 @@ test("triage works in mcp mode through the configured bridge client", async () =
 });
 
 test("triage mcp mode supports Jira filter-based lookup through bridge translation", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-triage-filter-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-triage-filter-"));
   const configPath = path.join(workspace, "harness.config.json");
   const config = {
     mode: "triage-only",
@@ -172,7 +172,7 @@ test("triage mcp mode supports Jira filter-based lookup through bridge translati
         },
         mcp: {
           server: "llm-memory",
-          namespace: "malkuth"
+          namespace: "exodia"
         }
       },
       llmSqlDb: {

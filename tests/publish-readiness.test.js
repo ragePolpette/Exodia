@@ -11,7 +11,7 @@ import {
 import { resolveWorkspaceRootForChecks } from "../src/review/resolve-check-workspace.js";
 
 async function createWorkspace() {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-publish-review-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-publish-review-"));
   await mkdir(path.join(workspace, "config"), { recursive: true });
   await mkdir(path.join(workspace, "src"), { recursive: true });
   await mkdir(path.join(workspace, "tests"), { recursive: true });
@@ -19,7 +19,7 @@ async function createWorkspace() {
   await writeFile(
     path.join(workspace, "README.md"),
     [
-      "# Malkuth",
+      "# Exodia",
       "It is not intended for deployment as a publicly exposed service.",
       "Human-in-the-loop questions can be routed to Slack.",
       "The next run can resume from the first valid answer.",
@@ -111,7 +111,7 @@ test("publish readiness review fails when docs still mention env workflow", asyn
 
 test("check workspace resolution prefers configured workspace roots before cwd", async () => {
   const workspace = await createWorkspace();
-  const alternateWorkspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-check-workspace-"));
+  const alternateWorkspace = await mkdtemp(path.join(os.tmpdir(), "exodia-check-workspace-"));
 
   const resolved = await resolveWorkspaceRootForChecks(
     {

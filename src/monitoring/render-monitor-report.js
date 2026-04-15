@@ -1,6 +1,6 @@
 export function renderMonitoringSnapshot(snapshot) {
   const lines = [
-    "Malkuth Monitoring Report",
+    "Exodia Monitoring Report",
     `Log root: ${snapshot.rootDir}`,
     `Runs inspected: ${snapshot.totalRuns}`,
     `Healthy runs: ${snapshot.aggregates.healthyRuns}`,

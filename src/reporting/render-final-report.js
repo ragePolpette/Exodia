@@ -1,6 +1,6 @@
 export function renderFinalReport(summary) {
   const lines = [
-    "Malkuth Final Report",
+    "Exodia Final Report",
     `Mode: ${summary.mode}`,
     `Dry run: ${summary.dryRun}`,
     `Execution enabled: ${summary.executionEnabled}`,

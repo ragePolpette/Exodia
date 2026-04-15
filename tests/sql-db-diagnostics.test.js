@@ -7,7 +7,7 @@ import os from "node:os";
 import { runHarness } from "../src/orchestration/run-harness.js";
 
 test("triage does not require sql diagnostics when tickets do not request them", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-sqldb-skip-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-sqldb-skip-"));
   const configPath = path.join(workspace, "harness.config.json");
   const config = {
     mode: "triage-only",
@@ -30,7 +30,7 @@ test("triage does not require sql diagnostics when tickets do not request them",
       llmMemory: {
         kind: "mcp",
         mock: { backend: "file" },
-        mcp: { server: "llm-memory", namespace: "malkuth-harness" }
+        mcp: { server: "llm-memory", namespace: "exodia-harness" }
       },
       llmSqlDb: {
         kind: "mcp",
@@ -54,7 +54,7 @@ test("triage does not require sql diagnostics when tickets do not request them",
           devServer: "llm-db-dev-mcp",
           defaultDatabase: "prod",
           enabled: true,
-          namespace: "malkuth-harness"
+          namespace: "exodia-harness"
         }
       },
       bitbucket: {
@@ -112,7 +112,7 @@ test("triage does not require sql diagnostics when tickets do not request them",
 });
 
 test("sql diagnostics are used on demand in triage and execution", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-sqldb-use-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-sqldb-use-"));
   const configPath = path.join(workspace, "harness.config.json");
   const config = {
     mode: "triage-and-execution",
@@ -159,7 +159,7 @@ test("sql diagnostics are used on demand in triage and execution", async () => {
           devServer: "llm-db-dev-mcp",
           defaultDatabase: "prod",
           enabled: true,
-          namespace: "malkuth-harness"
+          namespace: "exodia-harness"
         }
       },
       bitbucket: {

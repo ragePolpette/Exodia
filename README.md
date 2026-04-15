@@ -1,6 +1,6 @@
-# Malkuth
+# Exodia
 
-`Malkuth` is a local-first harness for triage, verification, human clarification, and controlled execution of technical work items.
+`Exodia` is a local-first harness for triage, verification, human clarification, and controlled execution of technical work items.
 
 It is built for environments where an agent should not jump directly from "ticket received" to "code changed" without policy checks, scoped execution rules, and a safe way to ask humans for missing context.
 
@@ -32,7 +32,7 @@ The runtime is built to:
 
 Many ticket-to-code automation flows are unsafe because they collapse triage, policy, and execution into one step.
 
-`Malkuth` separates those concerns into explicit stages:
+`Exodia` separates those concerns into explicit stages:
 
 - triage
 - verification

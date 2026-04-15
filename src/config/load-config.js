@@ -43,7 +43,7 @@ const defaultConfig = {
       },
       mcp: {
         server: "llm_memory",
-        namespace: "malkuth"
+        namespace: "exodia"
       }
     },
     llmSqlDb: {
@@ -55,7 +55,7 @@ const defaultConfig = {
         server: "llm_db_prod_mcp",
         enabled: false,
         defaultDatabase: "prod",
-        namespace: "malkuth",
+        namespace: "exodia",
         topology: "unified",
         operations: {
           recordRun: {
@@ -165,7 +165,7 @@ const defaultConfig = {
     maxQuestionsPerTicket: 1,
     captureToSemanticMemory: true,
     captureToTicketMemory: true,
-    messagePrefix: "[Malkuth]",
+    messagePrefix: "[Exodia]",
     transports: {
       slack: {
         enabled: false,
@@ -177,7 +177,7 @@ const defaultConfig = {
       },
       ticket: {
         enabled: true,
-        commentPrefix: "[Malkuth]"
+        commentPrefix: "[Exodia]"
       }
     }
   },
@@ -365,7 +365,7 @@ function normalizeInteractionConfig(config = {}) {
     maxQuestionsPerTicket: config.maxQuestionsPerTicket ?? 1,
     captureToSemanticMemory: config.captureToSemanticMemory ?? true,
     captureToTicketMemory: config.captureToTicketMemory ?? true,
-    messagePrefix: config.messagePrefix ?? "[Malkuth]",
+    messagePrefix: config.messagePrefix ?? "[Exodia]",
     transports: {
       slack: {
         enabled: config.transports?.slack?.enabled ?? false,
@@ -377,7 +377,7 @@ function normalizeInteractionConfig(config = {}) {
       },
       ticket: {
         enabled: config.transports?.ticket?.enabled ?? true,
-        commentPrefix: config.transports?.ticket?.commentPrefix ?? "[Malkuth]"
+        commentPrefix: config.transports?.ticket?.commentPrefix ?? "[Exodia]"
       }
     }
   };

@@ -76,7 +76,7 @@ export class InteractionService {
   }
 
   formatQuestionMessage(interaction, ticket) {
-    const prefix = this.config.messagePrefix ?? "[Malkuth]";
+    const prefix = this.config.messagePrefix ?? "[Exodia]";
     return [
       `${prefix}[Interaction ${interaction.id}] Clarification required for ${ticket.key}`,
       `Phase: ${interaction.phase}`,

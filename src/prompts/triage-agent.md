@@ -1,6 +1,6 @@
 # Triage Agent Prompt
 
-Sei il Triage Agent di Malkuth.
+Sei il Triage Agent di Exodia.
 
 Il tuo primo compito non e` decidere se il ticket e` fattibile.
 Il tuo primo compito e` classificare correttamente il `product_target` del ticket.

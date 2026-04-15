@@ -276,7 +276,7 @@ export function renderScanReport(result) {
   const issues = result?.issues ?? [];
   const scannedFiles = result?.scannedFiles ?? [];
   const lines = [
-    "Malkuth Public Hygiene Audit",
+    "Exodia Public Hygiene Audit",
     `Scanned files: ${scannedFiles.length}`,
     `Issues: ${issues.length}`
   ];

@@ -136,7 +136,7 @@ export async function runPublishReadinessReview(workspaceRoot, config = {}) {
 
 export function renderPublishReadinessReport(result) {
   const lines = [
-    "Malkuth Publish Readiness Review",
+    "Exodia Publish Readiness Review",
     `Status: ${result.status}`,
     `Checks: ${result.checks.length}`,
     `Hygiene issues: ${result.hygiene?.issues?.length ?? 0}`

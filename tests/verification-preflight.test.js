@@ -15,7 +15,7 @@ async function initGitWorkspace(workspace) {
 }
 
 test("preflight blocks execution when changed files escape the configured allowlist", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-preflight-paths-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-preflight-paths-"));
   const configPath = path.join(workspace, "harness.config.json");
   await initGitWorkspace(workspace);
   await mkdir(path.join(workspace, "allowed"), { recursive: true });
@@ -78,7 +78,7 @@ test("preflight blocks execution when changed files escape the configured allowl
 });
 
 test("preflight blocks execution when a configured command fails", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-preflight-command-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-preflight-command-"));
   const configPath = path.join(workspace, "harness.config.json");
   await initGitWorkspace(workspace);
   await mkdir(path.join(workspace, "allowed"), { recursive: true });
@@ -146,7 +146,7 @@ test("preflight blocks execution when a configured command fails", async () => {
 });
 
 test("preflight blocks execution when the public hygiene scan finds sensitive references", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-preflight-sensitive-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-preflight-sensitive-"));
   const configPath = path.join(workspace, "harness.config.json");
   await initGitWorkspace(workspace);
   await mkdir(path.join(workspace, "src"), { recursive: true });
@@ -215,7 +215,7 @@ test("preflight blocks execution when the public hygiene scan finds sensitive re
 });
 
 test("preflight blocks execution when the command is outside the allowlist", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-preflight-allowlist-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-preflight-allowlist-"));
   const configPath = path.join(workspace, "harness.config.json");
   await initGitWorkspace(workspace);
   await mkdir(path.join(workspace, "allowed"), { recursive: true });
@@ -286,7 +286,7 @@ test("preflight blocks execution when the command is outside the allowlist", asy
 });
 
 test("preflight executes commands in the configured workspace subdirectory", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-preflight-cwd-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-preflight-cwd-"));
   const configPath = path.join(workspace, "harness.config.json");
   await initGitWorkspace(workspace);
   await mkdir(path.join(workspace, "checks"), { recursive: true });
@@ -358,7 +358,7 @@ test("preflight executes commands in the configured workspace subdirectory", asy
 });
 
 test("preflight blocks execution when command cwd escapes the workspace root", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-preflight-cwd-escape-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-preflight-cwd-escape-"));
   const configPath = path.join(workspace, "harness.config.json");
   await initGitWorkspace(workspace);
 

@@ -1,6 +1,6 @@
 # Human-In-The-Loop Demo
 
-This is the shortest useful demo of what makes `Malkuth` different from a generic ticket-to-PR pipeline.
+This is the shortest useful demo of what makes `Exodia` different from a generic ticket-to-PR pipeline.
 
 ## Scenario
 
@@ -9,7 +9,7 @@ A ticket is ambiguous. The agent can map the issue to more than one plausible ta
 ## Step 1: the run stops safely
 
 ```text
-Malkuth Triage Report
+Exodia Triage Report
 Mode: triage-only
 Dry run: true
 Tickets loaded: 1
@@ -23,7 +23,7 @@ Interactions: pending=1 resolved=0
 ## Step 2: the agent asks on Slack
 
 ```text
-[Malkuth][Interaction int-2026-04-14-001] Clarification required for WEB-342
+[Exodia][Interaction int-2026-04-14-001] Clarification required for WEB-342
 Phase: triage
 Question: Which repository owns the invoice validation flow: public-web or automation-suite?
 Why: llm-context found conflicting evidence across two targets
@@ -40,7 +40,7 @@ public-web. The failure is in the public invoice form validation, not in the aut
 ## Step 4: the next run resumes
 
 ```text
-Malkuth Final Report
+Exodia Final Report
 Mode: triage-and-execution
 Dry run: true
 Tickets loaded: 1

@@ -3,7 +3,7 @@ import { redactText } from "../security/redaction.js";
 export function renderExecutionReport(summary) {
   const redaction = summary.redaction;
   const lines = [
-    "Malkuth Execution Report",
+    "Exodia Execution Report",
     `Mode: ${summary.mode}`,
     `Dry run: ${summary.dryRun}`,
     `Execution trust: ${summary.executionTrustLevel ?? "n/a"}`,

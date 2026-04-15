@@ -37,7 +37,7 @@ export async function runHarness({
   executionEnabledOverride
 } = {}) {
   const config = await loadConfig(configPath);
-  const localRunId = `malkuth-${randomUUID()}`;
+  const localRunId = `exodia-${randomUUID()}`;
   const runStartedAt = new Date().toISOString();
   const logPaths = resolveRunLogPaths(config.logging, localRunId, runStartedAt);
   const runLogStore = new RunLogStore(logPaths);

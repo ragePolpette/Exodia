@@ -158,7 +158,7 @@ test("sql db mcp adapter skips run persistence when no writable statement is con
 });
 
 test("loadConfig normalizes legacy sql db server fields into explicit targets", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "malkuth-config-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-config-"));
   const configPath = path.join(workspace, "harness.config.json");
 
   await writeFile(
@@ -193,8 +193,8 @@ test("loadConfig normalizes legacy sql db server fields into explicit targets", 
   assert.equal(config.adapters.llmSqlDb.mcp.operations.recordRun.action, "recordHarnessRun");
   assert.equal(config.adapters.llmSqlDb.mcp.operations.recordRun.enabled, false);
   assert.equal(config.execution.baseBranch, "");
-  assert.equal(config.adapters.llmMemory.mcp.namespace, "malkuth");
-  assert.equal(config.adapters.llmSqlDb.mcp.namespace, "malkuth");
+  assert.equal(config.adapters.llmMemory.mcp.namespace, "exodia");
+  assert.equal(config.adapters.llmSqlDb.mcp.namespace, "exodia");
   assert.equal(config.targeting.rules.length, 3);
   assert.equal(config.targeting.rules[0].target, "legacy");
 });

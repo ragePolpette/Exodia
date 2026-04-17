@@ -3,7 +3,7 @@ const auditVerdicts = ["approved", "needs_refinement", "blocked"];
 const implementationStatuses = ["completed", "needs_human", "blocked", "failed"];
 
 export const agentRuntimePhases = ["analysis", "audit", "implementation"];
-export const agentRuntimeProviders = ["mock", "codex-cli", "openai"];
+export const agentRuntimeProviders = ["mock", "codex-cli", "openai", "claude", "openrouter", "ollama", "lmstudio"];
 
 const defaultCapabilities = {
   supportsStructuredOutput: true,
@@ -127,11 +127,13 @@ export function normalizeAgentRuntimeConfig(config = {}) {
           : {}
       },
       openai: {
+        endpoint: `${config.providers?.openai?.endpoint ?? "/chat/completions"}`.trim() || "/chat/completions",
         model: `${config.providers?.openai?.model ?? config.model ?? ""}`.trim(),
         responseFormat: `${config.providers?.openai?.responseFormat ?? "json"}`.trim() || "json",
         baseUrl: `${config.providers?.openai?.baseUrl ?? ""}`.trim(),
         apiKeyEnvVar: `${config.providers?.openai?.apiKeyEnvVar ?? "OPENAI_API_KEY"}`.trim() || "OPENAI_API_KEY",
-        timeoutMs: Math.max(1000, Number(config.providers?.openai?.timeoutMs ?? 120000) || 120000)
+        timeoutMs: Math.max(1000, Number(config.providers?.openai?.timeoutMs ?? 120000) || 120000),
+        temperature: Number(config.providers?.openai?.temperature ?? 0)
       }
     }
   };
@@ -240,3 +242,4 @@ export function normalizeImplementationArtifact(record = {}) {
     createdAt: `${record.createdAt ?? record.created_at ?? record.updatedAt ?? record.updated_at ?? new Date().toISOString()}`
   };
 }
+

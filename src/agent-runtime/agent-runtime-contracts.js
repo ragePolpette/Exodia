@@ -144,6 +144,18 @@ export function normalizeAgentRuntimeConfig(config = {}) {
         timeoutMs: Math.max(1000, Number(config.providers?.claude?.timeoutMs ?? 120000) || 120000),
         maxTokens: Math.max(1, Number(config.providers?.claude?.maxTokens ?? 2000) || 2000),
         temperature: Number(config.providers?.claude?.temperature ?? 0)
+      },
+      openrouter: {
+        endpoint: `${config.providers?.openrouter?.endpoint ?? "/chat/completions"}`.trim() || "/chat/completions",
+        model: `${config.providers?.openrouter?.model ?? config.model ?? ""}`.trim(),
+        responseFormat: `${config.providers?.openrouter?.responseFormat ?? "json"}`.trim() || "json",
+        baseUrl: `${config.providers?.openrouter?.baseUrl ?? "https://openrouter.ai/api/v1"}`.trim(),
+        apiKeyEnvVar:
+          `${config.providers?.openrouter?.apiKeyEnvVar ?? "OPENROUTER_API_KEY"}`.trim() || "OPENROUTER_API_KEY",
+        siteUrl: `${config.providers?.openrouter?.siteUrl ?? ""}`.trim(),
+        siteName: `${config.providers?.openrouter?.siteName ?? ""}`.trim(),
+        timeoutMs: Math.max(1000, Number(config.providers?.openrouter?.timeoutMs ?? 120000) || 120000),
+        temperature: Number(config.providers?.openrouter?.temperature ?? 0)
       }
     }
   };

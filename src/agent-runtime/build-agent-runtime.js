@@ -3,6 +3,7 @@ import { MockAgentRuntimeAdapter } from "./mock-agent-runtime-adapter.js";
 import { CodexCliAgentRuntimeAdapter } from "./codex-cli-agent-runtime-adapter.js";
 import { OpenAiAgentRuntimeAdapter } from "./openai-agent-runtime-adapter.js";
 import { ClaudeAgentRuntimeAdapter } from "./claude-agent-runtime-adapter.js";
+import { OpenRouterAgentRuntimeAdapter } from "./openrouter-agent-runtime-adapter.js";
 
 export function buildAgentRuntime(config = {}, logger) {
   const normalizedConfig = normalizeAgentRuntimeConfig(config);
@@ -17,6 +18,8 @@ export function buildAgentRuntime(config = {}, logger) {
       return new OpenAiAgentRuntimeAdapter(normalizedConfig, options);
     case "claude":
       return new ClaudeAgentRuntimeAdapter(normalizedConfig, options);
+    case "openrouter":
+      return new OpenRouterAgentRuntimeAdapter(normalizedConfig, options);
     default:
       throw new Error(`Unsupported agent runtime provider: ${normalizedConfig.provider}`);
   }

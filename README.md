@@ -139,6 +139,38 @@ node src/cli.js monitor --config ./config/harness.config.example.json --limit 20
 node src/cli.js schedule-run --config ./config/harness.config.example.json --profile triage
 ```
 
+## Agent Runtime Providers
+
+`Exodia` keeps the agent runtime provider-agnostic.
+
+Current provider order:
+
+- `codex-cli` for low-cost local testing through a subprocess wrapper
+- `openai` for the first production-grade API integration
+- `claude`, `openrouter`, `ollama`, and `lmstudio` as follow-up providers
+
+The `codex-cli` provider expects a local command that:
+
+1. reads one JSON envelope from stdin
+2. returns one JSON object on stdout
+3. uses `EXODIA_AGENT_RUNTIME_PHASE` to decide whether it is handling `analysis`, `audit`, or `implementation`
+
+The runtime passes a payload shaped like this:
+
+```json
+{
+  "phase": "analysis",
+  "provider": "codex-cli",
+  "model": "",
+  "requireStructuredOutput": true,
+  "payload": {
+    "ticket": { "key": "GEN-100", "summary": "..." }
+  }
+}
+```
+
+For a local codex-driven setup, configure `agentRuntime.provider = "codex-cli"` in an untracked config and point `agentRuntime.providers["codex-cli"].command` to your wrapper.
+
 ## Configuration
 
 Publishable example configs:
@@ -180,3 +212,4 @@ This repository is in active development. The current runtime already demonstrat
 ## Development Process
 
 Built with AI-assisted workflows, while architecture, tradeoffs, integration, review, and validation were directed by the author.
+

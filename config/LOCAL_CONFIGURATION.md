@@ -136,6 +136,37 @@ Per Jira ticket comments:
 - abilita nel bridge le action `addTicketComment` e `listTicketComments`
 - usa il cloudId locale non tracciato
 
+## Agent Runtime
+
+The three-agent flow uses a provider-agnostic `agentRuntime` section.
+
+Local fields to set when you want live agents instead of heuristics:
+
+- `agentRuntime.enabled`
+- `agentRuntime.provider`
+- `agentRuntime.enabledPhases`
+- `agentRuntime.artifactFile`
+- `agentRuntime.implementationArtifactFile`
+- `agentRuntime.humanConfirmationPolicy`
+- `agentRuntime.audit.maxRefinementIterations`
+- `agentRuntime.implementation.maxVerificationLoops`
+- `agentRuntime.providers["codex-cli"].command`
+- `agentRuntime.providers["codex-cli"].args`
+- `agentRuntime.providers["codex-cli"].workingDirectory`
+- `agentRuntime.providers["codex-cli"].timeoutMs`
+- `agentRuntime.providers["codex-cli"].env`
+
+`codex-cli` is the recommended local test provider.
+
+Wrapper contract:
+
+- read one JSON request from stdin
+- emit one JSON response on stdout
+- no markdown, no prose wrappers
+- branch on `EXODIA_AGENT_RUNTIME_PHASE`
+
+Keep provider credentials and wrapper paths only in local untracked config.
+
 ## Logging Locale
 
 Il logging locale supporta:
@@ -187,3 +218,4 @@ La persistenza del run log non e` implicita:
 - abilita `adapters.llmSqlDb.mcp.operations.recordRun.enabled` solo se hai un target scrivibile locale
 - definisci `adapters.llmSqlDb.mcp.operations.recordRun.sql` nel file locale
 - non usare il target `prod` per scritture
+

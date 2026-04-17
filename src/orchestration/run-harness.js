@@ -10,6 +10,9 @@ import { InteractionService } from "../interaction/interaction-service.js";
 import { InteractionStore } from "../interaction/interaction-store.js";
 import { createLogger } from "../logging/logger.js";
 import { resolveRunLogPaths, RunLogStore } from "../logging/run-log-store.js";
+import { AnalysisArtifactStore } from "../agent-runtime/analysis-artifact-store.js";
+import { ImplementationArtifactStore } from "../agent-runtime/implementation-artifact-store.js";
+import { FileMemoryStore } from "../memory/file-memory-store.js";
 import { renderFinalReport } from "../reporting/render-final-report.js";
 import { renderTriageReport } from "../triage/render-triage-report.js";
 
@@ -57,7 +60,11 @@ export async function runHarness({
 
   assertMode(mode);
   logger.info("Harness run started", { mode, dryRun, configPath: config.configPath });
-  const { adapters, ticketMemoryAdapter, kinds, mcpClient } = buildAdapters({ config, logger });
+  const { adapters, agentRuntime, ticketMemoryAdapter, kinds, mcpClient } = buildAdapters({ config, logger });
+  const analysisArtifactStore = new AnalysisArtifactStore(new FileMemoryStore(config.agentRuntime.artifactFile));
+  const implementationArtifactStore = new ImplementationArtifactStore(
+    new FileMemoryStore(config.agentRuntime.implementationArtifactFile)
+  );
   const {
     jira: jiraAdapter,
     llmContext: contextAdapter,
@@ -87,6 +94,8 @@ export async function runHarness({
     semanticMemoryAdapter,
     sqlDbAdapter,
     interactionService,
+    agentRuntime,
+    analysisArtifactStore,
     logger,
     securityConfig: config.security
   });
@@ -94,6 +103,8 @@ export async function runHarness({
     bitbucketAdapter,
     verificationConfig: config.verification,
     interactionService,
+    agentRuntime,
+    analysisArtifactStore,
     logger
   });
   const executionAgent = new ExecutionAgent({
@@ -107,6 +118,10 @@ export async function runHarness({
       dryRun: executionDryRun
     },
     verificationConfig: config.verification,
+    interactionService,
+    agentRuntime,
+    analysisArtifactStore,
+    implementationArtifactStore,
     logger,
     securityConfig: config.security
   });
@@ -161,17 +176,15 @@ export async function runHarness({
     count: verification.length,
     approved: verification.filter((item) => item.status === "approved").length
   });
+  const verificationByTicket = new Map(verification.map((result) => [result.ticketKey, result]));
   const executionCandidates =
     mode === "triage-and-execution" && config.verification.enabled !== false
       ? candidateItems
-          .filter((item) =>
-            verification.some(
-              (result) => result.ticketKey === item.ticket.key && result.status === "approved"
-            )
-          )
+          .filter((item) => verificationByTicket.get(item.ticket.key)?.status === "approved")
           .map((item) => ({
             ...item,
-            verification: verification.find((result) => result.ticketKey === item.ticket.key) ?? null
+            decision: verificationByTicket.get(item.ticket.key)?.refinedDecision ?? item.decision,
+            verification: verificationByTicket.get(item.ticket.key) ?? null
           }))
       : candidateItems;
 
@@ -230,6 +243,13 @@ export async function runHarness({
     executionEnabled,
     executionDryRun,
     executionTrustLevel,
+    agentRuntime: {
+      provider: agentRuntime.provider,
+      enabled: agentRuntime.isEnabled(),
+      enabledPhases: agentRuntime.config.enabledPhases,
+      artifactFile: config.agentRuntime.artifactFile,
+      implementationArtifactFile: config.agentRuntime.implementationArtifactFile
+    },
     interactionStats: {
       pending: interactionPreparation.pending.length,
       resolved: interactionPreparation.resolved.length
@@ -333,3 +353,6 @@ export async function runHarness({
     finalReport
   };
 }
+
+
+

@@ -13,6 +13,7 @@ export const triageStatuses = [
 ];
 
 export const verificationStatuses = ["approved", "blocked", "needs_review"];
+export const auditVerdicts = ["approved", "needs_refinement", "blocked"];
 
 export const terminalOutcomes = ["not_feasible", "pr_opened", "implemented", "blocked"];
 
@@ -37,5 +38,11 @@ export function assertMode(mode) {
 export function assertVerificationStatus(status) {
   if (!verificationStatuses.includes(status)) {
     throw new Error(`Unsupported verification status: ${status}`);
+  }
+}
+
+export function assertAuditVerdict(verdict) {
+  if (!auditVerdicts.includes(verdict)) {
+    throw new Error(`Unsupported audit verdict: ${verdict}`);
   }
 }

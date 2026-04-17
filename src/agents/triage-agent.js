@@ -11,6 +11,8 @@ export class TriageAgent {
     semanticMemoryAdapter,
     sqlDbAdapter,
     interactionService,
+    agentRuntime,
+    analysisArtifactStore,
     logger,
     securityConfig
   }) {
@@ -19,6 +21,8 @@ export class TriageAgent {
     this.semanticMemoryAdapter = semanticMemoryAdapter;
     this.sqlDbAdapter = sqlDbAdapter;
     this.interactionService = interactionService;
+    this.agentRuntime = agentRuntime;
+    this.analysisArtifactStore = analysisArtifactStore;
     this.logger = logger;
     this.securityConfig = securityConfig;
     this.service = new TriageService();
@@ -116,13 +120,134 @@ export class TriageAgent {
     };
   }
 
-  shouldRequestClarification(ticket, decision) {
+  collectMissingInformation(ticket, mapping) {
+    const missing = [];
+
+    if (!mapping.productTarget || mapping.productTarget === "unknown") {
+      missing.push("Confirm the correct product target for this ticket.");
+    }
+
+    if (!mapping.repoTarget || mapping.repoTarget === "UNKNOWN") {
+      missing.push("Confirm the correct repository target for this ticket.");
+    }
+
+    if (Array.isArray(ticket.missingInformation)) {
+      missing.push(...ticket.missingInformation.filter(Boolean));
+    }
+
+    return [...new Set(missing)];
+  }
+
+  buildAnalysisInput(ticket, mapping, existingRecord, prompt) {
+    return {
+      prompt,
+      ticket,
+      mapping,
+      memory: {
+        existingRecord: existingRecord ?? null
+      },
+      humanClarifications: ticket.humanClarifications ?? [],
+      missingInformation: this.collectMissingInformation(ticket, mapping)
+    };
+  }
+
+  async analyzeTicket(ticket, mapping, existingRecord, prompt) {
+    if (!this.agentRuntime?.isPhaseEnabled("analysis")) {
+      return null;
+    }
+
+    try {
+      const analysis = await this.agentRuntime.analyzeTicket(
+        this.buildAnalysisInput(ticket, mapping, existingRecord, prompt)
+      );
+
+      await this.analysisArtifactStore?.upsertArtifacts([
+        {
+          ticket,
+          analysis
+        }
+      ]);
+
+      this.logger?.debug("Agent runtime analysis completed", {
+        ticketKey: ticket.key,
+        provider: analysis.provider,
+        status: analysis.status
+      });
+
+      return analysis;
+    } catch (error) {
+      this.logger?.warn("Agent runtime analysis failed", {
+        ticketKey: ticket.key,
+        provider: this.agentRuntime.provider,
+        error: error.message
+      });
+
+      if (this.agentRuntime.config.fallbackToHeuristics !== false) {
+        return null;
+      }
+
+      throw error;
+    }
+  }
+
+  applyAgentAnalysis(mapping, analysis) {
+    if (!analysis) {
+      return mapping;
+    }
+
+    const hints = [...(mapping.hints ?? [])];
+    if (analysis.summary) {
+      hints.push(`Agent analysis: ${analysis.summary}`);
+    }
+    if (analysis.proposedFix?.summary) {
+      hints.push(`Fix plan: ${analysis.proposedFix.summary}`);
+    }
+
+    const blockers = [...(mapping.blockers ?? [])];
+    let feasibility = analysis.feasibility || mapping.feasibility;
+
+    if (analysis.status === "blocked") {
+      feasibility = "blocked";
+      if (analysis.summary) {
+        blockers.push(analysis.summary);
+      }
+    }
+
+    if (analysis.status === "needs_human" && feasibility === "feasible") {
+      feasibility = "feasible_low_confidence";
+    }
+
+    return {
+      ...mapping,
+      productTarget: analysis.productTarget || mapping.productTarget,
+      repoTarget: analysis.repoTarget || mapping.repoTarget,
+      area: analysis.area || mapping.area,
+      feasibility,
+      confidence: analysis.confidence ?? mapping.confidence,
+      implementationHint: [
+        analysis.proposedFix?.summary,
+        analysis.proposedFix?.steps?.[0],
+        mapping.implementationHint
+      ]
+        .filter(Boolean)
+        .join(" | "),
+      hints,
+      blockers,
+      verificationPlan: analysis.verificationPlan
+    };
+  }
+
+  shouldRequestClarification(ticket, decision, analysis) {
     if (!this.interactionService?.isEnabledForPhase("triage")) {
       return false;
     }
 
     if (ticket.interactionState?.status === "awaiting_response") {
       return false;
+    }
+
+    if (analysis?.status === "needs_human" || (analysis?.questions?.length ?? 0) > 0) {
+      return true;
     }
 
     if (decision.status_decision === "feasible_low_confidence") {
@@ -135,18 +260,24 @@ export class TriageAgent {
     );
   }
 
-  buildClarificationQuestion(ticket, mapping, decision) {
+  buildClarificationQuestion(ticket, mapping, decision, analysis) {
     const candidateTarget = [mapping.productTarget, mapping.repoTarget]
       .filter(Boolean)
       .join(" / ");
     const statusReason =
-      decision.status_decision === "feasible_low_confidence"
-        ? "the current mapping confidence is too low"
-        : "the current mapping is blocked";
+      analysis?.status === "needs_human"
+        ? "the analysis agent needs more information"
+        : decision.status_decision === "feasible_low_confidence"
+          ? "the current mapping confidence is too low"
+          : "the current mapping is blocked";
+    const explicitQuestions = (analysis?.questions ?? [])
+      .map((question) => question.question)
+      .filter(Boolean);
 
     return [
       `Please clarify ${ticket.key}: ${statusReason}.`,
       candidateTarget ? `Current best guess: ${candidateTarget}.` : "",
+      explicitQuestions.length > 0 ? `Questions: ${explicitQuestions.join(" ")}` : "",
       "Confirm the correct product target, repository target, and any missing functional detail needed to continue."
     ]
       .filter(Boolean)
@@ -168,29 +299,37 @@ export class TriageAgent {
       }
 
       const diagnostics = await this.maybeRunDiagnostics(ticket);
-      const mapping = this.applyHumanClarifications(
+      const baselineMapping = this.applyHumanClarifications(
         this.applyDiagnostics(
           await this.contextAdapter.mapTicketToCodebase(ticket),
           diagnostics
         ),
         ticket
       );
+      const analysis = await this.analyzeTicket(
+        ticket,
+        baselineMapping,
+        memoryByTicket.get(ticket.key),
+        prompt
+      );
+      const mapping = this.applyAgentAnalysis(baselineMapping, analysis);
       let decision = this.service.evaluate(ticket, {
         prompt,
         mapping,
         memoryByTicket
       });
 
-      if (this.shouldRequestClarification(ticket, decision)) {
+      if (this.shouldRequestClarification(ticket, decision, analysis)) {
         const interaction = await this.interactionService.requestClarification({
           phase: "triage",
           ticket,
-          question: this.buildClarificationQuestion(ticket, mapping, decision),
+          question: this.buildClarificationQuestion(ticket, mapping, decision, analysis),
           reason: decision.short_reason,
           context: {
             productTarget: decision.product_target,
             repoTarget: decision.repo_target,
-            confidence: decision.confidence
+            confidence: decision.confidence,
+            proposedFixSummary: analysis?.proposedFix?.summary ?? ""
           }
         });
 

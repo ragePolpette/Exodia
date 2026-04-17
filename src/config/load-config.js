@@ -3,6 +3,7 @@ import path from "node:path";
 import { resolveTargetingConfig } from "../targeting/target-rules.js";
 import { normalizeInteractionDestinations } from "../interaction/interaction-contracts.js";
 import { normalizeSchedulingConfig } from "../scheduling/scheduling-service.js";
+import { normalizeAgentRuntimeConfig } from "../agent-runtime/agent-runtime-contracts.js";
 
 const defaultConfig = {
   mode: "triage-and-execution",
@@ -116,6 +117,41 @@ const defaultConfig = {
       }
     }
   },
+  agentRuntime: {
+    enabled: false,
+    provider: "mock",
+    model: "",
+    artifactFile: "./data/agent-artifacts.json",
+    implementationArtifactFile: "./data/implementation-artifacts.json",
+    enabledPhases: ["analysis", "audit", "implementation"],
+    fallbackToHeuristics: true,
+    requireStructuredOutput: true,
+    humanConfirmationPolicy: "on_low_confidence",
+    capabilities: {},
+    audit: {
+      maxRefinementIterations: 2
+    },
+    implementation: {
+      maxVerificationLoops: 3
+    },
+    providers: {
+      mock: {},
+      "codex-cli": {
+        command: "codex",
+        args: [],
+        workingDirectory: "",
+        timeoutMs: 120000,
+        env: {}
+      },
+      openai: {
+        model: "",
+        responseFormat: "json",
+        baseUrl: "",
+        apiKeyEnvVar: "OPENAI_API_KEY",
+        timeoutMs: 120000
+      }
+    }
+  },
   execution: {
     enabled: true,
     dryRun: true,
@@ -161,7 +197,7 @@ const defaultConfig = {
     mode: "deferred",
     storeFile: "./data/interactions.json",
     destinations: ["ticket"],
-    allowedPhases: ["triage", "verification"],
+    allowedPhases: ["triage", "verification", "execution"],
     maxQuestionsPerTicket: 1,
     captureToSemanticMemory: true,
     captureToTicketMemory: true,
@@ -361,7 +397,7 @@ function normalizeInteractionConfig(config = {}) {
       normalizeInteractionDestinations(config.destinations ?? config.destination ?? ["ticket"]),
     allowedPhases: Array.isArray(config.allowedPhases)
       ? [...new Set(config.allowedPhases.filter(Boolean))]
-      : ["triage", "verification"],
+      : ["triage", "verification", "execution"],
     maxQuestionsPerTicket: config.maxQuestionsPerTicket ?? 1,
     captureToSemanticMemory: config.captureToSemanticMemory ?? true,
     captureToTicketMemory: config.captureToTicketMemory ?? true,
@@ -411,6 +447,7 @@ export async function loadConfig(configPath) {
   const normalizedInteractionConfig = normalizeInteractionConfig(merged.interaction);
   const normalizedLoggingConfig = normalizeLoggingConfig(merged.logging);
   const normalizedSchedulingConfig = normalizeSchedulingConfig(merged.scheduling);
+  const normalizedAgentRuntimeConfig = normalizeAgentRuntimeConfig(merged.agentRuntime);
 
   return {
     ...merged,
@@ -430,6 +467,14 @@ export async function loadConfig(configPath) {
       ...normalizedSchedulingConfig,
       lockFile: path.resolve(configDirectory, normalizedSchedulingConfig.lockFile)
     },
+    agentRuntime: {
+      ...normalizedAgentRuntimeConfig,
+      artifactFile: path.resolve(configDirectory, normalizedAgentRuntimeConfig.artifactFile),
+      implementationArtifactFile: path.resolve(
+        configDirectory,
+        normalizedAgentRuntimeConfig.implementationArtifactFile
+      )
+    },
     configPath: resolvedPath,
     adapters: {
       ...merged.adapters,
@@ -444,3 +489,8 @@ export async function loadConfig(configPath) {
     }
   };
 }
+
+
+
+
+

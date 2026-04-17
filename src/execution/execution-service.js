@@ -90,7 +90,7 @@ export class ExecutionService {
     };
   }
 
-  buildPlannedResult(ticket, status, reason) {
+  buildPlannedResult(ticket, status, reason, extras = {}) {
     return {
       ticketKey: ticket.key,
       projectKey: ticket.projectKey,
@@ -101,11 +101,12 @@ export class ExecutionService {
       pullRequestUrl: "",
       commitMessage: "",
       status,
-      reason
+      reason,
+      ...extras
     };
   }
 
-  buildExecutionResult(ticket, branchName, commitMessage, pullRequest) {
+  buildExecutionResult(ticket, branchName, commitMessage, pullRequest, extras = {}) {
     return {
       ticketKey: ticket.key,
       projectKey: ticket.projectKey,
@@ -116,11 +117,12 @@ export class ExecutionService {
       pullRequestUrl: pullRequest.link,
       commitMessage,
       status: "pr_opened",
-      reason: "execution completed and pull request opened"
+      reason: "execution completed and pull request opened",
+      ...extras
     };
   }
 
-  buildExistingPullRequestResult(ticket, branchName, pullRequest) {
+  buildExistingPullRequestResult(ticket, branchName, pullRequest, extras = {}) {
     return {
       ticketKey: ticket.key,
       projectKey: ticket.projectKey,
@@ -131,7 +133,8 @@ export class ExecutionService {
       pullRequestUrl: pullRequest.link ?? pullRequest.url ?? "",
       commitMessage: "",
       status: "pr_opened",
-      reason: "execution reused an already open pull request"
+      reason: "execution reused an already open pull request",
+      ...extras
     };
   }
 }

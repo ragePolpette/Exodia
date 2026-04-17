@@ -3,6 +3,7 @@ import { buildEnterpriseAdapters } from "./build-enterprise-adapters.js";
 import { buildGenericAdapters } from "./build-generic-adapters.js";
 import { createMcpClient } from "../mcp/create-mcp-client.js";
 import { FileMemoryStore } from "../memory/file-memory-store.js";
+import { buildAgentRuntime } from "../agent-runtime/build-agent-runtime.js";
 
 function assertAdapterKind(name, adapterConfig) {
   if (!["mock", "mcp"].includes(adapterConfig.kind)) {
@@ -22,8 +23,8 @@ export function buildAdapters({ config, logger }) {
     Boolean(config.interaction?.enabled && config.interaction?.transports?.slack?.enabled);
   const mcpClient = needsMcpClient ? createMcpClient(config.mcpBridge) : null;
   const definitions = {
-    ...buildGenericAdapters({ config, mcpClient }),
-    ...buildEnterpriseAdapters({ config, mcpClient })
+    ...buildGenericAdapters({ config, mcpClient, logger }),
+    ...buildEnterpriseAdapters({ config, mcpClient, logger })
   };
 
   const adapters = {};
@@ -36,10 +37,18 @@ export function buildAdapters({ config, logger }) {
     kinds[name] = adapterConfig.kind;
   }
 
+  const agentRuntime = buildAgentRuntime(config.agentRuntime, logger);
+
   logger?.debug("Adapters bootstrapped", kinds);
+  logger?.debug("Agent runtime bootstrapped", {
+    provider: agentRuntime.provider,
+    enabled: agentRuntime.isEnabled(),
+    enabledPhases: agentRuntime.config.enabledPhases
+  });
 
   return {
     adapters,
+    agentRuntime,
     ticketMemoryAdapter,
     memoryStore,
     kinds,

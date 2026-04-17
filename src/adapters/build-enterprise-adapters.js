@@ -4,8 +4,9 @@ import { JiraAdapter } from "./jira-adapter.js";
 import { McpJiraAdapter } from "./jira-mcp-adapter.js";
 import { LlmSqlDbAdapter } from "./llm-sql-db-adapter.js";
 import { McpLlmSqlDbAdapter } from "./llm-sql-db-mcp-adapter.js";
+import { ResilientLlmSqlDbAdapter } from "./resilient-llm-sql-db-adapter.js";
 
-export function buildEnterpriseAdapters({ config, mcpClient }) {
+export function buildEnterpriseAdapters({ config, mcpClient, logger }) {
   return {
     jira: {
       mock: () => new JiraAdapter({ tickets: config.mockTickets, targeting: config.targeting }),
@@ -18,11 +19,22 @@ export function buildEnterpriseAdapters({ config, mcpClient }) {
     },
     llmSqlDb: {
       mock: () => new LlmSqlDbAdapter(config.adapters.llmSqlDb.mock),
-      mcp: () =>
-        new McpLlmSqlDbAdapter({
+      mcp: () => {
+        const primaryAdapter = new McpLlmSqlDbAdapter({
           ...config.adapters.llmSqlDb.mcp,
           client: mcpClient
-        })
+        });
+
+        if (config.adapters.llmSqlDb.mcp?.fallbackToMockOnError === false) {
+          return primaryAdapter;
+        }
+
+        return new ResilientLlmSqlDbAdapter({
+          primaryAdapter,
+          fallbackAdapter: new LlmSqlDbAdapter(config.adapters.llmSqlDb.mock),
+          logger
+        });
+      }
     },
     bitbucket: {
       mock: () =>

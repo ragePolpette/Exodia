@@ -1,4 +1,4 @@
-import { assertVerificationStatus } from "../contracts/harness-contracts.js";
+import { assertAuditVerdict, assertVerificationStatus } from "../contracts/harness-contracts.js";
 import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -13,7 +13,7 @@ function normalizePath(value) {
     .trim()
     .replace(/\\/g, "/")
     .replace(/^\.\//, "")
-    .replace(/\/+/g, "/");
+    .replace(/\/+?/g, "/");
 }
 
 function isAllowedCommand(command, args, allowedPrefixes) {
@@ -54,6 +54,19 @@ function isPathInside(basePath, candidatePath) {
   return relativePath === "" || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath));
 }
 
+function decorateResult(base, extras = {}) {
+  return {
+    ...base,
+    auditVerdict: extras.auditVerdict ?? base.auditVerdict ?? "",
+    auditSummary: extras.auditSummary ?? base.auditSummary ?? "",
+    auditIssues: extras.auditIssues ?? base.auditIssues ?? [],
+    refinementRequests: extras.refinementRequests ?? base.refinementRequests ?? [],
+    refinementIterations: extras.refinementIterations ?? base.refinementIterations ?? 0,
+    refinedDecision: extras.refinedDecision ?? base.refinedDecision ?? null,
+    analysisArtifact: extras.analysisArtifact ?? base.analysisArtifact ?? null
+  };
+}
+
 export class VerificationService {
   constructor(config = {}) {
     this.config = {
@@ -68,19 +81,59 @@ export class VerificationService {
     };
   }
 
-  buildResult(item, status, reason, payload = {}) {
+  buildResult(item, status, reason, payload = {}, extras = {}) {
     const normalizedStatus = normalizeStatus(status);
-    return {
-      ticketKey: item.ticket.key,
-      projectKey: item.ticket.projectKey,
-      productTarget: item.decision.product_target,
-      repoTarget: item.decision.repo_target,
-      status: normalizedStatus,
-      reason,
-      branchName: payload.branchName ?? "",
-      commitMessage: payload.commitMessage ?? "",
-      pullRequestTitle: payload.pullRequestTitle ?? ""
+    return decorateResult(
+      {
+        ticketKey: item.ticket.key,
+        projectKey: item.ticket.projectKey,
+        productTarget: item.decision.product_target,
+        repoTarget: item.decision.repo_target,
+        status: normalizedStatus,
+        reason,
+        branchName: payload.branchName ?? "",
+        commitMessage: payload.commitMessage ?? "",
+        pullRequestTitle: payload.pullRequestTitle ?? ""
+      },
+      extras
+    );
+  }
+
+  applyAuditVerdict(item, payload, result, audit = null, extras = {}) {
+    if (!audit) {
+      return decorateResult(result, extras);
+    }
+
+    assertAuditVerdict(audit.verdict);
+    const auditExtras = {
+      ...extras,
+      auditVerdict: audit.verdict,
+      auditSummary: audit.summary ?? "",
+      auditIssues: audit.issues ?? [],
+      refinementRequests: audit.refinementRequests ?? []
     };
+
+    if (audit.verdict === "blocked") {
+      return this.buildResult(
+        item,
+        "blocked",
+        audit.summary || "audit blocked the proposal",
+        payload,
+        auditExtras
+      );
+    }
+
+    if (audit.verdict === "needs_refinement") {
+      return this.buildResult(
+        item,
+        result.status === "blocked" ? "blocked" : "needs_review",
+        audit.summary || "audit requires refinement before implementation",
+        payload,
+        auditExtras
+      );
+    }
+
+    return decorateResult(result, auditExtras);
   }
 
   verify(item, payload) {

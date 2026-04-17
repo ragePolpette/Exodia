@@ -196,7 +196,7 @@ test("verification blocks execution when explicit ticket target conflicts with t
   assert.equal(memory[0].last_outcome, "triaged");
 });
 
-test("verification blocks execution when commit payload is not single-line safe", async () => {
+test("verification sanitizes newline-heavy summaries before execution payload validation", async () => {
   const { summary } = await runExecutionScenario({
     mockTickets: [
       {
@@ -216,11 +216,10 @@ test("verification blocks execution when commit payload is not single-line safe"
   });
 
   assert.equal(summary.verification.length, 1);
-  assert.equal(summary.verification[0].status, "blocked");
-  assert.match(summary.verification[0].reason, /commit message must stay on a single line/i);
-  assert.equal(summary.execution.length, 0);
+  assert.equal(summary.verification[0].status, "approved");
+  assert.equal(summary.execution.length, 1);
+  assert.equal(summary.execution[0].status, "pr_opened");
 });
-
 test("guardrail blocks real execution when bitbucket adapter is not mcp", async () => {
   const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-execution-guard-"));
   const configPath = path.join(workspace, "harness.config.json");
@@ -748,3 +747,4 @@ test("run summary includes a readable audit trail", async () => {
   assert.equal(summary.auditTrail[0].phase, "run");
   assert.match(summary.finalReport, /Exodia Final Report/);
 });
+

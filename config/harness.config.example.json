@@ -115,7 +115,9 @@
     "allowRealPrs": false,
     "allowMerge": false,
     "allowedRepositories": [],
-    "allowedBaseBranches": ["main"],
+    "allowedBaseBranches": [
+      "main"
+    ],
     "workspaceRoot": "C:\\path\\to\\your\\workspace"
   },
   "interaction": {
@@ -123,7 +125,10 @@
     "mode": "deferred",
     "storeFile": "../data/interactions.json",
     "destinations": "ticket",
-    "allowedPhases": ["triage", "verification"],
+    "allowedPhases": [
+      "triage",
+      "verification"
+    ],
     "maxQuestionsPerTicket": 1,
     "captureToSemanticMemory": true,
     "captureToTicketMemory": true,
@@ -156,9 +161,16 @@
         "inScope": true,
         "feasibility": "feasible",
         "implementationHint": "Inspect the core platform services before changing the shared pipeline",
-        "aliases": ["legacy-suite", "core-backoffice"],
-        "scopeAliases": ["coreapp"],
-        "projectKeys": ["GEN"]
+        "aliases": [
+          "legacy-suite",
+          "core-backoffice"
+        ],
+        "scopeAliases": [
+          "coreapp"
+        ],
+        "projectKeys": [
+          "GEN"
+        ]
       },
       {
         "target": "public-app",
@@ -167,9 +179,16 @@
         "inScope": true,
         "feasibility": "feasible",
         "implementationHint": "Inspect the public experience modules and avoid widening the scope too early",
-        "aliases": ["public-app", "portal-web"],
-        "scopeAliases": ["publicapp"],
-        "projectKeys": ["WEB"]
+        "aliases": [
+          "public-app",
+          "portal-web"
+        ],
+        "scopeAliases": [
+          "publicapp"
+        ],
+        "projectKeys": [
+          "WEB"
+        ]
       },
       {
         "target": "automation-bot",
@@ -178,9 +197,16 @@
         "inScope": true,
         "feasibility": "feasible",
         "implementationHint": "Inspect the automation workflow handlers tied to the failing rule",
-        "aliases": ["automation-bot", "bot-suite"],
-        "scopeAliases": ["automation"],
-        "projectKeys": ["BOT"]
+        "aliases": [
+          "automation-bot",
+          "bot-suite"
+        ],
+        "scopeAliases": [
+          "automation"
+        ],
+        "projectKeys": [
+          "BOT"
+        ]
       }
     ]
   },
@@ -282,5 +308,32 @@
         "implementationHint": "Inspect the automation suite rules for the import flow"
       }
     }
-  ]
+  ],
+  "agentRuntime": {
+    "enabled": false,
+    "provider": "codex-cli",
+    "artifactFile": "../data/agent-artifacts.json",
+    "implementationArtifactFile": "../data/implementation-artifacts.json",
+    "enabledPhases": [
+      "analysis",
+      "audit",
+      "implementation"
+    ],
+    "humanConfirmationPolicy": "on_low_confidence",
+    "audit": {
+      "maxRefinementIterations": 2
+    },
+    "implementation": {
+      "maxVerificationLoops": 3
+    },
+    "providers": {
+      "codex-cli": {
+        "command": "codex",
+        "args": [],
+        "workingDirectory": "C:\\path\\to\\your\\workspace",
+        "timeoutMs": 120000,
+        "env": {}
+      }
+    }
+  }
 }

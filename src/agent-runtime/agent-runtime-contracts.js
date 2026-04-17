@@ -156,6 +156,15 @@ export function normalizeAgentRuntimeConfig(config = {}) {
         siteName: `${config.providers?.openrouter?.siteName ?? ""}`.trim(),
         timeoutMs: Math.max(1000, Number(config.providers?.openrouter?.timeoutMs ?? 120000) || 120000),
         temperature: Number(config.providers?.openrouter?.temperature ?? 0)
+      },
+      ollama: {
+        endpoint: `${config.providers?.ollama?.endpoint ?? "/chat/completions"}`.trim() || "/chat/completions",
+        model: `${config.providers?.ollama?.model ?? config.model ?? ""}`.trim(),
+        responseFormat: `${config.providers?.ollama?.responseFormat ?? "json"}`.trim() || "json",
+        baseUrl: `${config.providers?.ollama?.baseUrl ?? "http://127.0.0.1:11434/v1"}`.trim(),
+        apiKeyEnvVar: `${config.providers?.ollama?.apiKeyEnvVar ?? ""}`.trim(),
+        timeoutMs: Math.max(1000, Number(config.providers?.ollama?.timeoutMs ?? 120000) || 120000),
+        temperature: Number(config.providers?.ollama?.temperature ?? 0)
       }
     }
   };

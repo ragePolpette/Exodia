@@ -1,11 +1,18 @@
-import { AgentRuntimeAdapter } from "./agent-runtime-adapter.js";
+import { HttpAgentRuntimeAdapter } from "./http-agent-runtime-adapter.js";
 
-export class OpenAiAgentRuntimeAdapter extends AgentRuntimeAdapter {
-  async invoke(phase) {
+export class OpenAiAgentRuntimeAdapter extends HttpAgentRuntimeAdapter {
+  buildHeaders() {
     const providerConfig = this.getProviderConfig();
-    throw new Error(
-      `openai agent runtime is not implemented yet for phase ${phase}. ` +
-        `Configure model ${providerConfig.model ?? this.model ?? ""} when wiring the live runtime.`
-    );
+    const apiKey = process.env[providerConfig.apiKeyEnvVar ?? "OPENAI_API_KEY"];
+    if (!apiKey) {
+      throw new Error(
+        `Missing OpenAI API key in environment variable ${providerConfig.apiKeyEnvVar ?? "OPENAI_API_KEY"}`
+      );
+    }
+
+    return {
+      ...super.buildHeaders(),
+      authorization: `Bearer ${apiKey}`
+    };
   }
 }

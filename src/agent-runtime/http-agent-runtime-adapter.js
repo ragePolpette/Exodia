@@ -83,7 +83,7 @@ function buildPhaseSchemaHint(phase) {
   }
 }
 
-function buildSystemPrompt(phase, prompt, requireStructuredOutput) {
+export function buildSystemPrompt(phase, prompt, requireStructuredOutput) {
   const base = `${prompt ?? ""}`.trim();
   const jsonInstruction = requireStructuredOutput
     ? "Return only one valid JSON object. Do not include markdown fences, explanations, or any prose outside the JSON object."
@@ -100,11 +100,11 @@ function buildSystemPrompt(phase, prompt, requireStructuredOutput) {
     .join("\n\n");
 }
 
-function buildUserPrompt(input = {}) {
+export function buildUserPrompt(input = {}) {
   return JSON.stringify(input, null, 2);
 }
 
-function safeJsonParse(content) {
+export function safeJsonParse(content) {
   try {
     return JSON.parse(content);
   } catch {
@@ -116,7 +116,7 @@ function safeJsonParse(content) {
   }
 }
 
-async function postJson({ url, headers, body, timeoutMs }) {
+export async function postJson({ url, headers, body, timeoutMs }) {
   const controller = new AbortController();
   const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -212,4 +212,5 @@ export class HttpAgentRuntimeAdapter extends AgentRuntimeAdapter {
     return this.extractResponsePayload(response);
   }
 }
+
 

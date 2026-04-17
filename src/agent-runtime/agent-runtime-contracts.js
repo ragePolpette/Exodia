@@ -130,10 +130,20 @@ export function normalizeAgentRuntimeConfig(config = {}) {
         endpoint: `${config.providers?.openai?.endpoint ?? "/chat/completions"}`.trim() || "/chat/completions",
         model: `${config.providers?.openai?.model ?? config.model ?? ""}`.trim(),
         responseFormat: `${config.providers?.openai?.responseFormat ?? "json"}`.trim() || "json",
-        baseUrl: `${config.providers?.openai?.baseUrl ?? ""}`.trim(),
+        baseUrl: `${config.providers?.openai?.baseUrl ?? "https://api.openai.com/v1"}`.trim(),
         apiKeyEnvVar: `${config.providers?.openai?.apiKeyEnvVar ?? "OPENAI_API_KEY"}`.trim() || "OPENAI_API_KEY",
         timeoutMs: Math.max(1000, Number(config.providers?.openai?.timeoutMs ?? 120000) || 120000),
         temperature: Number(config.providers?.openai?.temperature ?? 0)
+      },
+      claude: {
+        endpoint: `${config.providers?.claude?.endpoint ?? "/messages"}`.trim() || "/messages",
+        model: `${config.providers?.claude?.model ?? config.model ?? ""}`.trim(),
+        baseUrl: `${config.providers?.claude?.baseUrl ?? "https://api.anthropic.com/v1"}`.trim(),
+        apiKeyEnvVar: `${config.providers?.claude?.apiKeyEnvVar ?? "ANTHROPIC_API_KEY"}`.trim() || "ANTHROPIC_API_KEY",
+        anthropicVersion: `${config.providers?.claude?.anthropicVersion ?? "2023-06-01"}`.trim() || "2023-06-01",
+        timeoutMs: Math.max(1000, Number(config.providers?.claude?.timeoutMs ?? 120000) || 120000),
+        maxTokens: Math.max(1, Number(config.providers?.claude?.maxTokens ?? 2000) || 2000),
+        temperature: Number(config.providers?.claude?.temperature ?? 0)
       }
     }
   };
@@ -242,4 +252,5 @@ export function normalizeImplementationArtifact(record = {}) {
     createdAt: `${record.createdAt ?? record.created_at ?? record.updatedAt ?? record.updated_at ?? new Date().toISOString()}`
   };
 }
+
 

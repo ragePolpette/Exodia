@@ -5,6 +5,7 @@ import { OpenAiAgentRuntimeAdapter } from "./openai-agent-runtime-adapter.js";
 import { ClaudeAgentRuntimeAdapter } from "./claude-agent-runtime-adapter.js";
 import { OpenRouterAgentRuntimeAdapter } from "./openrouter-agent-runtime-adapter.js";
 import { OllamaAgentRuntimeAdapter } from "./ollama-agent-runtime-adapter.js";
+import { LmStudioAgentRuntimeAdapter } from "./lmstudio-agent-runtime-adapter.js";
 
 export function buildAgentRuntime(config = {}, logger) {
   const normalizedConfig = normalizeAgentRuntimeConfig(config);
@@ -23,6 +24,8 @@ export function buildAgentRuntime(config = {}, logger) {
       return new OpenRouterAgentRuntimeAdapter(normalizedConfig, options);
     case "ollama":
       return new OllamaAgentRuntimeAdapter(normalizedConfig, options);
+    case "lmstudio":
+      return new LmStudioAgentRuntimeAdapter(normalizedConfig, options);
     default:
       throw new Error(`Unsupported agent runtime provider: ${normalizedConfig.provider}`);
   }

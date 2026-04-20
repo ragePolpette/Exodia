@@ -165,6 +165,15 @@ export function normalizeAgentRuntimeConfig(config = {}) {
         apiKeyEnvVar: `${config.providers?.ollama?.apiKeyEnvVar ?? ""}`.trim(),
         timeoutMs: Math.max(1000, Number(config.providers?.ollama?.timeoutMs ?? 120000) || 120000),
         temperature: Number(config.providers?.ollama?.temperature ?? 0)
+      },
+      lmstudio: {
+        endpoint: `${config.providers?.lmstudio?.endpoint ?? "/chat/completions"}`.trim() || "/chat/completions",
+        model: `${config.providers?.lmstudio?.model ?? config.model ?? ""}`.trim(),
+        responseFormat: `${config.providers?.lmstudio?.responseFormat ?? "json"}`.trim() || "json",
+        baseUrl: `${config.providers?.lmstudio?.baseUrl ?? "http://127.0.0.1:1234/v1"}`.trim(),
+        apiKeyEnvVar: `${config.providers?.lmstudio?.apiKeyEnvVar ?? ""}`.trim(),
+        timeoutMs: Math.max(1000, Number(config.providers?.lmstudio?.timeoutMs ?? 120000) || 120000),
+        temperature: Number(config.providers?.lmstudio?.temperature ?? 0)
       }
     }
   };

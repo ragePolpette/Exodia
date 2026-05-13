@@ -34,7 +34,7 @@ test("triage works in mcp mode through the configured bridge client", async () =
         },
         mcp: {
           server: "llm-context",
-          workspaceRoot: "C:\\Users\\Gianmarco\\Urgewalt\\Exodia"
+          workspaceRoot: "C:\\path\\to\\your\\workspace"
         }
       },
       llmMemory: {

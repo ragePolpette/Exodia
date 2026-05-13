@@ -3,6 +3,7 @@ import { createMemoryRecord } from "../contracts/memory-record.js";
 import { buildTriageInsight } from "../memory/semantic-insights.js";
 import { TriageService } from "../triage/triage-service.js";
 import { buildInteractionMarkers } from "../interaction/interaction-contracts.js";
+import { AgentPromptContextBuilder } from "../agent-runtime/agent-prompt-context.js";
 
 export class TriageAgent {
   constructor({
@@ -14,7 +15,8 @@ export class TriageAgent {
     agentRuntime,
     analysisArtifactStore,
     logger,
-    securityConfig
+    securityConfig,
+    runtimePromptConfig
   }) {
     this.contextAdapter = contextAdapter;
     this.ticketMemoryAdapter = ticketMemoryAdapter;
@@ -25,7 +27,12 @@ export class TriageAgent {
     this.analysisArtifactStore = analysisArtifactStore;
     this.logger = logger;
     this.securityConfig = securityConfig;
+    this.promptContextBuilder = new AgentPromptContextBuilder(runtimePromptConfig ?? {});
     this.service = new TriageService();
+  }
+
+  async preparePromptContext() {
+    return this.promptContextBuilder.loadInstructionFiles();
   }
 
   async maybeRunDiagnostics(ticket) {
@@ -292,7 +299,11 @@ export class TriageAgent {
   }
 
   async run(tickets) {
-    const prompt = await loadPrompt("triage-agent.md");
+    const basePrompt = await loadPrompt("triage-agent.md");
+    const prompt = await this.promptContextBuilder.buildPrompt(basePrompt, {
+      phase: "analysis",
+      agentRole: "analysis-agent"
+    });
     const existingMemory = await this.ticketMemoryAdapter.listRecords();
     const memoryByTicket = new Map(existingMemory.map((record) => [record.ticket_key, record]));
     const decisions = [];

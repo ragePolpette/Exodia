@@ -1,96 +1,106 @@
-# Technical Ticket Template
+# Support Ticket Template
 
-Compact template for a clean support -> engineering handoff.
+Short template for helpdesk and first-line support.
 
-## Rules
+Goal:
 
-- use one primary target only
-- keep the title descriptive and action-oriented
-- include exact repro steps
-- include at least one identifying record, document, or user reference when possible
-- avoid long narrative text and screenshots without context
+- make the ticket readable by a human on first pass
+- give Exodia enough data to recover the company by VAT number
+- point Exodia to the page where the bug usually happens
+- include one concrete case that can be checked in code or DB
+
+## Required Rules
+
+- always include `PI`
+- include `Ragione sociale` whenever available
+- always include `URL pagina`
+- always include one concrete example such as document number, record id, or date range
+- if the issue is numeric, always include `Valore attuale` and `Valore atteso`
+- avoid vague text like `non funziona` or `totale errato` without an example
 
 ## Recommended Template
 
 ```md
-Title: [TARGET] action + object + visible effect
+## Descrizione
 
-Target: legacy | public-app | automation-bot | unknown
-Environment: production | staging | local
-Functional area: ...
+### Cliente
+Ragione sociale:
+PI:
+Telefono:
 
-Problem:
-- one sentence describing what is failing
+### Contesto
+URL pagina:
+Modulo/Funzione:
 
-Steps to reproduce:
+### Problema segnalato
+Descrizione breve e concreta del problema.
+
+### Caso concreto
+Documento / numero:
+Data / periodo:
+Valore attuale:
+Valore atteso:
+
+### Passi o condizioni per vederlo
 1. ...
 2. ...
 3. ...
 
-Expected:
-- ...
+### Impatto
+Perche' il problema e' rilevante per il cliente.
 
-Actual:
-- ...
-
-Useful identifiers:
-- user:
-- account / tenant / workspace:
-- record id / document id / protocol:
-
-Evidence:
-- error message:
-- endpoint / page / workflow:
-- sample payload or input:
-
-Constraints:
-- urgency:
-- impact:
-- notes:
+### Allegati o evidenze
+Screenshot / export / file / note aggiuntive.
 ```
 
-## Good Example
+## Why This Works For Exodia
+
+- `PI` lets Exodia recover the company id through DB lookup
+- `Ragione sociale` helps disambiguate when the VAT lookup is not enough
+- `URL pagina` usually identifies the module where the bug happens
+- `Documento / numero` gives a concrete repro anchor
+- `Valore attuale` and `Valore atteso` make numeric bugs auditable
+
+## Example
 
 ```md
-Title: [public-app] customer profile save rejects VAT update
+## Descrizione
 
-Target: public-app
-Environment: production
-Functional area: customer profile
+### Cliente
+Ragione sociale: SYSTEMCART GROUP S.R.L.
+PI: 01835620897
+Telefono: 3397600810
 
-Problem:
-- updating the VAT number fails when saving the customer profile
+### Contesto
+URL pagina: https://new.bitimpresa.it/contabilita.aspx
+Modulo/Funzione: Partitario / Scheda cliente
 
-Steps to reproduce:
-1. open customer profile 10244
-2. change the VAT number
-3. press save
+### Problema segnalato
+Nel partitario la fattura n. 8 viene mostrata con importo intero, senza considerare lo sconto di fine documento.
 
-Expected:
-- the new VAT number is stored
+### Caso concreto
+Documento / numero: Fattura n. 8
+Data / periodo: [se noto]
+Valore attuale: importo intero
+Valore atteso: importo al netto dello sconto di fine documento di 1387,14 euro
 
-Actual:
-- the form shows a generic save error and restores the previous value
+### Passi o condizioni per vederlo
+1. Aprire la scheda cliente.
+2. Aprire il partitario del cliente.
+3. Verificare la fattura n. 8.
 
-Useful identifiers:
-- user: mario.rossi
-- account / tenant / workspace: studio-rossi
-- record id / document id / protocol: customer 10244
+### Impatto
+La scheda cliente risulta errata perche' riporta un importo non corretto.
 
-Evidence:
-- error message: "save failed"
-- endpoint / page / workflow: public customer profile form
-- sample payload or input: VAT IT01234567890
-
-Constraints:
-- urgency: medium
-- impact: billing data cannot be updated
-- notes: issue appears isolated to the public profile flow
+### Allegati o evidenze
+[eventuali screenshot o export]
 ```
 
 ## Anti-Pattern
 
-- `it does not work`
-- `customer error`
-- `fix invoices`
-- ticket without target, repro steps, or identifying data
+- `non funziona`
+- `totale sbagliato`
+- `errore in contabilita`
+- ticket senza `PI`
+- ticket senza `URL pagina`
+- ticket senza caso concreto

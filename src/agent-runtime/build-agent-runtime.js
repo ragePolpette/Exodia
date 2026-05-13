@@ -1,6 +1,7 @@
 import { normalizeAgentRuntimeConfig } from "./agent-runtime-contracts.js";
 import { MockAgentRuntimeAdapter } from "./mock-agent-runtime-adapter.js";
 import { CodexCliAgentRuntimeAdapter } from "./codex-cli-agent-runtime-adapter.js";
+import { PiAgentRuntimeAdapter } from "./pi-agent-runtime-adapter.js";
 import { OpenAiAgentRuntimeAdapter } from "./openai-agent-runtime-adapter.js";
 import { ClaudeAgentRuntimeAdapter } from "./claude-agent-runtime-adapter.js";
 import { OpenRouterAgentRuntimeAdapter } from "./openrouter-agent-runtime-adapter.js";
@@ -16,6 +17,8 @@ export function buildAgentRuntime(config = {}, logger) {
       return new MockAgentRuntimeAdapter(normalizedConfig, options);
     case "codex-cli":
       return new CodexCliAgentRuntimeAdapter(normalizedConfig, options);
+    case "pi":
+      return new PiAgentRuntimeAdapter(normalizedConfig, options);
     case "openai":
       return new OpenAiAgentRuntimeAdapter(normalizedConfig, options);
     case "claude":

@@ -1,5 +1,6 @@
 import { loadPrompt } from "../prompts/load-prompt.js";
 import { VerificationService } from "../verification/verification-service.js";
+import { AgentPromptContextBuilder } from "../agent-runtime/agent-prompt-context.js";
 
 function unique(values) {
   return [...new Set((values ?? []).filter(Boolean))];
@@ -16,14 +17,20 @@ export class VerificationAgent {
     interactionService,
     agentRuntime,
     analysisArtifactStore,
-    logger
+    logger,
+    runtimePromptConfig
   }) {
     this.bitbucketAdapter = bitbucketAdapter;
     this.interactionService = interactionService;
     this.agentRuntime = agentRuntime;
     this.analysisArtifactStore = analysisArtifactStore;
     this.logger = logger;
+    this.promptContextBuilder = new AgentPromptContextBuilder(runtimePromptConfig ?? {});
     this.service = new VerificationService(verificationConfig);
+  }
+
+  async preparePromptContext() {
+    return this.promptContextBuilder.loadInstructionFiles();
   }
 
   buildScopedTicket(ticket, decision) {

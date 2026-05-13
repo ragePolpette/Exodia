@@ -3,7 +3,7 @@ const auditVerdicts = ["approved", "needs_refinement", "blocked"];
 const implementationStatuses = ["completed", "needs_human", "blocked", "failed"];
 
 export const agentRuntimePhases = ["analysis", "audit", "implementation"];
-export const agentRuntimeProviders = ["mock", "codex-cli", "openai", "claude", "openrouter", "ollama", "lmstudio"];
+export const agentRuntimeProviders = ["mock", "codex-cli", "pi", "openai", "claude", "openrouter", "ollama", "lmstudio"];
 
 const defaultCapabilities = {
   supportsStructuredOutput: true,
@@ -14,6 +14,29 @@ const defaultCapabilities = {
   supportsStreaming: false,
   supportsScreenshots: false
 };
+
+const defaultPiCommand = process.platform === "win32" ? "pi.cmd" : "pi";
+const defaultCodexEnvPassthrough = [
+  "PATH",
+  "Path",
+  "SystemRoot",
+  "WINDIR",
+  "TEMP",
+  "TMP",
+  "HOME",
+  "USERPROFILE",
+  "APPDATA",
+  "LOCALAPPDATA",
+  "CODEX_HOME",
+  "OPENAI_API_KEY",
+  "EXODIA_CODEX_COMMAND",
+  "EXODIA_CODEX_MODEL",
+  "EXODIA_CODEX_PROFILE",
+  "EXODIA_CODEX_SANDBOX",
+  "EXODIA_CODEX_TIMEOUT_MS",
+  "EXODIA_CODEX_USE_OSS",
+  "EXODIA_CODEX_LOCAL_PROVIDER"
+];
 
 function isObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -68,6 +91,23 @@ function normalizeVerificationPlan(plan = {}, runtimeConfig = {}) {
   };
 }
 
+function normalizeAnalysisStatus(result = {}, questions = []) {
+  const rawStatus = `${result.status ?? ""}`.trim();
+  const status = analysisStatuses.includes(rawStatus) ? rawStatus : "blocked";
+  const feasibility = `${result.feasibility ?? ""}`.trim();
+  const hasBlockingQuestion = questions.some((question) => question.blocking !== false);
+
+  if (status === "blocked" && feasibility === "feasible" && !hasBlockingQuestion) {
+    return "proposal_ready";
+  }
+
+  if (status === "proposal_ready" && hasBlockingQuestion) {
+    return "needs_human";
+  }
+
+  return status;
+}
+
 export function assertAgentRuntimePhase(phase) {
   if (!agentRuntimePhases.includes(phase)) {
     throw new Error(`Unsupported agent runtime phase: ${phase}`);
@@ -96,6 +136,8 @@ export function normalizeAgentRuntimeConfig(config = {}) {
     enabled: config.enabled ?? false,
     provider,
     model: `${config.model ?? ""}`.trim(),
+    workspaceRoot: `${config.workspaceRoot ?? ""}`.trim(),
+    requireTargetInstructions: config.requireTargetInstructions ?? false,
     artifactFile: `${config.artifactFile ?? "./data/agent-artifacts.json"}`.trim() || "./data/agent-artifacts.json",
     implementationArtifactFile:
       `${config.implementationArtifactFile ?? "./data/implementation-artifacts.json"}`.trim() ||
@@ -124,7 +166,48 @@ export function normalizeAgentRuntimeConfig(config = {}) {
         timeoutMs: Math.max(1000, Number(config.providers?.["codex-cli"]?.timeoutMs ?? 120000) || 120000),
         env: isObject(config.providers?.["codex-cli"]?.env)
           ? { ...config.providers["codex-cli"].env }
-          : {}
+          : {},
+        envPassthrough: defaultCodexEnvPassthrough
+      },
+      pi: {
+        command: `${config.providers?.pi?.command ?? defaultPiCommand}`.trim() || defaultPiCommand,
+        args: Array.isArray(config.providers?.pi?.args) ? [...config.providers.pi.args] : [],
+        workingDirectory: `${config.providers?.pi?.workingDirectory ?? ""}`.trim(),
+        cliPath: `${config.providers?.pi?.cliPath ?? ""}`.trim(),
+        provider: `${config.providers?.pi?.provider ?? ""}`.trim(),
+        model: `${config.providers?.pi?.model ?? config.model ?? ""}`.trim(),
+        tools: Array.isArray(config.providers?.pi?.tools) ? [...config.providers.pi.tools] : [],
+        noContextFiles: config.providers?.pi?.noContextFiles ?? true,
+        noBuiltinTools: config.providers?.pi?.noBuiltinTools ?? false,
+        toolsByPhase: {
+          analysis: normalizeStringList(config.providers?.pi?.toolsByPhase?.analysis),
+          audit: normalizeStringList(config.providers?.pi?.toolsByPhase?.audit),
+          implementation: normalizeStringList(config.providers?.pi?.toolsByPhase?.implementation)
+        },
+        sessionDir: `${config.providers?.pi?.sessionDir ?? ""}`.trim(),
+        noSession: config.providers?.pi?.noSession ?? !config.providers?.pi?.sessionDir,
+        timeoutMs: Math.max(1000, Number(config.providers?.pi?.timeoutMs ?? 300000) || 300000),
+        env: isObject(config.providers?.pi?.env) ? { ...config.providers.pi.env } : {},
+        envPassthrough: normalizeStringList(config.providers?.pi?.envPassthrough ?? [
+          "PATH",
+          "Path",
+          "SystemRoot",
+          "WINDIR",
+          "TEMP",
+          "TMP",
+          "HOME",
+          "USERPROFILE",
+          "APPDATA",
+          "LOCALAPPDATA",
+          "PI_CODING_AGENT_DIR",
+          "PI_PACKAGE_DIR",
+          "PI_OFFLINE",
+          "PI_SKIP_VERSION_CHECK",
+          "PI_TELEMETRY",
+          "OPENAI_API_KEY",
+          "ANTHROPIC_API_KEY",
+          "OPENROUTER_API_KEY"
+        ])
       },
       openai: {
         endpoint: `${config.providers?.openai?.endpoint ?? "/chat/completions"}`.trim() || "/chat/completions",
@@ -184,7 +267,8 @@ export function normalizeAgentRuntimeConfig(config = {}) {
 }
 
 export function normalizeAnalysisResult(result = {}, context = {}, runtimeConfig = {}) {
-  const status = analysisStatuses.includes(result.status) ? result.status : "blocked";
+  const questions = normalizeQuestions(result.questions);
+  const status = normalizeAnalysisStatus(result, questions);
   const productTarget = `${result.productTarget ?? result.product_target ?? "unknown"}`.trim() || "unknown";
   const repoTarget = `${result.repoTarget ?? result.repo_target ?? "UNKNOWN"}`.trim() || "UNKNOWN";
   const area = `${result.area ?? productTarget ?? "unknown"}`.trim() || "unknown";
@@ -202,7 +286,7 @@ export function normalizeAnalysisResult(result = {}, context = {}, runtimeConfig
     area,
     proposedFix: normalizeProposedFix(result.proposedFix ?? { summary: result.fixSummary }),
     verificationPlan: normalizeVerificationPlan(result.verificationPlan, runtimeConfig),
-    questions: normalizeQuestions(result.questions)
+    questions
   };
 }
 
@@ -286,5 +370,3 @@ export function normalizeImplementationArtifact(record = {}) {
     createdAt: `${record.createdAt ?? record.created_at ?? record.updatedAt ?? record.updated_at ?? new Date().toISOString()}`
   };
 }
-
-

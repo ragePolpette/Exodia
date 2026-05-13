@@ -73,6 +73,7 @@ test("codex wrapper prompt embeds the runtime envelope as JSON", () => {
   });
 
   assert.match(prompt, /Return exactly one JSON object/);
+  assert.match(prompt, /analysis\.status must be proposal_ready/);
   assert.match(prompt, /"phase": "implementation"/);
   assert.match(prompt, /"key": "GEN-100"/);
 });

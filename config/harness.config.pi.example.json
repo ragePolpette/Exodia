@@ -1,0 +1,127 @@
+{
+  "mode": "triage-only",
+  "dryRun": true,
+  "memory": {
+    "backend": "file",
+    "filePath": "../data/memory.json"
+  },
+  "agentRuntime": {
+    "enabled": true,
+    "provider": "pi",
+    "model": "qwen2.5-coder",
+    "workspaceRoot": "C:\\path\\to\\target-worktree",
+    "requireTargetInstructions": true,
+    "enabledPhases": ["analysis", "audit"],
+    "fallbackToHeuristics": false,
+    "requireStructuredOutput": true,
+    "providers": {
+      "pi": {
+        "command": "pi",
+        "provider": "ollama",
+        "model": "qwen2.5-coder",
+        "workingDirectory": "C:\\path\\to\\target-worktree",
+        "noSession": true,
+        "toolsByPhase": {
+          "analysis": [
+            "read-only workspace access",
+            "inspect and search code only",
+            "do not edit files"
+          ],
+          "audit": [
+            "read-only workspace access",
+            "challenge the proposal using code evidence",
+            "do not edit files"
+          ],
+          "implementation": [
+            "workspace-write inside the configured target worktree only",
+            "create or reuse a dedicated ticket branch",
+            "run only configured verification commands"
+          ]
+        },
+        "timeoutMs": 300000,
+        "envPassthrough": [
+          "PATH",
+          "Path",
+          "SystemRoot",
+          "WINDIR",
+          "TEMP",
+          "TMP",
+          "HOME",
+          "USERPROFILE",
+          "APPDATA",
+          "LOCALAPPDATA",
+          "PI_CODING_AGENT_DIR",
+          "PI_PACKAGE_DIR",
+          "PI_OFFLINE",
+          "PI_SKIP_VERSION_CHECK",
+          "PI_TELEMETRY",
+          "OPENAI_API_KEY",
+          "ANTHROPIC_API_KEY",
+          "OPENROUTER_API_KEY"
+        ]
+      }
+    }
+  },
+  "adapters": {
+    "jira": {
+      "kind": "mock",
+      "mock": {
+        "ticketSource": "config.mockTickets"
+      }
+    },
+    "llmContext": {
+      "kind": "mock",
+      "mock": {
+        "mappingSource": "ticket.contextMapping"
+      }
+    },
+    "llmMemory": {
+      "kind": "mock",
+      "mock": {
+        "backend": "file"
+      }
+    },
+    "llmSqlDb": {
+      "kind": "mock",
+      "mock": {
+        "recordRuns": true
+      }
+    },
+    "bitbucket": {
+      "kind": "mock",
+      "mock": {
+        "workspaceRoot": "C:\\path\\to\\target-worktree"
+      }
+    }
+  },
+  "execution": {
+    "enabled": false,
+    "dryRun": true,
+    "trustLevel": "mock",
+    "baseBranch": "main",
+    "allowRealPrs": false,
+    "allowMerge": false,
+    "workspaceRoot": "C:\\path\\to\\target-worktree"
+  },
+  "logging": {
+    "level": "info",
+    "includeTimestamp": true
+  },
+  "mockTickets": [
+    {
+      "key": "GEN-1",
+      "projectKey": "GEN",
+      "summary": "Example ticket for Pi runtime wiring",
+      "description": "Replace this with a real Jira ticket through config/local.",
+      "contextMapping": {
+        "inScope": true,
+        "productTarget": "public-app",
+        "repoTarget": "public-web",
+        "area": "example",
+        "feasibility": "feasible",
+        "confidence": 0.8,
+        "implementationHint": "Inspect the target worktree with Pi before proposing a change."
+      }
+    }
+  ]
+}

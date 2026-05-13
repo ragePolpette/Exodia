@@ -128,6 +128,12 @@ export function buildCodexExecPrompt(envelope) {
     "Do not use markdown fences or explanatory prose.",
     "Work only from the input payload and the repository context available in the working directory.",
     "",
+    "Status rules:",
+    "- analysis.status must be proposal_ready when the ticket is actionable and no blocking question is needed.",
+    "- analysis.status must be needs_human when a human answer is required before deciding or implementing.",
+    "- analysis.status must be blocked only when the ticket cannot progress in this run.",
+    "- Do not return status blocked together with feasibility feasible unless there is a concrete blocking reason.",
+    "",
     JSON.stringify(envelope, null, 2)
   ].join("\n");
 }

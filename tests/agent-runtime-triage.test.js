@@ -33,7 +33,7 @@ test("codex-cli runtime provider can parse structured JSON from a subprocess", a
 
   const result = await runtime.analyzeTicket({
     ticket: {
-      key: "DEVFH-10",
+      key: "GEN-10",
       summary: "Portal issue"
     }
   });

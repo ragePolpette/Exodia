@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { buildAgentRuntime } from "../src/agent-runtime/build-agent-runtime.js";
-import { normalizeAgentRuntimeConfig } from "../src/agent-runtime/agent-runtime-contracts.js";
+import {
+  normalizeAgentRuntimeConfig,
+  normalizeAnalysisResult
+} from "../src/agent-runtime/agent-runtime-contracts.js";
 import { buildAdapters } from "../src/adapters/bootstrap-adapters.js";
 
 function createConfig(overrides = {}) {
@@ -103,8 +106,41 @@ test("agent runtime config normalization provides provider defaults", () => {
   assert.equal(normalized.provider, "codex-cli");
   assert.deepEqual(normalized.enabledPhases, ["analysis", "audit", "implementation"]);
   assert.equal(normalized.providers["codex-cli"].command, "codex-dev");
+  assert.ok(normalized.providers["codex-cli"].envPassthrough.includes("EXODIA_CODEX_COMMAND"));
+  assert.ok(!normalized.providers["codex-cli"].envPassthrough.includes("AWS_SECRET_ACCESS_KEY"));
   assert.equal(normalized.audit.maxRefinementIterations, 2);
   assert.equal(normalized.implementation.maxVerificationLoops, 3);
+});
+
+test("agent runtime config normalization provides Pi RPC defaults", () => {
+  const normalized = normalizeAgentRuntimeConfig({
+    enabled: true,
+    provider: "pi",
+    model: "qwen-local",
+    providers: {
+      pi: {
+        command: "pi-dev",
+        provider: "ollama",
+        tools: ["read", "edit"],
+        toolsByPhase: {
+          analysis: ["read-only"],
+          implementation: ["write-and-test"]
+        },
+        sessionDir: "./data/pi-sessions"
+      }
+    }
+  });
+
+  assert.equal(normalized.provider, "pi");
+  assert.equal(normalized.providers.pi.command, "pi-dev");
+  assert.equal(normalized.providers.pi.provider, "ollama");
+  assert.equal(normalized.providers.pi.model, "qwen-local");
+  assert.deepEqual(normalized.providers.pi.tools, ["read", "edit"]);
+  assert.deepEqual(normalized.providers.pi.toolsByPhase.analysis, ["read-only"]);
+  assert.deepEqual(normalized.providers.pi.toolsByPhase.audit, []);
+  assert.deepEqual(normalized.providers.pi.toolsByPhase.implementation, ["write-and-test"]);
+  assert.equal(normalized.providers.pi.noSession, false);
+  assert.ok(normalized.providers.pi.envPassthrough.includes("PATH"));
 });
 
 test("mock agent runtime returns structured analysis output", async () => {
@@ -122,7 +158,7 @@ test("mock agent runtime returns structured analysis output", async () => {
 
   const result = await runtime.analyzeTicket({
     ticket: {
-      key: "DEVFH-1",
+      key: "GEN-1",
       summary: "Portal login fails after password reset"
     },
     mapping: {
@@ -151,4 +187,41 @@ test("adapter bootstrap returns an agent runtime instance", () => {
   assert.equal(agentRuntime.provider, "mock");
   assert.equal(agentRuntime.isPhaseEnabled("analysis"), true);
   assert.equal(agentRuntime.isPhaseEnabled("implementation"), false);
+});
+
+
+test("agent runtime config preserves explicit workspace root", () => {
+  const normalized = normalizeAgentRuntimeConfig({
+    provider: "mock",
+    workspaceRoot: "C:/path/to/target-worktree"
+  });
+
+  assert.equal(normalized.workspaceRoot, "C:/path/to/target-worktree");
+});
+
+test("analysis normalization repairs contradictory feasible blocked runtime output", () => {
+  const normalized = normalizeAnalysisResult({
+    status: "blocked",
+    feasibility: "feasible",
+    confidence: 0.9,
+    productTarget: "public-app",
+    repoTarget: "public-web",
+    area: "payments",
+    proposedFix: {},
+    verificationPlan: {},
+    questions: []
+  });
+
+  assert.equal(normalized.status, "proposal_ready");
+  assert.equal(normalized.feasibility, "feasible");
+});
+
+test("analysis normalization routes blocking questions to human review", () => {
+  const normalized = normalizeAnalysisResult({
+    status: "proposal_ready",
+    feasibility: "feasible",
+    questions: [{ question: "Which tenant should be used?", blocking: true }]
+  });
+
+  assert.equal(normalized.status, "needs_human");
 });

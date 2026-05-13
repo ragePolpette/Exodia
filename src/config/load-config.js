@@ -121,6 +121,8 @@ const defaultConfig = {
     enabled: false,
     provider: "mock",
     model: "",
+    workspaceRoot: "",
+    requireTargetInstructions: false,
     artifactFile: "./data/agent-artifacts.json",
     implementationArtifactFile: "./data/implementation-artifacts.json",
     enabledPhases: ["analysis", "audit", "implementation"],
@@ -508,6 +510,9 @@ export async function loadConfig(configPath) {
     },
     agentRuntime: {
       ...normalizedAgentRuntimeConfig,
+      workspaceRoot: normalizedAgentRuntimeConfig.workspaceRoot
+        ? path.resolve(configDirectory, normalizedAgentRuntimeConfig.workspaceRoot)
+        : "",
       artifactFile: path.resolve(configDirectory, normalizedAgentRuntimeConfig.artifactFile),
       implementationArtifactFile: path.resolve(
         configDirectory,

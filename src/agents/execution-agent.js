@@ -2,6 +2,7 @@ import { loadPrompt } from "../prompts/load-prompt.js";
 import { ExecutionService } from "../execution/execution-service.js";
 import { buildExecutionInsight } from "../memory/semantic-insights.js";
 import { VerificationService } from "../verification/verification-service.js";
+import { AgentPromptContextBuilder } from "../agent-runtime/agent-prompt-context.js";
 
 function unique(values) {
   return [...new Set((values ?? []).filter(Boolean))];
@@ -28,7 +29,8 @@ export class ExecutionAgent {
     analysisArtifactStore,
     implementationArtifactStore,
     logger,
-    securityConfig
+    securityConfig,
+    runtimePromptConfig
   }) {
     this.bitbucketAdapter = bitbucketAdapter;
     this.ticketMemoryAdapter = ticketMemoryAdapter;
@@ -41,8 +43,13 @@ export class ExecutionAgent {
     this.implementationArtifactStore = implementationArtifactStore;
     this.logger = logger;
     this.securityConfig = securityConfig;
+    this.promptContextBuilder = new AgentPromptContextBuilder(runtimePromptConfig ?? {});
     this.service = new ExecutionService();
     this.verificationService = new VerificationService(verificationConfig);
+  }
+
+  async preparePromptContext() {
+    return this.promptContextBuilder.loadInstructionFiles();
   }
 
   resolveWorkspaceRoot() {
@@ -246,7 +253,11 @@ export class ExecutionAgent {
   }
 
   async run(items) {
-    const prompt = await loadPrompt("execution-agent.md");
+    const basePrompt = await loadPrompt("execution-agent.md");
+    const prompt = await this.promptContextBuilder.buildPrompt(basePrompt, {
+      phase: "implementation",
+      agentRole: "implementation-agent"
+    });
     await this.bitbucketAdapter.assertNoMergePolicy();
     const policy = this.service.resolveMode({
       executionConfig: this.executionConfig,

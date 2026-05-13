@@ -97,7 +97,8 @@ export async function runHarness({
     agentRuntime,
     analysisArtifactStore,
     logger,
-    securityConfig: config.security
+    securityConfig: config.security,
+    runtimePromptConfig: config
   });
   const verificationAgent = new VerificationAgent({
     bitbucketAdapter,
@@ -105,7 +106,8 @@ export async function runHarness({
     interactionService,
     agentRuntime,
     analysisArtifactStore,
-    logger
+    logger,
+    runtimePromptConfig: config
   });
   const executionAgent = new ExecutionAgent({
     bitbucketAdapter,
@@ -123,7 +125,27 @@ export async function runHarness({
     analysisArtifactStore,
     implementationArtifactStore,
     logger,
-    securityConfig: config.security
+    securityConfig: config.security,
+    runtimePromptConfig: config
+  });
+
+  const promptContexts = await Promise.all([
+    triageAgent.preparePromptContext(),
+    verificationAgent.preparePromptContext(),
+    executionAgent.preparePromptContext()
+  ]);
+  const promptContext = promptContexts[0];
+  auditTrail.push(createAuditEntry("prompt-context", "agent prompt context loaded", {
+    workspaceRoot: promptContext.workspaceRoot,
+    files: promptContext.files.map((file) => file.filePath),
+    missingGeneral: promptContext.missingGeneral,
+    missingTarget: promptContext.missingTarget
+  }));
+  logger.info("Agent prompt context loaded", {
+    workspaceRoot: promptContext.workspaceRoot,
+    files: promptContext.files.map((file) => file.filePath),
+    missingGeneral: promptContext.missingGeneral,
+    missingTarget: promptContext.missingTarget
   });
 
   const memoryBefore = await ticketMemoryAdapter.listRecords();

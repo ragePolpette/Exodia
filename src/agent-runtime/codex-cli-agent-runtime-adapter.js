@@ -1,6 +1,16 @@
 import { spawn } from "node:child_process";
 import { AgentRuntimeAdapter } from "./agent-runtime-adapter.js";
 
+function pickEnv(source = {}, allowedKeys = []) {
+  const env = {};
+  for (const key of allowedKeys) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      env[key] = source[key];
+    }
+  }
+  return env;
+}
+
 function runJsonCommand({ command, args, cwd, env, input, timeoutMs }) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -64,16 +74,18 @@ function runJsonCommand({ command, args, cwd, env, input, timeoutMs }) {
 export class CodexCliAgentRuntimeAdapter extends AgentRuntimeAdapter {
   async invoke(phase, input) {
     const providerConfig = this.getProviderConfig();
+    const allowedEnv = providerConfig.envPassthrough ?? [];
     return runJsonCommand({
       command: providerConfig.command,
       args: providerConfig.args ?? [],
-      cwd: providerConfig.workingDirectory || process.cwd(),
+      cwd: providerConfig.workingDirectory || this.config.workspaceRoot || process.cwd(),
       env: {
-        ...process.env,
-        ...(providerConfig.env ?? {}),
+        ...pickEnv(process.env, allowedEnv),
+        ...pickEnv(providerConfig.env, allowedEnv),
         EXODIA_AGENT_RUNTIME_PROVIDER: this.provider,
         EXODIA_AGENT_RUNTIME_PHASE: phase,
-        EXODIA_AGENT_RUNTIME_MODEL: this.model ?? ""
+        EXODIA_AGENT_RUNTIME_MODEL: this.model ?? "",
+        EXODIA_AGENT_RUNTIME_WORKSPACE_ROOT: this.config.workspaceRoot || process.cwd()
       },
       input: {
         phase,

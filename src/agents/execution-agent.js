@@ -3,6 +3,7 @@ import { ExecutionService } from "../execution/execution-service.js";
 import { buildExecutionInsight } from "../memory/semantic-insights.js";
 import { VerificationService } from "../verification/verification-service.js";
 import { AgentPromptContextBuilder } from "../agent-runtime/agent-prompt-context.js";
+import { inferChangeType } from "../adapters/bitbucket-adapter.js";
 
 function unique(values) {
   return [...new Set((values ?? []).filter(Boolean))];
@@ -106,7 +107,7 @@ export class ExecutionAgent {
       branchName: this.bitbucketAdapter.planBranch(ticket),
       commitMessage: sanitizeSingleLine(
         analysis?.proposedFix?.summary
-          ? `feat(${ticket.key}): ${analysis.proposedFix.summary}`
+          ? `${inferChangeType(ticket)}(${ticket.key}): ${analysis.proposedFix.summary}`
           : this.service.buildCommitMessage(ticket)
       ),
       pullRequestTitle: sanitizeSingleLine(
@@ -206,7 +207,9 @@ export class ExecutionAgent {
         status: implementation.status,
         summary: implementation.summary,
         verificationResults: implementation.verificationResults,
-        followUp: implementation.followUp
+        followUp: implementation.followUp,
+        failureKind: implementation.failureKind,
+        runtimeDiagnostics: implementation.runtimeDiagnostics
       };
       attempts.push(attemptRecord);
 
@@ -227,7 +230,8 @@ export class ExecutionAgent {
       if (
         implementation.status === "completed" ||
         implementation.status === "blocked" ||
-        implementation.status === "needs_human"
+        implementation.status === "needs_human" ||
+        (implementation.status === "failed" && implementation.failureKind?.startsWith("runtime_"))
       ) {
         break;
       }
@@ -248,6 +252,8 @@ export class ExecutionAgent {
       changedFiles: implementation?.changedFiles ?? [],
       verificationResults: implementation?.verificationResults ?? [],
       followUp: implementation?.followUp ?? [],
+      failureKind: implementation?.failureKind ?? "",
+      runtimeDiagnostics: implementation?.runtimeDiagnostics ?? null,
       implementationAttempts: implementationLoop.attempts.length
     };
   }

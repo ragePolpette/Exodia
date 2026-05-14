@@ -57,7 +57,10 @@ export class ClaudeAgentRuntimeAdapter extends HttpAgentRuntimeAdapter {
       url: new URL(this.getEndpoint().replace(/^\//, ""), `${this.getBaseUrl().replace(/\/?$/, "/")}`).toString(),
       headers: this.buildHeaders(),
       body: this.buildRequestBody(phase, input),
-      timeoutMs: this.getTimeoutMs()
+      timeoutMs: this.getTimeoutMs(),
+      provider: this.provider,
+      phase,
+      model: this.model
     });
 
     return this.extractResponsePayload(response);

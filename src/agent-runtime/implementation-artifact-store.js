@@ -17,6 +17,8 @@ function createArtifactRecord(ticket, implementation, attemptNumber) {
     verificationPlan: implementation.verificationPlan,
     questions: implementation.questions,
     followUp: implementation.followUp,
+    failureKind: implementation.failureKind,
+    runtimeDiagnostics: implementation.runtimeDiagnostics,
     attemptNumber,
     createdAt: now,
     updatedAt: now

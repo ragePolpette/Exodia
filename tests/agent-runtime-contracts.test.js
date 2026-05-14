@@ -4,8 +4,10 @@ import assert from "node:assert/strict";
 import { buildAgentRuntime } from "../src/agent-runtime/build-agent-runtime.js";
 import {
   normalizeAgentRuntimeConfig,
-  normalizeAnalysisResult
+  normalizeAnalysisResult,
+  normalizeImplementationResult
 } from "../src/agent-runtime/agent-runtime-contracts.js";
+import { resolveCodexTimeoutSettings } from "../src/agent-runtime/codex-cli-agent-runtime-adapter.js";
 import { buildAdapters } from "../src/adapters/bootstrap-adapters.js";
 
 function createConfig(overrides = {}) {
@@ -224,4 +226,40 @@ test("analysis normalization routes blocking questions to human review", () => {
   });
 
   assert.equal(normalized.status, "needs_human");
+});
+
+test("implementation normalization preserves runtime failure diagnostics", () => {
+  const normalized = normalizeImplementationResult({
+    status: "failed",
+    summary: "runtime timed out",
+    failureKind: "runtime_timeout",
+    runtimeDiagnostics: {
+      provider: "codex-cli",
+      phase: "implementation",
+      code: "AGENT_RUNTIME_TIMEOUT",
+      message: "timeout",
+      timeoutMs: 100,
+      timedOut: true
+    }
+  });
+
+  assert.equal(normalized.status, "failed");
+  assert.equal(normalized.failureKind, "runtime_timeout");
+  assert.equal(normalized.runtimeDiagnostics.code, "AGENT_RUNTIME_TIMEOUT");
+  assert.equal(normalized.runtimeDiagnostics.timedOut, true);
+});
+
+test("codex timeout settings keep wrapper timeout below adapter timeout", () => {
+  const settings = resolveCodexTimeoutSettings(
+    {
+      timeoutMs: 600000,
+      timeoutGraceMs: 30000
+    },
+    {
+      EXODIA_CODEX_TIMEOUT_MS: "600000"
+    }
+  );
+
+  assert.equal(settings.adapterTimeoutMs, 600000);
+  assert.equal(settings.wrapperTimeoutMs, 570000);
 });

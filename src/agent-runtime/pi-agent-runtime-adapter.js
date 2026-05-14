@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { AgentRuntimeAdapter } from "./agent-runtime-adapter.js";
+import { AgentRuntimeInvocationError, buildRuntimeDiagnostics } from "./runtime-diagnostics.js";
 
 function buildEnvironment(providerConfig = {}) {
   const env = {};
@@ -175,8 +176,9 @@ function parseJsonlBuffer(buffer, onRecord) {
   return rest;
 }
 
-export function runPiRpcCommand({ command, args, cwd, env, prompt, timeoutMs }) {
+export function runPiRpcCommand({ command, args, cwd, env, prompt, timeoutMs, provider = "pi", phase = "", model = "" }) {
   return new Promise((resolve, reject) => {
+    const startedAt = new Date().toISOString();
     const child = spawn(command, args, {
       cwd,
       env,
@@ -189,6 +191,26 @@ export function runPiRpcCommand({ command, args, cwd, env, prompt, timeoutMs }) 
     let settled = false;
     let timeoutHandle = null;
     let lastAssistantText = "";
+    const buildError = (message, code, extras = {}) =>
+      new AgentRuntimeInvocationError(message, {
+        code,
+        diagnostics: buildRuntimeDiagnostics({
+          provider,
+          phase,
+          model,
+          code,
+          message,
+          command,
+          args,
+          cwd,
+          timeoutMs,
+          stdout: stdoutBuffer,
+          stderr: Buffer.concat(stderrChunks).toString("utf8"),
+          startedAt,
+          endedAt: new Date().toISOString(),
+          ...extras
+        })
+      });
 
     const finalize = (callback) => (value) => {
       if (settled) {
@@ -207,7 +229,13 @@ export function runPiRpcCommand({ command, args, cwd, env, prompt, timeoutMs }) 
 
     const handleRecord = (record) => {
       if (record.type === "response" && record.success === false) {
-        rejectOnce(new Error(record.error ?? `${record.command ?? "Pi RPC command"} failed`));
+        rejectOnce(
+          buildError(record.error ?? `${record.command ?? "Pi RPC command"} failed`, "PI_RPC_FAILED", {
+            metadata: {
+              command: record.command ?? ""
+            }
+          })
+        );
         return;
       }
 
@@ -229,23 +257,31 @@ export function runPiRpcCommand({ command, args, cwd, env, prompt, timeoutMs }) 
       try {
         stdoutBuffer = parseJsonlBuffer(stdoutBuffer + chunk.toString("utf8"), handleRecord);
       } catch (error) {
-        rejectOnce(error);
+        rejectOnce(buildError(error.message, "PI_RPC_INVALID_JSONL"));
       }
     });
     child.stderr.on("data", (chunk) => stderrChunks.push(chunk));
-    child.on("error", rejectOnce);
+    child.on("error", (error) => rejectOnce(buildError(error.message, "PI_RPC_SUBPROCESS_ERROR")));
     child.on("close", (code) => {
       if (settled) {
         return;
       }
 
       const stderr = Buffer.concat(stderrChunks).toString("utf8").trim();
-      rejectOnce(new Error(stderr || `Pi RPC process exited before agent_end with code ${code}`));
+      rejectOnce(
+        buildError(stderr || `Pi RPC process exited before agent_end with code ${code}`, "PI_RPC_EXITED_EARLY", {
+          metadata: { exitCode: code }
+        })
+      );
     });
 
     if (timeoutMs > 0) {
       timeoutHandle = setTimeout(() => {
-        rejectOnce(new Error(`Pi RPC process timed out after ${timeoutMs}ms`));
+        rejectOnce(
+          buildError(`Pi RPC process timed out after ${timeoutMs}ms`, "PI_RPC_TIMEOUT", {
+            timedOut: true
+          })
+        );
       }, timeoutMs);
     }
 
@@ -281,7 +317,10 @@ export class PiAgentRuntimeAdapter extends AgentRuntimeAdapter {
         EXODIA_AGENT_RUNTIME_WORKSPACE_ROOT: this.config.workspaceRoot || process.cwd()
       },
       prompt,
-      timeoutMs: providerConfig.timeoutMs ?? 300000
+      timeoutMs: providerConfig.timeoutMs ?? 300000,
+      provider: this.provider,
+      phase,
+      model: this.model
     });
   }
 }

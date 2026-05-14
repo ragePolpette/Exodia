@@ -1,3 +1,5 @@
+import { normalizeRuntimeDiagnostics } from "./runtime-diagnostics.js";
+
 const analysisStatuses = ["proposal_ready", "needs_human", "blocked"];
 const auditVerdicts = ["approved", "needs_refinement", "blocked"];
 const implementationStatuses = ["completed", "needs_human", "blocked", "failed"];
@@ -34,6 +36,7 @@ const defaultCodexEnvPassthrough = [
   "EXODIA_CODEX_PROFILE",
   "EXODIA_CODEX_SANDBOX",
   "EXODIA_CODEX_TIMEOUT_MS",
+  "EXODIA_CODEX_KEEP_TEMP",
   "EXODIA_CODEX_USE_OSS",
   "EXODIA_CODEX_LOCAL_PROVIDER"
 ];
@@ -67,6 +70,10 @@ function normalizeQuestions(questions = []) {
 
 function normalizeStringList(values = []) {
   return normalizeList(values).map((value) => `${value ?? ""}`.trim()).filter(Boolean);
+}
+
+function normalizeFailureKind(value = "") {
+  return `${value ?? ""}`.replace(/\s+/g, "_").trim();
 }
 
 function normalizeProposedFix(proposedFix = {}) {
@@ -164,6 +171,14 @@ export function normalizeAgentRuntimeConfig(config = {}) {
           : [],
         workingDirectory: `${config.providers?.["codex-cli"]?.workingDirectory ?? ""}`.trim(),
         timeoutMs: Math.max(1000, Number(config.providers?.["codex-cli"]?.timeoutMs ?? 120000) || 120000),
+        wrapperTimeoutMs:
+          config.providers?.["codex-cli"]?.wrapperTimeoutMs === undefined
+            ? undefined
+            : Math.max(1000, Number(config.providers["codex-cli"].wrapperTimeoutMs) || 1000),
+        timeoutGraceMs: Math.max(
+          1000,
+          Number(config.providers?.["codex-cli"]?.timeoutGraceMs ?? 30000) || 30000
+        ),
         env: isObject(config.providers?.["codex-cli"]?.env)
           ? { ...config.providers["codex-cli"].env }
           : {},
@@ -308,6 +323,7 @@ export function normalizeAuditResult(result = {}, context = {}) {
 
 export function normalizeImplementationResult(result = {}, context = {}, runtimeConfig = {}) {
   const status = implementationStatuses.includes(result.status) ? result.status : "failed";
+  const runtimeDiagnostics = normalizeRuntimeDiagnostics(result.runtimeDiagnostics);
 
   return {
     phase: "implementation",
@@ -322,7 +338,9 @@ export function normalizeImplementationResult(result = {}, context = {}, runtime
     verificationResults: normalizeStringList(result.verificationResults),
     verificationPlan: normalizeVerificationPlan(result.verificationPlan, runtimeConfig),
     questions: normalizeQuestions(result.questions),
-    followUp: normalizeStringList(result.followUp)
+    followUp: normalizeStringList(result.followUp),
+    failureKind: normalizeFailureKind(result.failureKind),
+    runtimeDiagnostics
   };
 }
 
@@ -365,6 +383,8 @@ export function normalizeImplementationArtifact(record = {}) {
     verificationPlan: normalizeVerificationPlan(record.verificationPlan),
     questions: normalizeQuestions(record.questions),
     followUp: normalizeStringList(record.followUp),
+    failureKind: normalizeFailureKind(record.failureKind),
+    runtimeDiagnostics: normalizeRuntimeDiagnostics(record.runtimeDiagnostics),
     attemptNumber: Math.max(1, Number(record.attemptNumber ?? record.attempt_number ?? 1) || 1),
     updatedAt: `${record.updatedAt ?? record.updated_at ?? new Date().toISOString()}`,
     createdAt: `${record.createdAt ?? record.created_at ?? record.updatedAt ?? record.updated_at ?? new Date().toISOString()}`

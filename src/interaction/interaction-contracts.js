@@ -44,36 +44,42 @@ export function normalizeInteractionDestinations(value) {
 }
 
 export function normalizeInteractionResponse(response = {}, source = "") {
+  const normalizedResponse =
+    typeof response === "string"
+      ? { text: response }
+      : response && typeof response === "object"
+        ? response
+        : {};
   const fallbackTimestamp = new Date().toISOString();
   const author =
-    response.author?.displayName ??
-    response.author?.name ??
-    response.author ??
-    response.user?.displayName ??
-    response.user?.name ??
-    response.user ??
+    normalizedResponse.author?.displayName ??
+    normalizedResponse.author?.name ??
+    normalizedResponse.author ??
+    normalizedResponse.user?.displayName ??
+    normalizedResponse.user?.name ??
+    normalizedResponse.user ??
     "";
   const text =
-    response.text ??
-    response.body ??
-    response.message ??
-    response.content ??
+    normalizedResponse.text ??
+    normalizedResponse.body ??
+    normalizedResponse.message ??
+    normalizedResponse.content ??
     "";
 
   return {
-    source: `${response.source ?? source ?? ""}`.trim() || "unknown",
+    source: `${normalizedResponse.source ?? source ?? ""}`.trim() || "unknown",
     text: `${text ?? ""}`.trim(),
     author: `${author ?? ""}`.trim(),
     respondedAt: normalizeTimestamp(
-      response.respondedAt ??
-        response.createdAt ??
-        response.created ??
-        response.timestamp ??
-        response.ts ??
-        response.date,
+      normalizedResponse.respondedAt ??
+        normalizedResponse.createdAt ??
+        normalizedResponse.created ??
+        normalizedResponse.timestamp ??
+        normalizedResponse.ts ??
+        normalizedResponse.date,
       fallbackTimestamp
     ),
-    externalId: `${response.externalId ?? response.id ?? response.commentId ?? response.ts ?? ""}`.trim()
+    externalId: `${normalizedResponse.externalId ?? normalizedResponse.id ?? normalizedResponse.commentId ?? normalizedResponse.ts ?? ""}`.trim()
   };
 }
 

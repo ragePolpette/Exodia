@@ -1,6 +1,7 @@
 import { loadPrompt } from "../prompts/load-prompt.js";
 import { VerificationService } from "../verification/verification-service.js";
 import { AgentPromptContextBuilder } from "../agent-runtime/agent-prompt-context.js";
+import { inferChangeType } from "../adapters/bitbucket-adapter.js";
 
 function unique(values) {
   return [...new Set((values ?? []).filter(Boolean))];
@@ -8,6 +9,18 @@ function unique(values) {
 
 function normalizeList(values) {
   return Array.isArray(values) ? values.filter(Boolean) : [];
+}
+
+function compactSingleLine(value, maxLength) {
+  const normalized = `${value ?? ""}`.replace(/\s+/g, " ").trim();
+  if (!maxLength || normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return normalized
+    .slice(0, Math.max(0, maxLength - 1))
+    .replace(/\s+\S*$/, "")
+    .trim();
 }
 
 export class VerificationAgent {
@@ -111,13 +124,24 @@ export class VerificationAgent {
 
   buildCommitMessage(ticket, analysis) {
     const summary = analysis?.proposedFix?.summary?.trim() || ticket.summary;
-    const singleLineSummary = `${summary}`.replace(/\s+/g, " ").trim();
-    return `feat(${ticket.key}): ${singleLineSummary}`;
+    const prefix = `${inferChangeType(ticket)}(${ticket.key}): `;
+    const fallback = "implement ticket fix";
+    const compactSummary = compactSingleLine(
+      summary,
+      this.service.config.maxCommitMessageLength - prefix.length
+    ) || fallback;
+    return `${prefix}${compactSummary}`;
   }
 
   buildPullRequestTitle(ticket, analysis) {
     const summary = analysis?.proposedFix?.summary?.trim() || ticket.summary;
-    return `[${ticket.key}] ${`${summary}`.replace(/\s+/g, " ").trim()}`;
+    const prefix = `[${ticket.key}] `;
+    const fallback = "Implement ticket fix";
+    const compactSummary = compactSingleLine(
+      summary,
+      this.service.config.maxPullRequestTitleLength - prefix.length
+    ) || fallback;
+    return `${prefix}${compactSummary}`;
   }
 
   applyAnalysisToDecision(decision, analysis) {

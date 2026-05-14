@@ -1,6 +1,7 @@
+import { inferChangeType } from "../adapters/bitbucket-adapter.js";
 export class ExecutionService {
   buildCommitMessage(ticket) {
-    return `feat(${ticket.key}): ${ticket.summary}`;
+    return `${inferChangeType(ticket)}(${ticket.key}): ${ticket.summary}`;
   }
 
   resolveTrustLevel({ executionConfig, bitbucketKind }) {

@@ -17,3 +17,11 @@ Agent phase expectations:
 - Analysis agent: decide feasibility, target, proposed fix, verification plan, and blocking questions.
 - Audit agent: challenge the analysis and plan, approve only when target, risk, and verification are coherent.
 - Implementation agent: follow the approved plan, use the target worktree, run the verification plan, and stop on policy failures.
+
+Change naming rules:
+
+- Branch: `<type>/<TICKET-KEY>-<kebab-summary>`, for example `fix/DEVFH-2178-import-magazzino-articoli`.
+- Commit: `<type>(<TICKET-KEY>): <short imperative summary>`, for example `fix(DEVFH-2178): make warehouse import row-safe`.
+- Pull request title: `[<TICKET-KEY>] <short imperative summary>`, for example `[DEVFH-2178] Make warehouse import row-safe`.
+- Use `fix` for Jira bugs/defects and `feat` only for feature work unless the ticket or plan clearly implies another type.
+- Keep generated branch, commit, and pull request names concise enough to pass Exodia verification policy.

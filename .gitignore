@@ -6,3 +6,4 @@ config/*.local.json
 config/*.local.toml
 config/*.private.json
 config/*.private.toml
+EXODIA.md

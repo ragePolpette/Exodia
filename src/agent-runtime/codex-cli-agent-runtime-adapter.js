@@ -1,16 +1,7 @@
 import { spawn } from "node:child_process";
 import { AgentRuntimeAdapter } from "./agent-runtime-adapter.js";
 import { AgentRuntimeInvocationError, buildRuntimeDiagnostics } from "./runtime-diagnostics.js";
-
-function pickEnv(source = {}, allowedKeys = []) {
-  const env = {};
-  for (const key of allowedKeys) {
-    if (Object.prototype.hasOwnProperty.call(source, key)) {
-      env[key] = source[key];
-    }
-  }
-  return env;
-}
+import { buildRuntimeProcessEnv, resolveRuntimeWorkingDirectory } from "./runtime-process-policy.js";
 
 export function resolveCodexTimeoutSettings(providerConfig = {}, env = {}) {
   const adapterTimeoutMs = Math.max(1000, Number(providerConfig.timeoutMs ?? 120000) || 120000);
@@ -134,24 +125,27 @@ function runJsonCommand({ command, args, cwd, env, input, timeoutMs, provider, p
 export class CodexCliAgentRuntimeAdapter extends AgentRuntimeAdapter {
   async invoke(phase, input) {
     const providerConfig = this.getProviderConfig();
-    const allowedEnv = providerConfig.envPassthrough ?? [];
-    const baseEnv = {
-      ...pickEnv(process.env, allowedEnv),
-      ...pickEnv(providerConfig.env, allowedEnv)
-    };
+    const baseEnv = buildRuntimeProcessEnv({ providerConfig });
     const timeouts = resolveCodexTimeoutSettings(providerConfig, baseEnv);
-    const childEnv = {
-      ...baseEnv,
-      EXODIA_CODEX_TIMEOUT_MS: `${timeouts.wrapperTimeoutMs}`,
-      EXODIA_AGENT_RUNTIME_PROVIDER: this.provider,
-      EXODIA_AGENT_RUNTIME_PHASE: phase,
-      EXODIA_AGENT_RUNTIME_MODEL: this.model ?? "",
-      EXODIA_AGENT_RUNTIME_WORKSPACE_ROOT: this.config.workspaceRoot || process.cwd()
-    };
+    const cwd = resolveRuntimeWorkingDirectory({
+      providerConfig,
+      workspaceRoot: this.config.workspaceRoot,
+      fallbackCwd: process.cwd()
+    });
+    const childEnv = buildRuntimeProcessEnv({
+      providerConfig,
+      injectedEnv: {
+        EXODIA_CODEX_TIMEOUT_MS: `${timeouts.wrapperTimeoutMs}`,
+        EXODIA_AGENT_RUNTIME_PROVIDER: this.provider,
+        EXODIA_AGENT_RUNTIME_PHASE: phase,
+        EXODIA_AGENT_RUNTIME_MODEL: this.model ?? "",
+        EXODIA_AGENT_RUNTIME_WORKSPACE_ROOT: this.config.workspaceRoot || process.cwd()
+      }
+    });
     return runJsonCommand({
       command: providerConfig.command,
       args: providerConfig.args ?? [],
-      cwd: providerConfig.workingDirectory || this.config.workspaceRoot || process.cwd(),
+      cwd,
       env: childEnv,
       input: {
         phase,

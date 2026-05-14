@@ -1,20 +1,7 @@
 import { spawn } from "node:child_process";
 import { AgentRuntimeAdapter } from "./agent-runtime-adapter.js";
 import { AgentRuntimeInvocationError, buildRuntimeDiagnostics } from "./runtime-diagnostics.js";
-
-function buildEnvironment(providerConfig = {}) {
-  const env = {};
-  for (const name of providerConfig.envPassthrough ?? []) {
-    if (process.env[name] !== undefined) {
-      env[name] = process.env[name];
-    }
-  }
-
-  return {
-    ...env,
-    ...(providerConfig.env ?? {})
-  };
-}
+import { buildRuntimeProcessEnv, resolveRuntimeWorkingDirectory } from "./runtime-process-policy.js";
 
 export function buildPiRpcArgs(providerConfig = {}) {
   if (providerConfig.args?.length) {
@@ -296,6 +283,11 @@ export class PiAgentRuntimeAdapter extends AgentRuntimeAdapter {
 
   async invoke(phase, input) {
     const providerConfig = this.getProviderConfig();
+    const cwd = resolveRuntimeWorkingDirectory({
+      providerConfig,
+      workspaceRoot: this.config.workspaceRoot,
+      fallbackCwd: process.cwd()
+    });
     const prompt = buildPiRuntimePrompt({
       phase,
       provider: this.provider,
@@ -308,14 +300,16 @@ export class PiAgentRuntimeAdapter extends AgentRuntimeAdapter {
     return runPiRpcCommand({
       command: providerConfig.command,
       args: buildPiRpcArgs(providerConfig),
-      cwd: providerConfig.workingDirectory || this.config.workspaceRoot || process.cwd(),
-      env: {
-        ...buildEnvironment(providerConfig),
-        EXODIA_AGENT_RUNTIME_PROVIDER: this.provider,
-        EXODIA_AGENT_RUNTIME_PHASE: phase,
-        EXODIA_AGENT_RUNTIME_MODEL: this.model ?? "",
-        EXODIA_AGENT_RUNTIME_WORKSPACE_ROOT: this.config.workspaceRoot || process.cwd()
-      },
+      cwd,
+      env: buildRuntimeProcessEnv({
+        providerConfig,
+        injectedEnv: {
+          EXODIA_AGENT_RUNTIME_PROVIDER: this.provider,
+          EXODIA_AGENT_RUNTIME_PHASE: phase,
+          EXODIA_AGENT_RUNTIME_MODEL: this.model ?? "",
+          EXODIA_AGENT_RUNTIME_WORKSPACE_ROOT: this.config.workspaceRoot || process.cwd()
+        }
+      }),
       prompt,
       timeoutMs: providerConfig.timeoutMs ?? 300000,
       provider: this.provider,

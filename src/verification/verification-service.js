@@ -6,7 +6,7 @@ import { scanWorkspace } from "../security/public-hygiene.js";
 
 const execFileAsync = promisify(execFile);
 
-const branchNamePattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const branchNamePattern = /^[A-Za-z0-9]+(?:[/-][A-Za-z0-9]+)*$/;
 
 function normalizePath(value) {
   return `${value ?? ""}`
@@ -47,6 +47,11 @@ function parseGitStatusPaths(stdout) {
 function normalizeStatus(status) {
   assertVerificationStatus(status);
   return status;
+}
+
+function hasConcreteTarget(value) {
+  const normalized = `${value ?? ""}`.trim();
+  return normalized && normalized !== "unknown" && normalized !== "UNKNOWN";
 }
 
 function isPathInside(basePath, candidatePath) {
@@ -159,8 +164,7 @@ export class VerificationService {
     }
 
     if (
-      ticket.productTarget &&
-      ticket.productTarget !== "unknown" &&
+      hasConcreteTarget(ticket.productTarget) &&
       ticket.productTarget !== decision.product_target
     ) {
       return this.buildResult(
@@ -171,7 +175,7 @@ export class VerificationService {
       );
     }
 
-    if (ticket.repoTarget && ticket.repoTarget !== decision.repo_target) {
+    if (hasConcreteTarget(ticket.repoTarget) && ticket.repoTarget !== decision.repo_target) {
       return this.buildResult(
         item,
         "needs_review",

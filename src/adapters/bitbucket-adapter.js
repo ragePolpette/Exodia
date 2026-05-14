@@ -1,13 +1,28 @@
-export function toKebabCase(value) {
+export function toKebabCase(value, maxLength = 48) {
   return value
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
+    .slice(0, maxLength)
+    .replace(/-+$/g, "");
+}
+
+export function inferChangeType(ticket = {}) {
+  const issueType = `${ticket.issueType ?? ticket.issue_type ?? ticket.type ?? ""}`.toLowerCase();
+  const text = `${ticket.summary ?? ""} ${ticket.description ?? ""}`.toLowerCase();
+
+  if (/\b(bug|defect|errore|malfunzionamento|fix|regression|regressione)\b/.test(`${issueType} ${text}`)) {
+    return "fix";
+  }
+
+  return "feat";
 }
 
 export function buildBranchName(ticket) {
-  return `${ticket.key.toLowerCase()}-${toKebabCase(ticket.summary)}`;
+  const type = inferChangeType(ticket);
+  const ticketKey = `${ticket.key ?? "ticket"}`.trim().toUpperCase();
+  const slug = toKebabCase(ticket.branchSummary ?? ticket.summary ?? "ticket-fix");
+  return `${type}/${ticketKey}-${slug}`;
 }
 
 export class BitbucketAdapter {

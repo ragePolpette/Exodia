@@ -1,7 +1,8 @@
 import { access, readFile } from "node:fs/promises";
 import path from "node:path";
 
-const instructionFileName = "EXODIA.md";
+const localInstructionFileName = "EXODIA.md";
+const exampleInstructionFileName = "EXODIA.md.example";
 
 async function fileExists(filePath) {
   try {
@@ -12,22 +13,26 @@ async function fileExists(filePath) {
   }
 }
 
-async function readInstructionFile(rootPath, label) {
+async function readInstructionFile(rootPath, label, fileNames = [localInstructionFileName]) {
   if (!rootPath) {
     return null;
   }
 
-  const filePath = path.join(rootPath, instructionFileName);
-  if (!(await fileExists(filePath))) {
-    return null;
+  for (const fileName of fileNames) {
+    const filePath = path.join(rootPath, fileName);
+    if (!(await fileExists(filePath))) {
+      continue;
+    }
+
+    return {
+      label,
+      fileName,
+      filePath,
+      content: (await readFile(filePath, "utf8")).trim()
+    };
   }
 
-  return {
-    label,
-    fileName: instructionFileName,
-    filePath,
-    content: (await readFile(filePath, "utf8")).trim()
-  };
+  return null;
 }
 
 function uniqueEntries(values = []) {
@@ -71,6 +76,7 @@ function buildMcpInstructions(config = {}) {
   }
 
   lines.push("- Use context and memory already provided in the payload before asking for clarification.");
+  lines.push("- Treat resolved humanClarifications and answered recheckConditions as newer than old memory blockers for the same ticket.");
   lines.push("- Ask for clarification only when the missing information blocks a sound decision or implementation step.");
   return lines.join("\n");
 }
@@ -92,14 +98,17 @@ export class AgentPromptContextBuilder {
     }
 
     const workspaceRoot = this.resolveWorkspaceRoot();
-    const general = await readInstructionFile(this.repoRoot, "Exodia general instructions");
+    const general = await readInstructionFile(this.repoRoot, "Exodia general instructions", [
+      localInstructionFileName,
+      exampleInstructionFileName
+    ]);
     const target = samePath(workspaceRoot, this.repoRoot)
       ? null
       : await readInstructionFile(workspaceRoot, "Target worktree instructions");
 
     const missingTarget = !target && !samePath(workspaceRoot, this.repoRoot);
     if (this.config.agentRuntime?.requireTargetInstructions && missingTarget) {
-      throw new Error(`EXODIA_TARGET_INSTRUCTIONS_MISSING: ${instructionFileName} not found in ${workspaceRoot}`);
+      throw new Error(`EXODIA_TARGET_INSTRUCTIONS_MISSING: ${localInstructionFileName} not found in ${workspaceRoot}`);
     }
 
     this.cachedInstructions = {
@@ -121,11 +130,11 @@ export class AgentPromptContextBuilder {
               `Read and follow ${entry.label} from ${entry.filePath}:\n\n${entry.content}`
           )
           .join("\n\n")
-      : `No ${instructionFileName} files were found in the Exodia repository or configured target worktree.`;
+      : `No ${localInstructionFileName} or ${exampleInstructionFileName} files were found in the Exodia repository or configured target worktree.`;
 
     const missingWarnings = [
-      instructions.missingGeneral ? `- Missing Exodia repository ${instructionFileName}; general agent guidance is unavailable.` : "",
-      instructions.missingTarget ? `- Missing target worktree ${instructionFileName}; ask for setup before implementation if target-specific rules are required.` : ""
+      instructions.missingGeneral ? `- Missing Exodia repository ${localInstructionFileName} or ${exampleInstructionFileName}; general agent guidance is unavailable.` : "",
+      instructions.missingTarget ? `- Missing target worktree ${localInstructionFileName}; ask for setup before implementation if target-specific rules are required.` : ""
     ]
       .filter(Boolean)
       .join("\n");

@@ -53,7 +53,7 @@ test("bitbucket adapter creates policy-compliant branch names", () => {
     summary: "Fix complex payment timeout bug"
   });
 
-  assert.equal(branchName, "gen-321-fix-complex-payment-timeout-bug");
+  assert.equal(branchName, "fix/GEN-321-fix-complex-payment-timeout-bug");
 });
 
 test("dry-run mock execution stays on the safe mock path", async () => {

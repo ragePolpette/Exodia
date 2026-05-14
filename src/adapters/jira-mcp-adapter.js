@@ -14,6 +14,7 @@ export class McpJiraAdapter {
         projectKey: ticket.projectKey ?? ticket.project_key ?? ticket.project?.key ?? "UNKNOWN",
         summary: ticket.summary,
         description: ticket.description,
+        issueType: ticket.issueType ?? ticket.issue_type ?? ticket.issuetype ?? ticket.type,
         productTarget: ticket.productTarget ?? ticket.product_target,
         scope: ticket.scope ?? "Unspecified",
         repoTarget: ticket.repoTarget ?? ticket.repo_target ?? "UNKNOWN",

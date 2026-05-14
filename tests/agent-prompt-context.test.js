@@ -9,7 +9,7 @@ const repoRoot = path.join(fixtureRoot, "exodia-repo");
 const targetRoot = path.join(fixtureRoot, "target-worktree");
 const missingTargetRoot = path.join(fixtureRoot, "missing-target-worktree");
 
-test("agent prompt context reads repo EXODIA before target EXODIA", async () => {
+test("agent prompt context reads repo EXODIA example before target EXODIA", async () => {
   const builder = new AgentPromptContextBuilder(
     {
       agentRuntime: { workspaceRoot: targetRoot },
@@ -25,6 +25,10 @@ test("agent prompt context reads repo EXODIA before target EXODIA", async () => 
   const loaded = await builder.loadInstructionFiles();
   assert.equal(loaded.workspaceRoot, targetRoot);
   assert.equal(loaded.files.length, 2);
+  assert.deepEqual(loaded.files.map((file) => file.fileName), [
+    "EXODIA.md.example",
+    "EXODIA.md"
+  ]);
   assert.deepEqual(loaded.files.map((file) => file.label), [
     "Exodia general instructions",
     "Target worktree instructions"

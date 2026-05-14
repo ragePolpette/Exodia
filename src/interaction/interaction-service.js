@@ -309,6 +309,11 @@ export class InteractionService {
         .filter((record) => record.status === "awaiting_response")
         .map((record) => [record.ticketKey, record])
     );
+    const resolvedByTicket = new Map(
+      records
+        .filter((record) => record.status === "resolved" && record.response?.text)
+        .map((record) => [record.ticketKey, record])
+    );
     const updatedRecords = [];
     const pending = [];
     const resolved = [];
@@ -317,6 +322,13 @@ export class InteractionService {
     for (const ticket of tickets) {
       const interaction = byTicket.get(ticket.key);
       if (!interaction) {
+        const resolvedInteraction = resolvedByTicket.get(ticket.key);
+        if (resolvedInteraction) {
+          resolved.push(resolvedInteraction);
+          preparedTickets.push(this.applyResolvedInteraction(ticket, resolvedInteraction));
+          continue;
+        }
+
         preparedTickets.push(ticket);
         continue;
       }

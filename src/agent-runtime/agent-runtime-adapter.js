@@ -5,6 +5,7 @@ import {
   normalizeAuditResult,
   normalizeImplementationResult
 } from "./agent-runtime-contracts.js";
+import { buildImplementationFailureFromError } from "./runtime-diagnostics.js";
 
 export class AgentRuntimeAdapter {
   constructor(config = {}, { logger } = {}) {
@@ -58,7 +59,23 @@ export class AgentRuntimeAdapter {
       throw new Error(`Agent runtime phase is disabled: ${phase}`);
     }
 
-    const rawResult = await this.invoke(phase, input);
+    let rawResult;
+    try {
+      rawResult = await this.invoke(phase, input);
+    } catch (error) {
+      if (phase !== "implementation") {
+        throw error;
+      }
+
+      rawResult = buildImplementationFailureFromError(error, this.getMetadata(phase));
+      this.logger?.warn("Agent runtime implementation failed with structured diagnostics", {
+        provider: this.provider,
+        model: this.model,
+        failureKind: rawResult.failureKind,
+        code: rawResult.runtimeDiagnostics?.code,
+        message: rawResult.summary
+      });
+    }
     return normalizer(rawResult, this.getMetadata(phase), this.config);
   }
 

@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { AgentRuntimeInvocationError, buildRuntimeDiagnostics, isAgentRuntimeInvocationError } from "./runtime-diagnostics.js";
 
 function inferJsonType(example) {
   if (Array.isArray(example)) {
@@ -133,6 +134,9 @@ export function buildCodexExecPrompt(envelope) {
     "- analysis.status must be needs_human when a human answer is required before deciding or implementing.",
     "- analysis.status must be blocked only when the ticket cannot progress in this run.",
     "- Do not return status blocked together with feasibility feasible unless there is a concrete blocking reason.",
+    "- implementation.status must be needs_human before editing files when missing human information is blocking.",
+    "- implementation.status must be failed when verification cannot converge or the runtime cannot safely finish.",
+    "- Never ask free-form questions outside JSON; put every human question in questions[].",
     "",
     JSON.stringify(envelope, null, 2)
   ].join("\n");
@@ -183,8 +187,9 @@ export function buildCodexExecArgs({
   return args;
 }
 
-function runCommand({ command, args, cwd, env, stdin, timeoutMs }) {
+function runCommand({ command, args, cwd, env, stdin, timeoutMs, provider, phase, model }) {
   return new Promise((resolve, reject) => {
+    const startedAt = new Date().toISOString();
     const isWindowsCmdLauncher =
       process.platform === "win32" && /\.(cmd|bat)$/i.test(command);
     const child = spawn(command, args, {
@@ -198,11 +203,35 @@ function runCommand({ command, args, cwd, env, stdin, timeoutMs }) {
     let settled = false;
     const stdout = [];
     const stderr = [];
+    const buildError = (message, code, extras = {}) =>
+      new AgentRuntimeInvocationError(message, {
+        code,
+        diagnostics: buildRuntimeDiagnostics({
+          provider,
+          phase,
+          model,
+          code,
+          message,
+          command,
+          args,
+          cwd,
+          timeoutMs,
+          stdout: Buffer.concat(stdout).toString("utf8"),
+          stderr: Buffer.concat(stderr).toString("utf8"),
+          startedAt,
+          endedAt: new Date().toISOString(),
+          ...extras
+        })
+      });
     const timeout = setTimeout(() => {
       child.kill();
       if (!settled) {
         settled = true;
-        reject(new Error(`codex wrapper timed out after ${timeoutMs}ms`));
+        reject(
+          buildError(`codex wrapper timed out after ${timeoutMs}ms`, "CODEX_EXEC_TIMEOUT", {
+            timedOut: true
+          })
+        );
       }
     }, timeoutMs);
 
@@ -212,7 +241,7 @@ function runCommand({ command, args, cwd, env, stdin, timeoutMs }) {
       if (!settled) {
         settled = true;
         clearTimeout(timeout);
-        reject(error);
+        reject(buildError(error.message, "CODEX_EXEC_SUBPROCESS_ERROR"));
       }
     });
     child.on("close", (code) => {
@@ -224,10 +253,12 @@ function runCommand({ command, args, cwd, env, stdin, timeoutMs }) {
       clearTimeout(timeout);
       if (code !== 0) {
         reject(
-          new Error(
+          buildError(
             Buffer.concat(stderr).toString("utf8").trim() ||
               Buffer.concat(stdout).toString("utf8").trim() ||
-              `codex exec exited with code ${code}`
+              `codex exec exited with code ${code}`,
+            "CODEX_EXEC_FAILED",
+            { metadata: { exitCode: code } }
           )
         );
         return;
@@ -260,6 +291,8 @@ export async function runCodexExec(envelope, options = {}) {
     /^(1|true|yes)$/i.test(process.env.EXODIA_CODEX_USE_OSS ?? "");
   const localProvider = options.localProvider ?? process.env.EXODIA_CODEX_LOCAL_PROVIDER ?? "";
   const timeoutMs = Number(options.timeoutMs ?? process.env.EXODIA_CODEX_TIMEOUT_MS ?? 300000) || 300000;
+  const keepTemp = `${options.keepTemp ?? process.env.EXODIA_CODEX_KEEP_TEMP ?? ""}`.trim().toLowerCase();
+  let failed = false;
 
   try {
     await writeFile(schemaPath, JSON.stringify(buildPhaseOutputSchema(phase), null, 2), "utf8");
@@ -281,12 +314,32 @@ export async function runCodexExec(envelope, options = {}) {
       cwd,
       env: process.env,
       stdin: prompt,
-      timeoutMs
+      timeoutMs,
+      provider: envelope.provider ?? process.env.EXODIA_AGENT_RUNTIME_PROVIDER ?? "codex-cli",
+      phase,
+      model
     });
 
     const output = await readFile(outputPath, "utf8");
     return JSON.parse(output);
+  } catch (error) {
+    failed = true;
+    if (isAgentRuntimeInvocationError(error)) {
+      error.diagnostics = {
+        ...error.diagnostics,
+        metadata: {
+          ...(error.diagnostics?.metadata ?? {}),
+          tempDir,
+          schemaPath,
+          outputPath
+        }
+      };
+    }
+    throw error;
   } finally {
-    await rm(tempDir, { recursive: true, force: true });
+    const shouldKeepTemp = keepTemp === "always" || (failed && keepTemp === "onerror");
+    if (!shouldKeepTemp) {
+      await rm(tempDir, { recursive: true, force: true });
+    }
   }
 }

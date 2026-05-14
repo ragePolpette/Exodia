@@ -1,4 +1,5 @@
 import { AgentRuntimeAdapter } from "./agent-runtime-adapter.js";
+import { AgentRuntimeInvocationError, buildRuntimeDiagnostics } from "./runtime-diagnostics.js";
 
 function withTrailingSlash(value = "") {
   return value.endsWith("/") ? value : `${value}/`;
@@ -116,9 +117,10 @@ export function safeJsonParse(content) {
   }
 }
 
-export async function postJson({ url, headers, body, timeoutMs }) {
+export async function postJson({ url, headers, body, timeoutMs, provider = "", phase = "", model = "" }) {
   const controller = new AbortController();
   const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
+  const startedAt = new Date().toISOString();
 
   try {
     const response = await fetch(url, {
@@ -130,13 +132,48 @@ export async function postJson({ url, headers, body, timeoutMs }) {
     const text = await response.text();
 
     if (!response.ok) {
-      throw new Error(`agent runtime request failed with ${response.status}: ${text}`);
+      const message = `agent runtime request failed with ${response.status}: ${text}`;
+      throw new AgentRuntimeInvocationError(message, {
+        code: "AGENT_RUNTIME_HTTP_FAILED",
+        diagnostics: buildRuntimeDiagnostics({
+          provider,
+          phase,
+          model,
+          code: "AGENT_RUNTIME_HTTP_FAILED",
+          message,
+          timeoutMs,
+          stdout: text,
+          startedAt,
+          endedAt: new Date().toISOString(),
+          metadata: {
+            url,
+            status: response.status
+          }
+        })
+      });
     }
 
     return text ? JSON.parse(text) : {};
   } catch (error) {
     if (error.name === "AbortError") {
-      throw new Error(`agent runtime request timed out after ${timeoutMs}ms`);
+      const message = `agent runtime request timed out after ${timeoutMs}ms`;
+      throw new AgentRuntimeInvocationError(message, {
+        code: "AGENT_RUNTIME_TIMEOUT",
+        diagnostics: buildRuntimeDiagnostics({
+          provider,
+          phase,
+          model,
+          code: "AGENT_RUNTIME_TIMEOUT",
+          message,
+          timeoutMs,
+          timedOut: true,
+          startedAt,
+          endedAt: new Date().toISOString(),
+          metadata: {
+            url
+          }
+        })
+      });
     }
     throw error;
   } finally {
@@ -208,7 +245,10 @@ export class HttpAgentRuntimeAdapter extends AgentRuntimeAdapter {
       url: joinUrl(this.getBaseUrl(), this.getEndpoint()),
       headers: this.buildHeaders(),
       body: this.buildRequestBody(phase, input),
-      timeoutMs: this.getTimeoutMs()
+      timeoutMs: this.getTimeoutMs(),
+      provider: this.provider,
+      phase,
+      model: this.model
     });
 
     return this.extractResponsePayload(response);

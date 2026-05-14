@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 
@@ -88,4 +88,75 @@ test("implementation runtime can loop verification before opening a pull request
     summary.execution[0].pullRequestTitle,
     "[GEN-920] Harden auth token refresh flow"
   );
+});
+
+test("implementation runtime timeout is recorded as structured failure without opening a pull request", async () => {
+  const { workspace, configPath } = await createExecutionScenario({
+    mode: "triage-and-execution",
+    dryRun: true,
+    memory: {
+      backend: "file",
+      filePath: "./memory.json"
+    },
+    agentRuntime: {
+      enabled: true,
+      provider: "codex-cli",
+      artifactFile: "./agent-artifacts.json",
+      implementationArtifactFile: "./implementation-artifacts.json",
+      enabledPhases: ["implementation"],
+      implementation: {
+        maxVerificationLoops: 3
+      },
+      providers: {
+        "codex-cli": {
+          command: process.execPath,
+          args: ["-e", "setTimeout(()=>{}, 2000);"],
+          timeoutMs: 50
+        }
+      }
+    },
+    execution: {
+      enabled: true,
+      dryRun: true,
+      baseBranch: "main",
+      allowRealPrs: false,
+      allowMerge: false
+    },
+    mockTickets: [
+      {
+        key: "GEN-921",
+        projectKey: "GEN",
+        summary: "Customer login times out after refresh token rotation",
+        contextMapping: {
+          inScope: true,
+          productTarget: "public-app",
+          repoTarget: "public-web",
+          area: "auth",
+          feasibility: "feasible",
+          confidence: 0.91,
+          implementationHint: "Inspect refresh token timeout handling"
+        }
+      }
+    ]
+  });
+
+  const summary = await runHarness({
+    configPath,
+    modeOverride: "triage-and-execution",
+    dryRunOverride: true
+  });
+
+  assert.equal(summary.execution.length, 1);
+  assert.equal(summary.execution[0].status, "failed");
+  assert.equal(summary.execution[0].implementationStatus, "failed");
+  assert.equal(summary.execution[0].failureKind, "runtime_timeout");
+  assert.equal(summary.execution[0].implementationAttempts, 1);
+  assert.equal(summary.execution[0].pullRequestUrl, "");
+  assert.equal(summary.execution[0].runtimeDiagnostics.code, "AGENT_RUNTIME_TIMEOUT");
+
+  const artifacts = JSON.parse(await readFile(path.join(workspace, "implementation-artifacts.json"), "utf8"));
+  assert.equal(artifacts.length, 1);
+  assert.equal(artifacts[0].ticketKey, "GEN-921");
+  assert.equal(artifacts[0].failureKind, "runtime_timeout");
+  assert.equal(artifacts[0].runtimeDiagnostics.code, "AGENT_RUNTIME_TIMEOUT");
 });

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import path from "node:path";
 
 import { buildAgentRuntime } from "../src/agent-runtime/build-agent-runtime.js";
 import {
@@ -8,6 +9,10 @@ import {
   normalizeImplementationResult
 } from "../src/agent-runtime/agent-runtime-contracts.js";
 import { resolveCodexTimeoutSettings } from "../src/agent-runtime/codex-cli-agent-runtime-adapter.js";
+import {
+  buildRuntimeProcessEnv,
+  resolveRuntimeWorkingDirectory
+} from "../src/agent-runtime/runtime-process-policy.js";
 import { buildAdapters } from "../src/adapters/bootstrap-adapters.js";
 
 function createConfig(overrides = {}) {
@@ -262,4 +267,51 @@ test("codex timeout settings keep wrapper timeout below adapter timeout", () => 
 
   assert.equal(settings.adapterTimeoutMs, 600000);
   assert.equal(settings.wrapperTimeoutMs, 570000);
+});
+
+test("runtime process env only includes default and explicitly allowed keys", () => {
+  const env = buildRuntimeProcessEnv({
+    providerConfig: {
+      env: {
+        OPENAI_API_KEY: "from-config",
+        AWS_SECRET_ACCESS_KEY: "must-not-leak"
+      },
+      envPassthrough: ["OPENAI_API_KEY"]
+    },
+    processEnv: {
+      PATH: "system-path",
+      OPENAI_API_KEY: "from-process",
+      AWS_SECRET_ACCESS_KEY: "process-secret"
+    },
+    injectedEnv: {
+      EXODIA_AGENT_RUNTIME_PHASE: "analysis"
+    }
+  });
+
+  assert.equal(env.PATH, "system-path");
+  assert.equal(env.OPENAI_API_KEY, "from-config");
+  assert.equal(env.EXODIA_AGENT_RUNTIME_PHASE, "analysis");
+  assert.equal(env.AWS_SECRET_ACCESS_KEY, undefined);
+});
+
+test("runtime working directory must stay inside the configured workspace", () => {
+  const workspaceRoot = path.resolve("tests", "fixtures", "agent-context", "target-worktree");
+  const allowedCwd = path.join(workspaceRoot, "src");
+
+  assert.equal(
+    resolveRuntimeWorkingDirectory({
+      providerConfig: { workingDirectory: allowedCwd },
+      workspaceRoot
+    }),
+    allowedCwd
+  );
+
+  assert.throws(
+    () =>
+      resolveRuntimeWorkingDirectory({
+        providerConfig: { workingDirectory: path.dirname(workspaceRoot) },
+        workspaceRoot
+      }),
+    /AGENT_RUNTIME_CWD_OUTSIDE_WORKSPACE/
+  );
 });

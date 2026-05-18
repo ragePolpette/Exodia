@@ -127,6 +127,7 @@
     "destinations": "ticket",
     "allowedPhases": [
       "triage",
+      "candidate_approval",
       "verification"
     ],
     "maxQuestionsPerTicket": 1,
@@ -150,6 +151,11 @@
         "commentPrefix": "[Exodia]"
       }
     }
+  },
+  "workflow": {
+    "enabled": true,
+    "stateFile": "../data/workflow-state.json",
+    "humanApprovalPolicy": "skip"
   },
   "targeting": {
     "unknownTarget": "unknown",
@@ -317,7 +323,8 @@
     "enabledPhases": [
       "analysis",
       "audit",
-      "implementation"
+      "implementation",
+      "implementation_verification"
     ],
     "humanConfirmationPolicy": "on_low_confidence",
     "audit": {

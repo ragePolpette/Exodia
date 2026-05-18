@@ -13,6 +13,8 @@ export class MockAgentRuntimeAdapter extends AgentRuntimeAdapter {
         return this.buildAuditResult(input);
       case "implementation":
         return this.buildImplementationResult(input);
+      case "implementation_verification":
+        return this.buildImplementationVerificationResult(input);
       default:
         throw new Error(`Unsupported mock agent runtime phase: ${phase}`);
     }
@@ -88,6 +90,24 @@ export class MockAgentRuntimeAdapter extends AgentRuntimeAdapter {
       verificationResults: [],
       questions: [],
       followUp: ["Use codex-cli or openai provider for implementation."]
+    };
+  }
+
+  buildImplementationVerificationResult(input = {}) {
+    const implementation = input.implementation ?? {};
+    const status = implementation.status === "completed" ? "passed" : "needs_changes";
+
+    return {
+      status,
+      summary:
+        status === "passed"
+          ? "Mock verification accepts the completed implementation."
+          : "Mock verification requires another implementation attempt.",
+      confidence: status === "passed" ? 0.8 : 0.5,
+      issues: status === "passed" ? [] : ["Implementation did not report completion."],
+      verificationResults: implementation.verificationResults ?? [],
+      followUp: status === "passed" ? [] : ["Retry implementation with the verification feedback."],
+      questions: []
     };
   }
 }

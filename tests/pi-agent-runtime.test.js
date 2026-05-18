@@ -62,7 +62,12 @@ test("Pi adapter resolves safe default tool policy by phase", () => {
 
   assert.deepEqual(resolvePiToolPolicy("implementation").slice(0, 2), [
     "workspace-write inside the configured target worktree only",
-    "create or reuse a dedicated ticket branch"
+    "run only verification commands supplied by Exodia or the target instructions"
+  ]);
+
+  assert.deepEqual(resolvePiToolPolicy("implementation_verification").slice(0, 2), [
+    "read-only workspace access",
+    "inspect the diff, implementation summary, and verification evidence"
   ]);
 
   assert.deepEqual(

@@ -3,6 +3,7 @@ import {
   normalizeAgentRuntimeConfig,
   normalizeAnalysisResult,
   normalizeAuditResult,
+  normalizeImplementationVerificationResult,
   normalizeImplementationResult
 } from "./agent-runtime-contracts.js";
 import { buildImplementationFailureFromError } from "./runtime-diagnostics.js";
@@ -52,6 +53,10 @@ export class AgentRuntimeAdapter {
 
   async implementPlan(input) {
     return this.execute("implementation", input, normalizeImplementationResult);
+  }
+
+  async verifyImplementation(input) {
+    return this.execute("implementation_verification", input, normalizeImplementationVerificationResult);
   }
 
   async execute(phase, input, normalizer) {

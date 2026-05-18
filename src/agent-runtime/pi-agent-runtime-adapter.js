@@ -50,9 +50,18 @@ export function resolvePiToolPolicy(phase, providerConfig = {}) {
   if (phase === "implementation") {
     return [
       "workspace-write inside the configured target worktree only",
-      "create or reuse a dedicated ticket branch",
       "run only verification commands supplied by Exodia or the target instructions",
-      "do not push, merge, or touch external services unless Exodia explicitly provides that step"
+      "do not create branches, switch branches, commit, push, merge, open pull requests, deploy, or touch external services"
+    ];
+  }
+
+  if (phase === "implementation_verification") {
+    return [
+      "read-only workspace access",
+      "inspect the diff, implementation summary, and verification evidence",
+      "do not edit files",
+      "do not create branches",
+      "do not commit, push, open pull requests, merge, deploy, or touch external services"
     ];
   }
 

@@ -15,6 +15,7 @@ import { ImplementationArtifactStore } from "../agent-runtime/implementation-art
 import { FileMemoryStore } from "../memory/file-memory-store.js";
 import { renderFinalReport } from "../reporting/render-final-report.js";
 import { renderTriageReport } from "../triage/render-triage-report.js";
+import { TicketWorkflowStore } from "./ticket-workflow-store.js";
 
 function countBy(items, field) {
   return items.reduce((accumulator, item) => {
@@ -30,6 +31,140 @@ function createAuditEntry(phase, message, details = {}) {
     message,
     details,
     at: new Date().toISOString()
+  };
+}
+
+function isCandidateDecision(decision) {
+  return ["feasible", "feasible_low_confidence"].includes(decision.status_decision);
+}
+
+function approvalRequired(policy, decision) {
+  if (!isCandidateDecision(decision)) {
+    return false;
+  }
+
+  if (policy === "always") {
+    return true;
+  }
+
+  return policy === "on_low_confidence" && decision.status_decision === "feasible_low_confidence";
+}
+
+function extractApprovalDecision(ticket) {
+  const answers = (ticket.humanClarifications ?? [])
+    .filter((item) => item.phase === "candidate_approval")
+    .map((item) => `${item.text ?? item.summary ?? ""}`.toLowerCase());
+  const combined = answers.join(" ");
+
+  if (/\b(reject|rejected|no|stop|blocca|rifiuta|scarta)\b/i.test(combined)) {
+    return "rejected";
+  }
+
+  if (/\b(approve|approved|yes|ok|go|procedi|approvo|vai)\b/i.test(combined)) {
+    return "approved";
+  }
+
+  return "";
+}
+
+async function applyCandidateApprovalGate({
+  candidateItems,
+  workflowStore,
+  interactionService,
+  humanApprovalPolicy,
+  logger
+}) {
+  if (!workflowStore) {
+    return {
+      approvedItems: candidateItems,
+      awaitingApproval: [],
+      rejected: []
+    };
+  }
+
+  const approvedItems = [];
+  const awaitingApproval = [];
+  const rejected = [];
+
+  for (const item of candidateItems) {
+    if (!isCandidateDecision(item.decision)) {
+      approvedItems.push(item);
+      continue;
+    }
+
+    const required = approvalRequired(humanApprovalPolicy, item.decision);
+    if (!required) {
+      await workflowStore.markApproval({
+        ticket: item.ticket,
+        required: false,
+        status: "approved",
+        reason: "human approval not required by workflow policy"
+      });
+      approvedItems.push(item);
+      continue;
+    }
+
+    const explicitDecision = extractApprovalDecision(item.ticket);
+    if (explicitDecision === "approved") {
+      await workflowStore.markApproval({
+        ticket: item.ticket,
+        required: true,
+        status: "approved",
+        reason: "human approved candidate"
+      });
+      approvedItems.push(item);
+      continue;
+    }
+
+    if (explicitDecision === "rejected") {
+      await workflowStore.markApproval({
+        ticket: item.ticket,
+        required: true,
+        status: "rejected",
+        reason: "human rejected candidate"
+      });
+      rejected.push(item);
+      continue;
+    }
+
+    const interaction = await interactionService?.requestClarification?.({
+      phase: "candidate_approval",
+      ticket: item.ticket,
+      question: [
+        `Approve Exodia to analyze ${item.ticket.key}?`,
+        `Candidate target: ${item.decision.product_target}/${item.decision.repo_target}.`,
+        `Reason: ${item.decision.short_reason}.`,
+        "Reply with approve/procedi/vai to continue, or reject/scarta/stop to skip."
+      ].join(" "),
+      reason: item.decision.short_reason,
+      blocking: true,
+      context: {
+        productTarget: item.decision.product_target,
+        repoTarget: item.decision.repo_target,
+        confidence: item.decision.confidence
+      }
+    });
+
+    await workflowStore.markApproval({
+      ticket: item.ticket,
+      required: true,
+      status: "awaiting_response",
+      interaction,
+      reason: interaction
+        ? "candidate waiting for human approval"
+        : "candidate requires approval but no interaction channel delivered the question"
+    });
+    awaitingApproval.push(item);
+    logger?.info("Candidate is waiting for human approval", {
+      ticketKey: item.ticket.key,
+      interactionId: interaction?.id ?? ""
+    });
+  }
+
+  return {
+    approvedItems,
+    awaitingApproval,
+    rejected
   };
 }
 
@@ -65,6 +200,9 @@ export async function runHarness({
   const implementationArtifactStore = new ImplementationArtifactStore(
     new FileMemoryStore(config.agentRuntime.implementationArtifactFile)
   );
+  const workflowStore = config.workflow?.enabled
+    ? new TicketWorkflowStore(new FileMemoryStore(config.workflow.stateFile))
+    : null;
   const {
     jira: jiraAdapter,
     llmContext: contextAdapter,
@@ -154,6 +292,7 @@ export async function runHarness({
     ? await interactionService.prepareTickets(loadedTickets)
     : { tickets: loadedTickets, pending: [], resolved: [] };
   const tickets = interactionPreparation.tickets;
+  await workflowStore?.ensureTickets(tickets);
   auditTrail.push(createAuditEntry("input", "tickets loaded", { count: tickets.length }));
   if (interactionPreparation.pending.length > 0 || interactionPreparation.resolved.length > 0) {
     auditTrail.push(
@@ -165,6 +304,9 @@ export async function runHarness({
   }
   logger.debug("Tickets loaded", { count: tickets.length });
   const triage = await triageAgent.run(tickets);
+  for (const decision of triage) {
+    await workflowStore?.recordCandidate(decision);
+  }
   auditTrail.push(
     createAuditEntry("triage", "triage completed", {
       count: triage.length,
@@ -186,8 +328,34 @@ export async function runHarness({
       ticket: tickets.find((ticket) => ticket.key === decision.ticket_key)
     }))
     .filter((item) => item.ticket);
+  const approvalGate = await applyCandidateApprovalGate({
+    candidateItems,
+    workflowStore,
+    interactionService,
+    humanApprovalPolicy: config.workflow?.humanApprovalPolicy ?? "skip",
+    logger
+  });
+  auditTrail.push(
+    createAuditEntry("approval", "candidate approval gate completed", {
+      approved: approvalGate.approvedItems.length,
+      awaiting: approvalGate.awaitingApproval.length,
+      rejected: approvalGate.rejected.length
+    })
+  );
   const verification =
-    mode === "triage-and-execution" ? await verificationAgent.run(candidateItems) : [];
+    mode === "triage-and-execution" ? await verificationAgent.run(approvalGate.approvedItems) : [];
+  for (const result of verification) {
+    await workflowStore?.markPhase(
+      result.ticketKey,
+      "analysis",
+      result.status === "approved"
+        ? "analysis_approved"
+        : result.status === "needs_review"
+          ? "code_analysis_ready"
+          : "blocked",
+      result.analysisArtifact ? "analysis" : ""
+    );
+  }
   auditTrail.push(
     createAuditEntry("verification", "verification completed", {
       count: verification.length,
@@ -201,7 +369,7 @@ export async function runHarness({
   const verificationByTicket = new Map(verification.map((result) => [result.ticketKey, result]));
   const executionCandidates =
     mode === "triage-and-execution" && config.verification.enabled !== false
-      ? candidateItems
+      ? approvalGate.approvedItems
           .filter((item) => verificationByTicket.get(item.ticket.key)?.status === "approved")
           .map((item) => ({
             ...item,
@@ -212,7 +380,22 @@ export async function runHarness({
 
   const execution =
     mode === "triage-and-execution" ? await executionAgent.run(executionCandidates) : [];
+  for (const result of execution) {
+    await workflowStore?.markPhase(
+      result.ticketKey,
+      result.status === "pr_opened" ? "implementationCheck" : "implementation",
+      result.status === "pr_opened"
+        ? "pr_opened"
+        : result.status === "blocked"
+          ? "blocked"
+          : result.status === "failed"
+            ? "failed"
+            : "implementation_ready",
+      result.status
+    );
+  }
   const memoryAfter = await ticketMemoryAdapter.listRecords();
+  const workflowSnapshot = workflowStore ? await workflowStore.snapshot() : null;
   auditTrail.push(
     createAuditEntry("execution", "execution completed", {
       count: execution.length
@@ -276,6 +459,7 @@ export async function runHarness({
       pending: interactionPreparation.pending.length,
       resolved: interactionPreparation.resolved.length
     },
+    workflow: workflowSnapshot,
     runId: localRunId,
     recordedRunId: runRecord.runId ?? "",
     runStartedAt,
@@ -365,6 +549,7 @@ export async function runHarness({
       verificationCounts,
       executionCounts,
       interactionStats: summary.interactionStats,
+      workflow: workflowSnapshot,
       resumeStats,
       auditTrail
     }

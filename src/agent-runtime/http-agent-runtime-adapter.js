@@ -59,9 +59,6 @@ function buildPhaseSchemaHint(phase) {
       return {
         status: "completed | needs_human | blocked | failed",
         summary: "short implementation summary",
-        branchName: "optional branch override",
-        commitMessage: "optional commit message override",
-        pullRequestTitle: "optional pull request title override",
         changedFiles: ["path/to/file"],
         verificationResults: ["verification output summary"],
         verificationPlan: {
@@ -78,6 +75,22 @@ function buildPhaseSchemaHint(phase) {
           }
         ],
         followUp: ["follow-up note"]
+      };
+    case "implementation_verification":
+      return {
+        status: "passed | needs_changes | needs_human | blocked | failed",
+        summary: "short verification summary",
+        confidence: 0.0,
+        issues: ["issue"],
+        verificationResults: ["verification evidence summary"],
+        followUp: ["specific implementation feedback"],
+        questions: [
+          {
+            reason: "missing_information",
+            question: "human clarification question",
+            blocking: true
+          }
+        ]
       };
     default:
       return {};

@@ -3,8 +3,9 @@ import { normalizeRuntimeDiagnostics } from "./runtime-diagnostics.js";
 const analysisStatuses = ["proposal_ready", "needs_human", "blocked"];
 const auditVerdicts = ["approved", "needs_refinement", "blocked"];
 const implementationStatuses = ["completed", "needs_human", "blocked", "failed"];
+const implementationVerificationStatuses = ["passed", "needs_changes", "needs_human", "blocked", "failed"];
 
-export const agentRuntimePhases = ["analysis", "audit", "implementation"];
+export const agentRuntimePhases = ["analysis", "audit", "implementation", "implementation_verification"];
 export const agentRuntimeProviders = ["mock", "codex-cli", "pi", "openai", "claude", "openrouter", "ollama", "lmstudio"];
 
 const defaultCapabilities = {
@@ -197,7 +198,10 @@ export function normalizeAgentRuntimeConfig(config = {}) {
         toolsByPhase: {
           analysis: normalizeStringList(config.providers?.pi?.toolsByPhase?.analysis),
           audit: normalizeStringList(config.providers?.pi?.toolsByPhase?.audit),
-          implementation: normalizeStringList(config.providers?.pi?.toolsByPhase?.implementation)
+          implementation: normalizeStringList(config.providers?.pi?.toolsByPhase?.implementation),
+          implementation_verification: normalizeStringList(
+            config.providers?.pi?.toolsByPhase?.implementation_verification
+          )
         },
         sessionDir: `${config.providers?.pi?.sessionDir ?? ""}`.trim(),
         noSession: config.providers?.pi?.noSession ?? !config.providers?.pi?.sessionDir,
@@ -341,6 +345,23 @@ export function normalizeImplementationResult(result = {}, context = {}, runtime
     followUp: normalizeStringList(result.followUp),
     failureKind: normalizeFailureKind(result.failureKind),
     runtimeDiagnostics
+  };
+}
+
+export function normalizeImplementationVerificationResult(result = {}, context = {}) {
+  const status = implementationVerificationStatuses.includes(result.status) ? result.status : "failed";
+
+  return {
+    phase: "implementation_verification",
+    provider: context.provider ?? "mock",
+    model: context.model ?? "",
+    status,
+    summary: `${result.summary ?? ""}`.trim(),
+    confidence: clampConfidence(result.confidence, 0),
+    issues: normalizeStringList(result.issues),
+    verificationResults: normalizeStringList(result.verificationResults),
+    followUp: normalizeStringList(result.followUp),
+    questions: normalizeQuestions(result.questions)
   };
 }
 

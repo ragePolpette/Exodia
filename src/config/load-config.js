@@ -125,7 +125,7 @@ const defaultConfig = {
     requireTargetInstructions: false,
     artifactFile: "./data/agent-artifacts.json",
     implementationArtifactFile: "./data/implementation-artifacts.json",
-    enabledPhases: ["analysis", "audit", "implementation"],
+    enabledPhases: ["analysis", "audit", "implementation", "implementation_verification"],
     fallbackToHeuristics: true,
     requireStructuredOutput: true,
     humanConfirmationPolicy: "on_low_confidence",
@@ -221,6 +221,11 @@ const defaultConfig = {
       exampleFiles: []
     }
   },
+  workflow: {
+    enabled: true,
+    stateFile: "./data/workflow-state.json",
+    humanApprovalPolicy: "skip"
+  },
   targeting: resolveTargetingConfig(),
   mcpBridge: {
     mode: "fixture",
@@ -238,7 +243,7 @@ const defaultConfig = {
     mode: "deferred",
     storeFile: "./data/interactions.json",
     destinations: ["ticket"],
-    allowedPhases: ["triage", "verification", "execution"],
+    allowedPhases: ["triage", "candidate_approval", "verification", "execution"],
     maxQuestionsPerTicket: 1,
     captureToSemanticMemory: true,
     captureToTicketMemory: true,
@@ -438,7 +443,7 @@ function normalizeInteractionConfig(config = {}) {
       normalizeInteractionDestinations(config.destinations ?? config.destination ?? ["ticket"]),
     allowedPhases: Array.isArray(config.allowedPhases)
       ? [...new Set(config.allowedPhases.filter(Boolean))]
-      : ["triage", "verification", "execution"],
+      : ["triage", "candidate_approval", "verification", "execution"],
     maxQuestionsPerTicket: config.maxQuestionsPerTicket ?? 1,
     captureToSemanticMemory: config.captureToSemanticMemory ?? true,
     captureToTicketMemory: config.captureToTicketMemory ?? true,
@@ -471,6 +476,19 @@ function normalizeLoggingConfig(config = {}) {
   };
 }
 
+function normalizeWorkflowConfig(config = {}) {
+  const humanApprovalPolicy = `${config.humanApprovalPolicy ?? "skip"}`.trim() || "skip";
+  const supportedPolicies = ["skip", "always", "on_low_confidence"];
+
+  return {
+    enabled: config.enabled ?? true,
+    stateFile: `${config.stateFile ?? "./data/workflow-state.json"}`.trim() || "./data/workflow-state.json",
+    humanApprovalPolicy: supportedPolicies.includes(humanApprovalPolicy)
+      ? humanApprovalPolicy
+      : "skip"
+  };
+}
+
 export async function loadConfig(configPath) {
   const resolvedPath = path.resolve(configPath);
   const configDirectory = path.dirname(resolvedPath);
@@ -489,6 +507,7 @@ export async function loadConfig(configPath) {
   const normalizedLoggingConfig = normalizeLoggingConfig(merged.logging);
   const normalizedSchedulingConfig = normalizeSchedulingConfig(merged.scheduling);
   const normalizedAgentRuntimeConfig = normalizeAgentRuntimeConfig(merged.agentRuntime);
+  const normalizedWorkflowConfig = normalizeWorkflowConfig(merged.workflow);
 
   return {
     ...merged,
@@ -507,6 +526,10 @@ export async function loadConfig(configPath) {
     scheduling: {
       ...normalizedSchedulingConfig,
       lockFile: path.resolve(configDirectory, normalizedSchedulingConfig.lockFile)
+    },
+    workflow: {
+      ...normalizedWorkflowConfig,
+      stateFile: path.resolve(configDirectory, normalizedWorkflowConfig.stateFile)
     },
     agentRuntime: {
       ...normalizedAgentRuntimeConfig,

@@ -158,7 +158,72 @@ export class ExecutionAgent {
     });
   }
 
-  async runImplementationLoop({ item, scopedTicket, prompt, executionMode, payload, analysisArtifact, diagnostics }) {
+  async runImplementationVerification({
+    item,
+    scopedTicket,
+    prompt,
+    executionMode,
+    payload,
+    analysisArtifact,
+    diagnostics,
+    implementation,
+    attemptNumber,
+    attempts
+  }) {
+    if (!this.agentRuntime?.isPhaseEnabled("implementation_verification")) {
+      return {
+        status: "passed",
+        summary: "implementation verification runtime is disabled",
+        confidence: 1,
+        issues: [],
+        verificationResults: implementation?.verificationResults ?? [],
+        followUp: [],
+        questions: []
+      };
+    }
+
+    try {
+      return await this.agentRuntime.verifyImplementation({
+        prompt,
+        ticket: scopedTicket,
+        decision: item.decision,
+        verification: item.verification ?? null,
+        analysisProposal: analysisArtifact,
+        verificationPlan: analysisArtifact?.verificationPlan ?? implementation?.verificationPlan ?? null,
+        diagnostics,
+        executionMode,
+        workspaceRoot: this.resolveWorkspaceRoot(),
+        payload,
+        implementation,
+        attemptNumber,
+        previousAttempts: attempts
+      });
+    } catch (error) {
+      return {
+        phase: "implementation_verification",
+        provider: this.agentRuntime.provider,
+        model: this.agentRuntime.model,
+        status: "failed",
+        summary: `implementation verification runtime failed: ${error.message}`,
+        confidence: 0,
+        issues: [error.message],
+        verificationResults: implementation?.verificationResults ?? [],
+        followUp: ["Review the implementation manually or retry the run."],
+        questions: []
+      };
+    }
+  }
+
+  async runImplementationLoop({
+    item,
+    scopedTicket,
+    implementationPrompt,
+    implementationVerificationPrompt,
+    executionMode,
+    payload,
+    analysisArtifact,
+    diagnostics
+  }) {
     if (!this.agentRuntime?.isPhaseEnabled("implementation")) {
       return {
         implementation: null,
@@ -170,13 +235,14 @@ export class ExecutionAgent {
     const attempts = [];
     let currentPayload = { ...payload };
     let finalImplementation = null;
+    let finalImplementationVerification = null;
     const maxLoops =
       analysisArtifact?.verificationPlan?.maxVerificationLoops ??
       this.agentRuntime.config.implementation.maxVerificationLoops;
 
     for (let attemptNumber = 1; attemptNumber <= maxLoops; attemptNumber += 1) {
       const implementation = await this.agentRuntime.implementPlan({
-        prompt,
+        prompt: implementationPrompt,
         ticket: scopedTicket,
         decision: item.decision,
         verification: item.verification ?? null,
@@ -192,15 +258,6 @@ export class ExecutionAgent {
       });
 
       finalImplementation = implementation;
-      if (implementation.branchName) {
-        currentPayload.branchName = implementation.branchName;
-      }
-      if (implementation.commitMessage) {
-        currentPayload.commitMessage = sanitizeSingleLine(implementation.commitMessage);
-      }
-      if (implementation.pullRequestTitle) {
-        currentPayload.pullRequestTitle = sanitizeSingleLine(implementation.pullRequestTitle);
-      }
 
       const attemptRecord = {
         attemptNumber,
@@ -209,7 +266,8 @@ export class ExecutionAgent {
         verificationResults: implementation.verificationResults,
         followUp: implementation.followUp,
         failureKind: implementation.failureKind,
-        runtimeDiagnostics: implementation.runtimeDiagnostics
+        runtimeDiagnostics: implementation.runtimeDiagnostics,
+        implementationVerification: null
       };
       attempts.push(attemptRecord);
 
@@ -227,8 +285,72 @@ export class ExecutionAgent {
         }
       ]);
 
+      if (implementation.status === "completed") {
+        const implementationVerification = await this.runImplementationVerification({
+          item,
+          scopedTicket,
+          prompt: implementationVerificationPrompt,
+          executionMode,
+          payload: currentPayload,
+          analysisArtifact,
+          diagnostics,
+          implementation,
+          attemptNumber,
+          attempts
+        });
+        finalImplementationVerification = implementationVerification;
+        attemptRecord.implementationVerification = implementationVerification;
+
+        if (implementationVerification.status === "passed") {
+          break;
+        }
+
+        if (implementationVerification.status === "needs_changes" && attemptNumber < maxLoops) {
+          finalImplementation = {
+            ...implementation,
+            status: "failed",
+            summary: implementationVerification.summary || implementation.summary,
+            verificationResults: unique([
+              ...normalizeList(implementation.verificationResults),
+              ...normalizeList(implementationVerification.verificationResults)
+            ]),
+            followUp: unique([
+              ...normalizeList(implementation.followUp),
+              ...normalizeList(implementationVerification.followUp),
+              ...normalizeList(implementationVerification.issues)
+            ])
+          };
+          continue;
+        }
+
+        finalImplementation = {
+          ...implementation,
+          status:
+            implementationVerification.status === "needs_human"
+              ? "needs_human"
+              : implementationVerification.status === "blocked"
+                ? "blocked"
+                : "failed",
+          summary: implementationVerification.summary || implementation.summary,
+          verificationResults: unique([
+            ...normalizeList(implementation.verificationResults),
+            ...normalizeList(implementationVerification.verificationResults)
+          ]),
+          questions: implementationVerification.questions ?? implementation.questions,
+          followUp: unique([
+            ...normalizeList(implementation.followUp),
+            ...normalizeList(implementationVerification.followUp),
+            ...normalizeList(implementationVerification.issues)
+          ]),
+          failureKind:
+            implementationVerification.status === "failed"
+              ? "implementation_verification_failed"
+              : implementation.failureKind
+        };
+        break;
+      }
+
       if (
-        implementation.status === "completed" ||
         implementation.status === "blocked" ||
         implementation.status === "needs_human" ||
         (implementation.status === "failed" && implementation.failureKind?.startsWith("runtime_"))
@@ -239,6 +361,7 @@ export class ExecutionAgent {
 
     return {
       implementation: finalImplementation,
+      implementationVerification: finalImplementationVerification,
       payload: currentPayload,
       attempts
     };
@@ -251,6 +374,8 @@ export class ExecutionAgent {
       implementationSummary: implementation?.summary ?? "",
       changedFiles: implementation?.changedFiles ?? [],
       verificationResults: implementation?.verificationResults ?? [],
+      implementationVerificationStatus: implementationLoop.implementationVerification?.status ?? "not_run",
+      implementationVerificationSummary: implementationLoop.implementationVerification?.summary ?? "",
       followUp: implementation?.followUp ?? [],
       failureKind: implementation?.failureKind ?? "",
       runtimeDiagnostics: implementation?.runtimeDiagnostics ?? null,
@@ -260,9 +385,13 @@ export class ExecutionAgent {
 
   async run(items) {
     const basePrompt = await loadPrompt("execution-agent.md");
-    const prompt = await this.promptContextBuilder.buildPrompt(basePrompt, {
+    const implementationPrompt = await this.promptContextBuilder.buildPrompt(basePrompt, {
       phase: "implementation",
       agentRole: "implementation-agent"
+    });
+    const implementationVerificationPrompt = await this.promptContextBuilder.buildPrompt(basePrompt, {
+      phase: "implementation_verification",
+      agentRole: "implementation-verifier"
     });
     await this.bitbucketAdapter.assertNoMergePolicy();
     const policy = this.service.resolveMode({
@@ -286,7 +415,15 @@ export class ExecutionAgent {
     const results = [];
 
     for (const item of items) {
-      const result = await this.executeItem(item, prompt, executionMode, analysisByTicket);
+      const result = await this.executeItem(
+        item,
+        {
+          implementationPrompt,
+          implementationVerificationPrompt
+        },
+        executionMode,
+        analysisByTicket
+      );
       results.push(result);
 
       await this.ticketMemoryAdapter.upsertRecords([
@@ -331,7 +468,7 @@ export class ExecutionAgent {
     return results;
   }
 
-  async executeItem(item, prompt, executionMode, analysisByTicket) {
+  async executeItem(item, prompts, executionMode, analysisByTicket) {
     const { ticket, decision } = item;
     const scopedTicket = {
       ...ticket,
@@ -407,7 +544,8 @@ export class ExecutionAgent {
     const implementationLoop = await this.runImplementationLoop({
       item,
       scopedTicket,
-      prompt,
+      implementationPrompt: prompts.implementationPrompt,
+      implementationVerificationPrompt: prompts.implementationVerificationPrompt,
       executionMode,
       payload,
       analysisArtifact,

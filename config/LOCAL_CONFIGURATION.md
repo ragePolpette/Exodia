@@ -78,6 +78,9 @@ Compila localmente questi campi:
 - `scheduling.enabled`
 - `scheduling.lockFile`
 - `scheduling.profiles`
+- `workflow.enabled`
+- `workflow.stateFile`
+- `workflow.humanApprovalPolicy`
 
 ## Regola pratica
 
@@ -125,6 +128,13 @@ Regole operative:
 - se Slack risolve prima, eventuali risposte successive nel ticket vengono ignorate
 - le risposte con valore funzionale vengono distillate in memoria semantica e nel resume del ticket
 
+Candidate approval:
+
+- `workflow.humanApprovalPolicy = "skip"` non blocca i candidati plausibili
+- `workflow.humanApprovalPolicy = "always"` ferma ogni candidato plausibile in `awaiting_human_approval`
+- `workflow.humanApprovalPolicy = "on_low_confidence"` chiede approvazione solo per candidati a bassa confidenza
+- abilita `candidate_approval` in `interaction.allowedPhases` se vuoi ricevere la domanda su Slack/ticket
+
 Per Slack:
 
 - usa un MCP server/config locale dedicato
@@ -138,7 +148,7 @@ Per Jira ticket comments:
 
 ## Agent Runtime
 
-The three-agent flow uses a provider-agnostic `agentRuntime` section.
+The agentic flow uses a provider-agnostic `agentRuntime` section. Exodia owns branch, commit, push and PR; runtimes only analyze, audit, edit files, or review implementation evidence.
 
 Local fields to set when you want live agents instead of heuristics:
 
@@ -168,6 +178,13 @@ Local fields to set when you want live agents instead of heuristics:
 - `agentRuntime.providers.lmstudio.baseUrl`
 - `agentRuntime.providers.lmstudio.timeoutMs`
 - `agentRuntime.providers.lmstudio.maxTokens`
+
+Useful phases:
+
+- `analysis`: ticket feasibility, target and fix proposal
+- `audit`: independent review of the proposal
+- `implementation`: code edits only, no Git release actions
+- `implementation_verification`: read-only LLM review of the diff and verification evidence
 
 `codex-cli` is the recommended local test provider.
 

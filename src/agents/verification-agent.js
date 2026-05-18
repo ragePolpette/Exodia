@@ -211,6 +211,63 @@ export class VerificationAgent {
     return refined;
   }
 
+  async runCodeAnalysis(item, candidateAnalysis, analysisPrompt) {
+    if (!["feasible", "feasible_low_confidence"].includes(item.decision.status_decision)) {
+      return candidateAnalysis;
+    }
+
+    if (!this.agentRuntime?.isPhaseEnabled("analysis")) {
+      return candidateAnalysis;
+    }
+
+    try {
+      const analysis = await this.agentRuntime.analyzeTicket({
+        prompt: analysisPrompt,
+        task: "code_analysis",
+        ticket: item.ticket,
+        decision: item.decision,
+        mapping: {
+          productTarget: item.decision.product_target ?? candidateAnalysis.productTarget,
+          repoTarget: item.decision.repo_target ?? candidateAnalysis.repoTarget,
+          area: candidateAnalysis.area,
+          feasibility: item.decision.status_decision,
+          confidence: item.decision.confidence,
+          implementationHint: item.decision.implementation_hint
+        },
+        candidateAnalysis,
+        humanClarifications: item.ticket.humanClarifications ?? [],
+        missingInformation: []
+      });
+
+      await this.analysisArtifactStore?.upsertArtifacts?.([
+        {
+          ticket: item.ticket,
+          analysis
+        }
+      ]);
+
+      this.logger?.debug("Code analysis completed", {
+        ticketKey: item.ticket.key,
+        provider: analysis.provider,
+        status: analysis.status
+      });
+
+      return analysis;
+    } catch (error) {
+      this.logger?.warn("Code analysis failed; using candidate analysis", {
+        ticketKey: item.ticket.key,
+        provider: this.agentRuntime.provider,
+        error: error.message
+      });
+
+      if (this.agentRuntime.config.fallbackToHeuristics !== false) {
+        return candidateAnalysis;
+      }
+
+      throw error;
+    }
+  }
+
   async runAuditLoop(item, analysis, payload, prompts) {
     if (!this.agentRuntime?.isPhaseEnabled("audit")) {
       return {
@@ -271,25 +328,41 @@ export class VerificationAgent {
     }
 
     const prompts = {
-      analysis: await loadPrompt("triage-agent.md"),
-      audit: await loadPrompt("audit-agent.md")
+      analysis: await this.promptContextBuilder.buildPrompt(await loadPrompt("triage-agent.md"), {
+        phase: "analysis",
+        agentRole: "code-analysis-agent"
+      }),
+      audit: await this.promptContextBuilder.buildPrompt(await loadPrompt("audit-agent.md"), {
+        phase: "audit",
+        agentRole: "analysis-audit-agent"
+      })
     };
     const analysisByTicket = await this.loadAnalysisArtifacts();
     const results = [];
 
     for (const item of items) {
       const baseAnalysis = analysisByTicket.get(item.ticket.key) ?? this.buildFallbackAnalysis(item);
-      const scopedTicket = this.buildScopedTicket(item.ticket, item.decision);
+      const codeAnalysis = await this.runCodeAnalysis(item, baseAnalysis, prompts.analysis);
+      const analyzedDecision = this.applyAnalysisToDecision(item.decision, codeAnalysis);
+      const scopedTicket = this.buildScopedTicket(item.ticket, analyzedDecision);
       const branchName = this.buildBranchName(scopedTicket);
-      const commitMessage = this.buildCommitMessage(scopedTicket, baseAnalysis);
-      const pullRequestTitle = this.buildPullRequestTitle(scopedTicket, baseAnalysis);
+      const commitMessage = this.buildCommitMessage(scopedTicket, codeAnalysis);
+      const pullRequestTitle = this.buildPullRequestTitle(scopedTicket, codeAnalysis);
       const payload = {
         branchName,
         commitMessage,
         pullRequestTitle
       };
 
-      const auditLoop = await this.runAuditLoop(item, baseAnalysis, payload, prompts);
+      const auditLoop = await this.runAuditLoop(
+        {
+          ...item,
+          decision: analyzedDecision
+        },
+        codeAnalysis,
+        payload,
+        prompts
+      );
       const refinedDecision = auditLoop.decision;
       const refinedAnalysis = auditLoop.analysis;
       let result = this.service.verify(

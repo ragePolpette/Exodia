@@ -602,10 +602,13 @@ export class ExecutionAgent {
       );
     }
 
-    const existingPullRequest = await this.bitbucketAdapter.findOpenPullRequest?.(
-      scopedTicket,
-      payload.branchName
-    );
+    const shouldReuseOpenPullRequests = this.executionConfig.reuseOpenPullRequests !== false;
+    const existingPullRequest = shouldReuseOpenPullRequests
+      ? await this.bitbucketAdapter.findOpenPullRequest?.(
+          scopedTicket,
+          payload.branchName
+        )
+      : null;
 
     if (existingPullRequest) {
       return this.service.buildExistingPullRequestResult(

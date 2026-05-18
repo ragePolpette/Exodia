@@ -86,8 +86,11 @@ export class McpBitbucketAdapter {
     });
   }
 
-  async openPullRequest(ticket, branchName, commitResult) {
-    return this.client.request({
+  async openPullRequest(ticket, branchName, commitResult, options = {}) {
+    const description =
+      options.description ??
+      `Automated harness pull request for ${ticket.key}`;
+    const response = await this.client.request({
       server: this.server,
       action: this.resolveOperation("openPullRequest", "openPullRequest"),
       payload: {
@@ -96,10 +99,15 @@ export class McpBitbucketAdapter {
         sourceBranch: branchName,
         targetBranch: this.baseBranch,
         title: `[${ticket.key}] ${ticket.summary}`,
+        description,
         commitSha: commitResult.commitSha,
         ticket
       }
     });
+    return {
+      ...response,
+      description
+    };
   }
 
   async findOpenPullRequest(ticket, branchName) {

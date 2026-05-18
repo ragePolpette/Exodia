@@ -90,6 +90,14 @@ test("implementation runtime can loop verification before opening a pull request
     summary.execution[0].pullRequestTitle,
     "[GEN-920] Harden auth token refresh flow"
   );
+  assert.match(summary.execution[0].pullRequestDescription, /## Bug/);
+  assert.match(summary.execution[0].pullRequestDescription, /Customer login fails after refresh token rotation/);
+  assert.match(summary.execution[0].pullRequestDescription, /## Analysis/);
+  assert.match(summary.execution[0].pullRequestDescription, /Inspect refresh token handling/);
+  assert.match(summary.execution[0].pullRequestDescription, /## Implementation/);
+  assert.match(summary.execution[0].pullRequestDescription, /Implementation converged after the verification retry/);
+  assert.match(summary.execution[0].pullRequestDescription, /## Verification/);
+  assert.match(summary.execution[0].pullRequestDescription, /npm test: auth flow passes/);
 });
 
 test("implementation verification runtime can request changes before Exodia opens a pull request", async () => {

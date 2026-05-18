@@ -4,6 +4,7 @@ import { buildExecutionInsight } from "../memory/semantic-insights.js";
 import { VerificationService } from "../verification/verification-service.js";
 import { AgentPromptContextBuilder } from "../agent-runtime/agent-prompt-context.js";
 import { inferChangeType } from "../adapters/bitbucket-adapter.js";
+import { redactText } from "../security/redaction.js";
 
 function unique(values) {
   return [...new Set((values ?? []).filter(Boolean))];
@@ -15,6 +16,25 @@ function normalizeList(values) {
 
 function sanitizeSingleLine(value) {
   return `${value ?? ""}`.replace(/\s+/g, " ").trim();
+}
+
+function compactText(value, maxLength = 1200) {
+  const text = `${value ?? ""}`.replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  return text.length > maxLength ? `${text.slice(0, maxLength - 3).trim()}...` : text;
+}
+
+function markdownList(values, { maxItems = 8 } = {}) {
+  const list = normalizeList(values).map((value) => compactText(value, 300)).filter(Boolean);
+  if (list.length === 0) {
+    return "- None provided";
+  }
+
+  const rendered = list.slice(0, maxItems).map((value) => `- ${value}`);
+  if (list.length > maxItems) {
+    rendered.push(`- ...and ${list.length - maxItems} more`);
+  }
+
+  return rendered.join("\n");
 }
 
 export class ExecutionAgent {
@@ -383,6 +403,73 @@ export class ExecutionAgent {
     };
   }
 
+  buildPullRequestDescription({
+    scopedTicket,
+    analysisArtifact,
+    implementationExtras,
+    diagnostics
+  }) {
+    const redactionConfig = this.securityConfig?.redaction;
+    const ticketDescription = compactText(
+      redactText(scopedTicket.description || scopedTicket.summary || "", redactionConfig)
+    );
+    const analysisSummary = compactText(redactText(analysisArtifact?.summary ?? "", redactionConfig));
+    const proposedFix = analysisArtifact?.proposedFix ?? {};
+    const verificationPlan = analysisArtifact?.verificationPlan ?? {};
+    const diagnosticsSummary = diagnostics?.used
+      ? compactText(redactText(diagnostics.summary ?? "", redactionConfig), 500)
+      : "";
+
+    return [
+      `# ${scopedTicket.key}: ${sanitizeSingleLine(scopedTicket.summary)}`,
+      "",
+      "## Bug",
+      ticketDescription || "No ticket description provided.",
+      "",
+      "## Analysis",
+      analysisSummary || "No analysis summary provided.",
+      "",
+      `- Product target: ${scopedTicket.productTarget ?? "unknown"}`,
+      `- Repository target: ${scopedTicket.repoTarget ?? "UNKNOWN"}`,
+      `- Area: ${analysisArtifact?.area ?? scopedTicket.area ?? "unknown"}`,
+      diagnosticsSummary ? `- Diagnostics: ${diagnosticsSummary}` : null,
+      "",
+      "## Proposed Fix",
+      proposedFix.summary ? compactText(redactText(proposedFix.summary, redactionConfig), 700) : "No proposed fix summary provided.",
+      "",
+      markdownList(proposedFix.steps),
+      "",
+      "## Implementation",
+      implementationExtras.implementationSummary
+        ? compactText(redactText(implementationExtras.implementationSummary, redactionConfig), 700)
+        : "Implementation runtime did not provide a summary.",
+      "",
+      "Changed files:",
+      markdownList(implementationExtras.changedFiles),
+      "",
+      "## Verification",
+      verificationPlan.summary
+        ? compactText(redactText(verificationPlan.summary, redactionConfig), 700)
+        : "No verification plan summary provided.",
+      "",
+      "Planned checks:",
+      markdownList(verificationPlan.checks),
+      "",
+      "Runtime evidence:",
+      markdownList(implementationExtras.verificationResults),
+      "",
+      `Implementation verifier: ${implementationExtras.implementationVerificationStatus}`,
+      implementationExtras.implementationVerificationSummary
+        ? compactText(redactText(implementationExtras.implementationVerificationSummary, redactionConfig), 700)
+        : null,
+      "",
+      "Verifier success criteria:",
+      markdownList(verificationPlan.successCriteria)
+    ]
+      .filter((line) => line !== null)
+      .join("\n");
+  }
+
   async run(items) {
     const basePrompt = await loadPrompt("execution-agent.md");
     const implementationPrompt = await this.promptContextBuilder.buildPrompt(basePrompt, {
@@ -554,6 +641,15 @@ export class ExecutionAgent {
     payload = implementationLoop.payload;
     const implementation = implementationLoop.implementation;
     const implementationExtras = this.buildImplementationExtras(implementationLoop);
+    payload = {
+      ...payload,
+      pullRequestDescription: this.buildPullRequestDescription({
+        scopedTicket,
+        analysisArtifact,
+        implementationExtras,
+        diagnostics
+      })
+    };
 
     if (implementation?.status === "needs_human") {
       let reason = implementation.summary || "execution paused for human clarification";
@@ -619,6 +715,7 @@ export class ExecutionAgent {
         branchName: payload.branchName,
         commitMessage: payload.commitMessage,
         pullRequestTitle: payload.pullRequestTitle,
+        pullRequestDescription: payload.pullRequestDescription,
         pullRequestUrl: ""
       };
     }
@@ -634,7 +731,10 @@ export class ExecutionAgent {
         summary: payload.pullRequestTitle.replace(/^\[[^\]]+\]\s*/, "") || scopedTicket.summary
       },
       payload.branchName,
-      commitResult
+      commitResult,
+      {
+        description: payload.pullRequestDescription
+      }
     );
 
     return this.service.buildExecutionResult(

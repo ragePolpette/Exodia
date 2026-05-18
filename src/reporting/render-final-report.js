@@ -10,6 +10,7 @@ export function renderFinalReport(summary) {
     `Adapters: jira=${summary.adapterKinds.jira}, llmContext=${summary.adapterKinds.llmContext}, llmMemory=${summary.adapterKinds.llmMemory}, llmSqlDb=${summary.adapterKinds.llmSqlDb}, bitbucket=${summary.adapterKinds.bitbucket}`,
     `Tickets loaded: ${summary.ticketCount}`,
     `Interactions: pending=${summary.interactionStats?.pending ?? 0} resolved=${summary.interactionStats?.resolved ?? 0}`,
+    `Workflow: total=${summary.workflow?.total ?? 0} active=${summary.workflow?.active ?? 0}`,
     `Memory file: ${summary.memoryFile}`,
     `Log file: ${summary.logFiles?.jsonl ?? "disabled"}`,
     `Resume reused: rejected=${summary.resumeStats.skippedAlreadyRejected} in_progress=${summary.resumeStats.skippedAlreadyInProgress}`,
@@ -42,6 +43,15 @@ export function renderFinalReport(summary) {
 
   if (Object.keys(summary.executionCounts ?? {}).length === 0) {
     lines.push("- none: 0");
+  }
+
+  if (summary.workflow?.counts) {
+    lines.push("Workflow counts:");
+    for (const [status, count] of Object.entries(summary.workflow.counts).sort(([left], [right]) =>
+      left.localeCompare(right)
+    )) {
+      lines.push(`- ${status}: ${count}`);
+    }
   }
 
   if ((summary.auditTrail?.length ?? 0) > 0) {

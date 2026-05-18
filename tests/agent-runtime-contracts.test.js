@@ -111,7 +111,12 @@ test("agent runtime config normalization provides provider defaults", () => {
   });
 
   assert.equal(normalized.provider, "codex-cli");
-  assert.deepEqual(normalized.enabledPhases, ["analysis", "audit", "implementation"]);
+  assert.deepEqual(normalized.enabledPhases, [
+    "analysis",
+    "audit",
+    "implementation",
+    "implementation_verification"
+  ]);
   assert.equal(normalized.providers["codex-cli"].command, "codex-dev");
   assert.ok(normalized.providers["codex-cli"].envPassthrough.includes("EXODIA_CODEX_COMMAND"));
   assert.ok(!normalized.providers["codex-cli"].envPassthrough.includes("AWS_SECRET_ACCESS_KEY"));
@@ -146,6 +151,7 @@ test("agent runtime config normalization provides Pi RPC defaults", () => {
   assert.deepEqual(normalized.providers.pi.toolsByPhase.analysis, ["read-only"]);
   assert.deepEqual(normalized.providers.pi.toolsByPhase.audit, []);
   assert.deepEqual(normalized.providers.pi.toolsByPhase.implementation, ["write-and-test"]);
+  assert.deepEqual(normalized.providers.pi.toolsByPhase.implementation_verification, []);
   assert.equal(normalized.providers.pi.noSession, false);
   assert.ok(normalized.providers.pi.envPassthrough.includes("PATH"));
 });

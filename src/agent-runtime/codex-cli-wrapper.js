@@ -89,9 +89,6 @@ export function buildPhaseOutputExample(phase) {
       return {
         status: "completed",
         summary: "Short implementation summary",
-        branchName: "feat/gen-100-example-change",
-        commitMessage: "fix: short summary",
-        pullRequestTitle: "fix: short summary",
         changedFiles: ["src/example.js"],
         verificationResults: ["test command summary"],
         verificationPlan: {
@@ -108,6 +105,22 @@ export function buildPhaseOutputExample(phase) {
           }
         ],
         followUp: ["follow-up note"]
+      };
+    case "implementation_verification":
+      return {
+        status: "passed",
+        summary: "Short verification summary",
+        confidence: 0.8,
+        issues: ["issue"],
+        verificationResults: ["test command summary"],
+        followUp: ["follow-up note"],
+        questions: [
+          {
+            reason: "missing_information",
+            question: "Clarify the missing detail",
+            blocking: true
+          }
+        ]
       };
     default:
       throw new Error(`Unsupported Exodia Codex wrapper phase: ${phase}`);
@@ -136,6 +149,11 @@ export function buildCodexExecPrompt(envelope) {
     "- Do not return status blocked together with feasibility feasible unless there is a concrete blocking reason.",
     "- implementation.status must be needs_human before editing files when missing human information is blocking.",
     "- implementation.status must be failed when verification cannot converge or the runtime cannot safely finish.",
+    "- implementation may edit files only; Exodia owns branch creation, checkout, commit, push, pull request, merge policy, and ticket updates.",
+    "- implementation must not run git branch, git checkout, git switch, git commit, git push, pull request, merge, deploy, or external ticket actions.",
+    "- implementation_verification must inspect the proposed changes and verification evidence without editing files.",
+    "- implementation_verification.status must be passed only when the diff and evidence satisfy the ticket and verification plan.",
+    "- implementation_verification.status must be needs_changes when the implementation should iterate with concrete feedback.",
     "- Never ask free-form questions outside JSON; put every human question in questions[].",
     "",
     JSON.stringify(envelope, null, 2)

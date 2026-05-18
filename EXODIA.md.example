@@ -16,7 +16,9 @@ Agent phase expectations:
 
 - Analysis agent: decide feasibility, target, proposed fix, verification plan, and blocking questions.
 - Audit agent: challenge the analysis and plan, approve only when target, risk, and verification are coherent.
-- Implementation agent: follow the approved plan, use the target worktree, run the verification plan, and stop on policy failures.
+- Implementation agent: follow the approved plan, edit only the target worktree, run focused local checks, and stop on policy failures.
+- Implementation verification agent: review the implementation evidence without editing files and return `passed`, `needs_changes`, `needs_human`, `blocked`, or `failed`.
+- Exodia owns branch creation, checkout, commit, push, pull request creation, merge policy, ticket updates, memory, and notifications.
 
 Change naming rules:
 

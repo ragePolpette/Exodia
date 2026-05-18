@@ -91,10 +91,13 @@ export class BitbucketAdapter {
     return pullRequest ?? null;
   }
 
-  async openPullRequest(ticket, branchName, commitResult) {
+  async openPullRequest(ticket, branchName, commitResult, options = {}) {
     return {
       kind: "open_pr",
       title: `[${ticket.key}] ${ticket.summary}`,
+      description:
+        options.description ??
+        `Automated harness pull request for ${ticket.key}`,
       sourceBranch: branchName,
       targetBranch: this.baseBranch,
       commitSha: commitResult.commitSha,

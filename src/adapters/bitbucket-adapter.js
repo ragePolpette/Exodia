@@ -72,6 +72,16 @@ export class BitbucketAdapter {
     return operation;
   }
 
+  async pushBranch(ticket, branchName) {
+    const operation = {
+      kind: "push_branch",
+      ticketKey: ticket.key,
+      branchName
+    };
+    this.operations.push(operation);
+    return operation;
+  }
+
   async findOpenPullRequest(ticket, branchName) {
     const pullRequest = this.existingPullRequests.find(
       (item) =>

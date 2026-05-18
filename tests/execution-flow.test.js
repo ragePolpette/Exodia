@@ -584,6 +584,10 @@ test("mcp execution can create branch, commit and pull request when config is co
         "llm_bitbucket_mcp.createCommit": {
           commitSha: "abc123"
         },
+        "llm_bitbucket_mcp.pushBranch": {
+          branchName: "gen-329-real-mcp-execution",
+          pushed: true
+        },
         "llm_bitbucket_mcp.openPullRequest": {
           title: "[GEN-329] Real MCP execution",
           link: "https://example.invalid/pr/329"
@@ -796,6 +800,10 @@ test("execution can ignore an already open pull request when retry mode disables
         },
         "llm_bitbucket_mcp.createCommit": {
           commitSha: "def456"
+        },
+        "llm_bitbucket_mcp.pushBranch": {
+          branchName: "feat/GEN-331-ignore-existing-pr-for-retry",
+          pushed: true
         },
         "llm_bitbucket_mcp.openPullRequest": {
           title: "[GEN-331] Retry pull request",

@@ -1,4 +1,5 @@
 import { normalizeSupportTicket } from "../tickets/normalize-support-ticket.js";
+import { buildPullRequestTicketComment } from "../tickets/pull-request-comment.js";
 
 export class McpJiraAdapter {
   constructor(options = {}) {
@@ -82,5 +83,27 @@ export class McpJiraAdapter {
       respondedAt: comment.respondedAt ?? comment.createdAt ?? comment.created ?? "",
       externalId: comment.externalId ?? comment.id ?? comment.commentId ?? ""
     }));
+  }
+
+  async postPullRequestComment(ticket, pullRequest, context = {}) {
+    const body = buildPullRequestTicketComment(ticket, pullRequest, context);
+    const response = await this.client.request({
+      server: this.options.server,
+      action: "addTicketComment",
+      payload: {
+        cloudId: this.options.cloudId,
+        ticketKey: ticket.key,
+        body,
+        pullRequestUrl: pullRequest?.link ?? pullRequest?.url ?? "",
+        pullRequestId: pullRequest?.id ?? pullRequest?.number ?? ""
+      }
+    });
+
+    return {
+      commentId: `${response?.commentId ?? response?.id ?? ""}`.trim(),
+      body,
+      sentAt: `${response?.createdAt ?? new Date().toISOString()}`.trim(),
+      ticketKey: ticket.key
+    };
   }
 }

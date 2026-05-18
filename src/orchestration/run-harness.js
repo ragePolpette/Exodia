@@ -249,6 +249,7 @@ export async function runHarness({
   });
   const executionAgent = new ExecutionAgent({
     bitbucketAdapter,
+    jiraAdapter,
     ticketMemoryAdapter,
     semanticMemoryAdapter,
     sqlDbAdapter,

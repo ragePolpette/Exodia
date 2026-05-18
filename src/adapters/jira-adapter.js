@@ -1,4 +1,5 @@
 import { normalizeSupportTicket } from "../tickets/normalize-support-ticket.js";
+import { buildPullRequestTicketComment } from "../tickets/pull-request-comment.js";
 
 export class JiraAdapter {
   constructor({ tickets = [], targeting } = {}) {
@@ -41,5 +42,14 @@ export class JiraAdapter {
           response.respondedAt ?? response.createdAt ?? response.created ?? new Date().toISOString(),
         externalId: response.externalId ?? response.id ?? `mock-ticket-response-${interaction.id}-${index + 1}`
       }));
+  }
+
+  async postPullRequestComment(ticket, pullRequest, context = {}) {
+    return {
+      commentId: `mock-pr-comment-${ticket.key}`,
+      body: buildPullRequestTicketComment(ticket, pullRequest, context),
+      sentAt: new Date().toISOString(),
+      ticketKey: ticket.key
+    };
   }
 }

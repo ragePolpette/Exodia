@@ -625,6 +625,8 @@ test("mcp execution can create branch, commit and pull request when config is co
   assert.equal(summary.executionDryRun, false);
   assert.equal(summary.execution[0].status, "pr_opened");
   assert.equal(summary.execution[0].pullRequestUrl, "https://example.invalid/pr/329");
+  assert.equal(summary.execution[0].ticketCommentStatus, "posted");
+  assert.equal(summary.execution[0].ticketCommentId, "mock-pr-comment-GEN-329");
 });
 
 test("execution reuses an already open pull request when found in bitbucket", async () => {

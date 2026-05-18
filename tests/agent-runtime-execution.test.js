@@ -98,6 +98,7 @@ test("implementation runtime can loop verification before opening a pull request
   assert.match(summary.execution[0].pullRequestDescription, /Implementation converged after the verification retry/);
   assert.match(summary.execution[0].pullRequestDescription, /## Verification/);
   assert.match(summary.execution[0].pullRequestDescription, /npm test: auth flow passes/);
+  assert.match(summary.execution[0].pullRequestDescription, /Signed-off-by: Exodia$/);
 });
 
 test("implementation verification runtime can request changes before Exodia opens a pull request", async () => {

@@ -37,9 +37,12 @@ function markdownList(values, { maxItems = 8 } = {}) {
   return rendered.join("\n");
 }
 
+const PULL_REQUEST_SIGNATURE = "Signed-off-by: Exodia";
+
 export class ExecutionAgent {
   constructor({
     bitbucketAdapter,
+    jiraAdapter,
     ticketMemoryAdapter,
     semanticMemoryAdapter,
     sqlDbAdapter,
@@ -54,6 +57,7 @@ export class ExecutionAgent {
     runtimePromptConfig
   }) {
     this.bitbucketAdapter = bitbucketAdapter;
+    this.jiraAdapter = jiraAdapter;
     this.ticketMemoryAdapter = ticketMemoryAdapter;
     this.semanticMemoryAdapter = semanticMemoryAdapter;
     this.sqlDbAdapter = sqlDbAdapter;
@@ -464,10 +468,41 @@ export class ExecutionAgent {
         : null,
       "",
       "Verifier success criteria:",
-      markdownList(verificationPlan.successCriteria)
+      markdownList(verificationPlan.successCriteria),
+      "",
+      "---",
+      PULL_REQUEST_SIGNATURE
     ]
       .filter((line) => line !== null)
       .join("\n");
+  }
+
+  async postPullRequestTicketComment(scopedTicket, pullRequest, { branchName, commitResult } = {}) {
+    if (!pullRequest?.link || !this.jiraAdapter?.postPullRequestComment) {
+      return {};
+    }
+
+    try {
+      const ticketComment = await this.jiraAdapter.postPullRequestComment(scopedTicket, pullRequest, {
+        branchName,
+        commitSha: commitResult?.commitSha ?? ""
+      });
+
+      return {
+        ticketCommentId: ticketComment.commentId ?? "",
+        ticketCommentStatus: ticketComment.commentId ? "posted" : "posted_without_id"
+      };
+    } catch (error) {
+      this.logger?.warn?.("Pull request ticket comment failed", {
+        ticketKey: scopedTicket.key,
+        pullRequestUrl: pullRequest.link,
+        error: error.message
+      });
+
+      return {
+        ticketCommentStatus: "failed"
+      };
+    }
   }
 
   async run(items) {
@@ -752,6 +787,11 @@ export class ExecutionAgent {
       );
     }
 
+    const ticketCommentExtras = await this.postPullRequestTicketComment(scopedTicket, pullRequest, {
+      branchName: payload.branchName,
+      commitResult
+    });
+
     return this.service.buildExecutionResult(
       scopedTicket,
       payload.branchName,
@@ -760,7 +800,10 @@ export class ExecutionAgent {
         ...pullRequest,
         title: payload.pullRequestTitle || pullRequest.title
       },
-      implementationExtras
+      {
+        ...implementationExtras,
+        ...ticketCommentExtras
+      }
     );
   }
 }

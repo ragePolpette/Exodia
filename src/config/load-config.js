@@ -110,6 +110,9 @@ const defaultConfig = {
           createCommit: {
             action: "createCommit"
           },
+          pushBranch: {
+            action: "pushBranch"
+          },
           openPullRequest: {
             action: "openPullRequest"
           }

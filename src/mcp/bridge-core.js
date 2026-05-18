@@ -670,6 +670,15 @@ async function handleBitbucketRequest(serverDefinition, action, payload) {
     };
   }
 
+  if (action === "pushBranch") {
+    const workspaceRoot = payload.workspaceRoot ?? process.cwd();
+    await runGit(workspaceRoot, ["push", "-u", "origin", payload.branchName]);
+    return {
+      branchName: payload.branchName,
+      pushed: true
+    };
+  }
+
   throw new Error(`Unsupported Bitbucket MCP action: ${action}`);
 }
 

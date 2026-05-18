@@ -86,6 +86,19 @@ export class McpBitbucketAdapter {
     });
   }
 
+  async pushBranch(ticket, branchName) {
+    return this.client.request({
+      server: this.server,
+      action: this.resolveOperation("pushBranch", "pushBranch"),
+      payload: {
+        repository: this.repository,
+        workspaceRoot: this.workspaceRoot,
+        branchName,
+        ticket
+      }
+    });
+  }
+
   async openPullRequest(ticket, branchName, commitResult, options = {}) {
     const description =
       options.description ??

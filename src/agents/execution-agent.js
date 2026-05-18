@@ -728,6 +728,9 @@ export class ExecutionAgent {
       payload.branchName,
       payload.commitMessage
     );
+
+    await this.bitbucketAdapter.pushBranch?.(scopedTicket, payload.branchName);
+
     const pullRequest = await this.bitbucketAdapter.openPullRequest(
       {
         ...scopedTicket,
@@ -739,6 +742,15 @@ export class ExecutionAgent {
         description: payload.pullRequestDescription
       }
     );
+
+    if (executionMode === "real" && !pullRequest?.link) {
+      return this.service.buildPlannedResult(
+        scopedTicket,
+        "failed",
+        "pull request creation did not return a URL",
+        implementationExtras
+      );
+    }
 
     return this.service.buildExecutionResult(
       scopedTicket,

@@ -724,6 +724,117 @@ test("execution reuses an already open pull request when found in bitbucket", as
   assert.match(summary.execution[0].reason, /already open pull request/i);
 });
 
+test("execution can ignore an already open pull request when retry mode disables reuse", async () => {
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-execution-ignore-existing-pr-"));
+  const configPath = path.join(workspace, "harness.config.json");
+  const config = {
+    mode: "triage-and-execution",
+    dryRun: false,
+    memory: {
+      backend: "file",
+      filePath: "./memory.json"
+    },
+    adapters: {
+      jira: {
+        kind: "mock",
+        mock: { ticketSource: "config.mockTickets" },
+        mcp: { server: "atlassian_rovo_mcp" }
+      },
+      llmContext: {
+        kind: "mock",
+        mock: { mappingSource: "ticket.contextMapping" },
+        mcp: { server: "llm_context" }
+      },
+      llmMemory: {
+        kind: "mock",
+        mock: { backend: "file" },
+        mcp: { server: "llm_memory" }
+      },
+      llmSqlDb: {
+        kind: "mock",
+        mock: { recordRuns: true },
+        mcp: { server: "llm_db_prod_mcp" }
+      },
+      bitbucket: {
+        kind: "mcp",
+        mock: { workspaceRoot: workspace },
+        mcp: {
+          server: "llm_bitbucket_mcp",
+          repository: "core-app",
+          project: "GEN",
+          workspaceRoot: workspace
+        }
+      }
+    },
+    execution: {
+      enabled: true,
+      dryRun: false,
+      baseBranch: "main",
+      allowRealPrs: true,
+      allowMerge: false,
+      reuseOpenPullRequests: false,
+      workspaceRoot: workspace
+    },
+    mcpBridge: {
+      mode: "fixture",
+      fixtureFile: "",
+      fixtures: {
+        "llm_bitbucket_mcp.findOpenPullRequest": {
+          pullRequest: {
+            title: "[GEN-331] Stale pull request",
+            link: "https://example.invalid/pr/stale",
+            sourceBranch: "feat/GEN-331-ignore-existing-pr-for-retry"
+          }
+        },
+        "llm_bitbucket_mcp.createBranch": {
+          branchName: "feat/GEN-331-ignore-existing-pr-for-retry",
+          baseBranch: "main"
+        },
+        "llm_bitbucket_mcp.checkoutBranch": {
+          branchName: "feat/GEN-331-ignore-existing-pr-for-retry",
+          workspaceRoot: workspace
+        },
+        "llm_bitbucket_mcp.createCommit": {
+          commitSha: "def456"
+        },
+        "llm_bitbucket_mcp.openPullRequest": {
+          title: "[GEN-331] Retry pull request",
+          link: "https://example.invalid/pr/331"
+        }
+      },
+      command: "",
+      args: []
+    },
+    mockTickets: [
+      {
+        key: "GEN-331",
+        projectKey: "GEN",
+        summary: "Ignore existing PR for retry",
+        productTarget: "legacy",
+        repoTarget: "core-app",
+        contextMapping: {
+          inScope: true,
+          repoTarget: "core-app",
+          feasibility: "feasible",
+          confidence: 0.96
+        }
+      }
+    ]
+  };
+
+  await writeFile(configPath, JSON.stringify(config, null, 2));
+
+  const summary = await runHarness({
+    configPath,
+    modeOverride: "triage-and-execution",
+    dryRunOverride: false
+  });
+
+  assert.equal(summary.execution[0].status, "pr_opened");
+  assert.equal(summary.execution[0].pullRequestUrl, "https://example.invalid/pr/331");
+  assert.doesNotMatch(summary.execution[0].reason, /already open pull request/i);
+});
+
 test("run summary includes a readable audit trail", async () => {
   const { summary } = await runExecutionScenario({
     mockTickets: [

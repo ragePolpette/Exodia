@@ -200,6 +200,7 @@ const defaultConfig = {
     baseBranch: "",
     allowRealPrs: false,
     allowMerge: false,
+    reuseOpenPullRequests: true,
     allowedRepositories: [],
     allowedBaseBranches: [],
     workspaceRoot: ""

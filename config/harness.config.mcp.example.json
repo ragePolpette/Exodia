@@ -1,0 +1,236 @@
+{
+  "mode": "triage-only",
+  "dryRun": true,
+  "memory": {
+    "backend": "file",
+    "filePath": "../data/memory.json"
+  },
+  "adapters": {
+    "jira": {
+      "kind": "mcp",
+      "mock": {
+        "ticketSource": "config.mockTickets"
+      },
+      "mcp": {
+        "server": "atlassian_rovo_mcp",
+        "jql": "project = YOUR_PROJECT AND statusCategory != Done",
+        "filterId": ""
+      }
+    },
+    "llmContext": {
+      "kind": "mcp",
+      "mock": {
+        "mappingSource": "ticket.contextMapping"
+      },
+      "mcp": {
+        "server": "llm_context",
+        "workspaceRoot": "C:\\path\\to\\your\\workspace"
+      }
+    },
+    "llmMemory": {
+      "kind": "mcp",
+      "mock": {
+        "backend": "file"
+      },
+      "mcp": {
+        "server": "llm_memory",
+        "namespace": "your-harness-namespace"
+      }
+    },
+    "llmSqlDb": {
+      "kind": "mcp",
+      "mock": {
+        "recordRuns": true
+      },
+      "mcp": {
+        "server": "llm_db_prod_mcp",
+        "enabled": true,
+        "namespace": "your-harness-namespace",
+        "topology": "split",
+        "operations": {
+          "recordRun": {
+            "server": "llm_db_dev_mcp",
+            "action": "recordHarnessRun",
+            "enabled": false,
+            "database": "dev",
+            "sql": ""
+          }
+        },
+        "targets": {
+          "prod": {
+            "server": "llm_db_prod_mcp",
+            "database": "prod",
+            "access": "read-only",
+            "action": "runDiagnosticQuery",
+            "maxRows": 50
+          },
+          "dev": {
+            "server": "llm_db_dev_mcp",
+            "database": "dev",
+            "access": "schema-and-tests",
+            "action": "runDiagnosticQuery",
+            "maxRows": 50
+          }
+        },
+        "defaultDatabase": "prod"
+      }
+    },
+    "bitbucket": {
+      "kind": "mcp",
+      "mock": {
+        "workspaceRoot": "C:\\path\\to\\your\\workspace",
+        "existingPullRequests": []
+      },
+      "mcp": {
+        "server": "llm_bitbucket_mcp",
+        "repository": "your-repository",
+        "project": "YOUR_PROJECT",
+        "workspaceRoot": "C:\\path\\to\\your\\workspace",
+        "operations": {
+          "findOpenPullRequest": {
+            "action": "findOpenPullRequest",
+            "enabled": true
+          },
+          "createBranch": {
+            "action": "createBranch"
+          },
+          "checkoutBranch": {
+            "action": "checkoutBranch"
+          },
+          "createCommit": {
+            "action": "createCommit"
+          },
+          "pushBranch": {
+            "action": "pushBranch"
+          },
+          "openPullRequest": {
+            "action": "openPullRequest"
+          }
+        }
+      }
+    }
+  },
+  "execution": {
+    "enabled": true,
+    "dryRun": true,
+    "trustLevel": "mcp-readonly",
+    "baseBranch": "main",
+    "allowRealPrs": false,
+    "allowMerge": false,
+    "allowedRepositories": ["your-repository"],
+    "allowedBaseBranches": ["main"],
+    "workspaceRoot": "C:\\path\\to\\your\\workspace"
+  },
+  "interaction": {
+    "enabled": true,
+    "mode": "deferred",
+    "storeFile": "../data/interactions.json",
+    "destinations": "both",
+    "allowedPhases": ["triage", "verification"],
+    "maxQuestionsPerTicket": 1,
+    "captureToSemanticMemory": true,
+    "captureToTicketMemory": true,
+    "messagePrefix": "[Exodia]",
+    "transports": {
+      "slack": {
+        "enabled": true,
+        "server": "your-slack-mcp-server",
+        "postAction": "postMessage",
+        "collectRepliesAction": "listThreadReplies",
+        "channel": "#your-team-channel",
+        "channelsByPhase": {
+          "triage": "#your-team-triage",
+          "verification": "#your-team-review"
+        }
+      },
+      "ticket": {
+        "enabled": true,
+        "commentPrefix": "[Exodia]"
+      }
+    }
+  },
+  "targeting": {
+    "unknownTarget": "unknown",
+    "rules": [
+      {
+        "target": "legacy",
+        "repoTarget": "core-app",
+        "area": "core-platform",
+        "inScope": true,
+        "feasibility": "feasible",
+        "implementationHint": "Inspect the core platform services before changing the shared pipeline",
+        "aliases": ["legacy-suite", "core-backoffice"],
+        "scopeAliases": ["coreapp"],
+        "projectKeys": ["GEN"]
+      },
+      {
+        "target": "public-app",
+        "repoTarget": "public-web",
+        "area": "public-experience",
+        "inScope": true,
+        "feasibility": "feasible",
+        "implementationHint": "Inspect the public experience modules and avoid widening the scope too early",
+        "aliases": ["public-app", "portal-web"],
+        "scopeAliases": ["publicapp"],
+        "projectKeys": ["WEB"]
+      },
+      {
+        "target": "automation-bot",
+        "repoTarget": "automation-suite",
+        "area": "automation-workflows",
+        "inScope": true,
+        "feasibility": "feasible",
+        "implementationHint": "Inspect the automation workflow handlers tied to the failing rule",
+        "aliases": ["automation-bot", "bot-suite"],
+        "scopeAliases": ["automation"],
+        "projectKeys": ["BOT"]
+      }
+    ]
+  },
+  "mcpBridge": {
+    "mode": "external",
+    "fixtureFile": "",
+    "fixtures": {},
+    "command": "your-mcp-bridge-command",
+    "args": [],
+    "allowedActionsByServer": {
+      "atlassian_rovo_mcp": [
+        "searchTicketsByJql",
+        "searchTicketsByFilter",
+        "addTicketComment",
+        "listTicketComments"
+      ],
+      "your-slack-mcp-server": [
+        "postMessage",
+        "listThreadReplies"
+      ]
+    }
+  },
+  "logging": {
+    "level": "info",
+    "includeTimestamp": true,
+    "file": {
+      "enabled": true,
+      "rootDir": "../data/logs"
+    }
+  },
+  "scheduling": {
+    "enabled": true,
+    "lockFile": "../data/run.lock",
+    "profiles": {
+      "triage": {
+        "command": "triage",
+        "dryRun": true,
+        "executionEnabled": false,
+        "report": "default"
+      },
+      "execute-readonly": {
+        "command": "execute",
+        "dryRun": true,
+        "executionEnabled": true,
+        "report": "execution"
+      }
+    }
+  },
+  "mockTickets": []
+}

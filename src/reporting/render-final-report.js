@@ -1,0 +1,65 @@
+export function renderFinalReport(summary) {
+  const lines = [
+    "Exodia Final Report",
+    `Mode: ${summary.mode}`,
+    `Dry run: ${summary.dryRun}`,
+    `Execution enabled: ${summary.executionEnabled}`,
+    `Execution dry run: ${summary.executionDryRun}`,
+    `Execution trust: ${summary.executionTrustLevel ?? "n/a"}`,
+    `Run id: ${summary.runId || "n/a"}`,
+    `Adapters: jira=${summary.adapterKinds.jira}, llmContext=${summary.adapterKinds.llmContext}, llmMemory=${summary.adapterKinds.llmMemory}, llmSqlDb=${summary.adapterKinds.llmSqlDb}, bitbucket=${summary.adapterKinds.bitbucket}`,
+    `Tickets loaded: ${summary.ticketCount}`,
+    `Interactions: pending=${summary.interactionStats?.pending ?? 0} resolved=${summary.interactionStats?.resolved ?? 0}`,
+    `Workflow: total=${summary.workflow?.total ?? 0} active=${summary.workflow?.active ?? 0}`,
+    `Memory file: ${summary.memoryFile}`,
+    `Log file: ${summary.logFiles?.jsonl ?? "disabled"}`,
+    `Resume reused: rejected=${summary.resumeStats.skippedAlreadyRejected} in_progress=${summary.resumeStats.skippedAlreadyInProgress} needs_review=${summary.resumeStats.skippedAlreadyNeedsReview ?? 0}`,
+    "Triage counts:"
+  ];
+
+  for (const [status, count] of Object.entries(summary.triageCounts ?? {}).sort(([left], [right]) =>
+    left.localeCompare(right)
+  )) {
+    lines.push(`- ${status}: ${count}`);
+  }
+
+  lines.push("Verification counts:");
+  for (const [status, count] of Object.entries(summary.verificationCounts ?? {}).sort(([left], [right]) =>
+    left.localeCompare(right)
+  )) {
+    lines.push(`- ${status}: ${count}`);
+  }
+
+  if (Object.keys(summary.verificationCounts ?? {}).length === 0) {
+    lines.push("- none: 0");
+  }
+
+  lines.push("Execution counts:");
+  for (const [status, count] of Object.entries(summary.executionCounts ?? {}).sort(([left], [right]) =>
+    left.localeCompare(right)
+  )) {
+    lines.push(`- ${status}: ${count}`);
+  }
+
+  if (Object.keys(summary.executionCounts ?? {}).length === 0) {
+    lines.push("- none: 0");
+  }
+
+  if (summary.workflow?.counts) {
+    lines.push("Workflow counts:");
+    for (const [status, count] of Object.entries(summary.workflow.counts).sort(([left], [right]) =>
+      left.localeCompare(right)
+    )) {
+      lines.push(`- ${status}: ${count}`);
+    }
+  }
+
+  if ((summary.auditTrail?.length ?? 0) > 0) {
+    lines.push("Audit trail:");
+    for (const entry of summary.auditTrail) {
+      lines.push(`- ${entry.phase}: ${entry.message}`);
+    }
+  }
+
+  return lines.join("\n");
+}

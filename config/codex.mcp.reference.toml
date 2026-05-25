@@ -1,0 +1,24 @@
+[mcp_servers.llm-memory]
+command = "npx"
+args = ["-y", "mcp-remote", "http://127.0.0.1:8767/mcp", "--transport", "http-only"]
+
+[mcp_servers.llm-context]
+command = "npx"
+args = ["-y", "mcp-remote", "http://127.0.0.1:8765/mcp", "--transport", "http-only"]
+
+[mcp_servers.llm-db-dev-mcp]
+command = "npx"
+args = ["-y", "mcp-remote", "http://127.0.0.1:8781/mcp", "--transport", "http-only"]
+
+[mcp_servers.llm-db-prod-mcp]
+command = "npx"
+args = ["-y", "mcp-remote", "http://127.0.0.1:8782/mcp", "--transport", "http-only"]
+
+[mcp_servers.atlassian-rovo-mcp]
+command = "npx"
+args = ["-y", "mcp-remote@latest", "https://mcp.atlassian.com/v1/mcp"]
+startup_timeout_sec = 25.0
+
+[mcp_servers.llm-bitbucket-mcp]
+command = "npx"
+args = ["-y", "mcp-remote", "http://127.0.0.1:8783/mcp", "--transport", "http-only"]

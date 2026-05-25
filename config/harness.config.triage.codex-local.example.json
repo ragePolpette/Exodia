@@ -1,0 +1,184 @@
+{
+  "mode": "triage-only",
+  "dryRun": true,
+  "memory": {
+    "backend": "file",
+    "filePath": "../data/memory.json"
+  },
+  "adapters": {
+    "jira": {
+      "kind": "mcp",
+      "mock": {
+        "ticketSource": "config.mockTickets"
+      },
+      "mcp": {
+        "server": "atlassian-rovo-mcp",
+        "cloudId": "your-site.atlassian.net",
+        "jql": "project = YOUR_PROJECT AND statusCategory != Done ORDER BY created DESC",
+        "filterId": "",
+        "maxResults": 25,
+        "responseContentFormat": "markdown"
+      }
+    },
+    "llmContext": {
+      "kind": "mcp",
+      "mock": {
+        "mappingSource": "ticket.contextMapping"
+      },
+      "mcp": {
+        "server": "llm-context",
+        "workspaceRoot": "C:\\path\\to\\your\\workspace",
+        "projectId": "your-project-id",
+        "topK": 6
+      }
+    },
+    "llmMemory": {
+      "kind": "mcp",
+      "mock": {
+        "backend": "file"
+      },
+      "mcp": {
+        "server": "llm-memory",
+        "namespace": "your-local-namespace"
+      }
+    },
+    "llmSqlDb": {
+      "kind": "mcp",
+      "mock": {
+        "recordRuns": true
+      },
+      "mcp": {
+        "server": "llm-db-prod-mcp",
+        "enabled": true,
+        "namespace": "your-local-namespace",
+        "topology": "split",
+        "operations": {
+          "recordRun": {
+            "server": "llm-db-dev-mcp",
+            "action": "recordHarnessRun",
+            "enabled": false,
+            "database": "dev",
+            "sql": ""
+          }
+        },
+        "targets": {
+          "prod": {
+            "server": "llm-db-prod-mcp",
+            "database": "prod",
+            "access": "read-only",
+            "action": "runDiagnosticQuery",
+            "maxRows": 50
+          },
+          "dev": {
+            "server": "llm-db-dev-mcp",
+            "database": "dev",
+            "access": "schema-and-tests",
+            "action": "runDiagnosticQuery",
+            "maxRows": 50
+          }
+        },
+        "defaultDatabase": "prod"
+      }
+    },
+    "bitbucket": {
+      "kind": "mcp",
+      "mock": {
+        "workspaceRoot": "C:\\path\\to\\your\\workspace"
+      },
+      "mcp": {
+        "server": "llm-bitbucket-mcp",
+        "repository": "your-repository",
+        "project": "YOUR_PROJECT",
+        "workspaceRoot": "C:\\path\\to\\your\\workspace",
+        "operations": {
+          "findOpenPullRequest": {
+            "action": "findOpenPullRequest",
+            "enabled": true
+          },
+          "createBranch": {
+            "action": "createBranch"
+          },
+          "checkoutBranch": {
+            "action": "checkoutBranch"
+          },
+          "createCommit": {
+            "action": "createCommit"
+          },
+          "pushBranch": {
+            "action": "pushBranch"
+          },
+          "openPullRequest": {
+            "action": "openPullRequest"
+          }
+        }
+      }
+    }
+  },
+  "execution": {
+    "enabled": false,
+    "dryRun": true,
+    "trustLevel": "mcp-readonly",
+    "baseBranch": "main",
+    "allowRealPrs": false,
+    "allowMerge": false,
+    "allowedRepositories": ["your-repository"],
+    "allowedBaseBranches": ["main"],
+    "workspaceRoot": "C:\\path\\to\\your\\workspace"
+  },
+  "targeting": {
+    "unknownTarget": "unknown",
+    "rules": [
+      {
+        "target": "legacy",
+        "repoTarget": "core-app",
+        "area": "core-platform",
+        "inScope": true,
+        "feasibility": "feasible",
+        "implementationHint": "Inspect the core platform services before changing the shared pipeline",
+        "aliases": ["legacy-suite", "core-backoffice"],
+        "scopeAliases": ["coreapp"],
+        "projectKeys": ["GEN"]
+      },
+      {
+        "target": "public-app",
+        "repoTarget": "public-web",
+        "area": "public-experience",
+        "inScope": true,
+        "feasibility": "feasible",
+        "implementationHint": "Inspect the public experience modules and avoid widening the scope too early",
+        "aliases": ["public-app", "portal-web"],
+        "scopeAliases": ["publicapp"],
+        "projectKeys": ["WEB"]
+      },
+      {
+        "target": "automation-bot",
+        "repoTarget": "automation-suite",
+        "area": "automation-workflows",
+        "inScope": true,
+        "feasibility": "feasible",
+        "implementationHint": "Inspect the automation workflow handlers tied to the failing rule",
+        "aliases": ["automation-bot", "bot-suite"],
+        "scopeAliases": ["automation"],
+        "projectKeys": ["BOT"]
+      }
+    ]
+  },
+  "mcpBridge": {
+    "mode": "external",
+    "fixtureFile": "",
+    "fixtures": {},
+    "command": "node",
+    "args": [
+      "./src/mcp/run-bridge.js",
+      "--registry",
+      "./config/codex.mcp.reference.toml",
+      "--shadow-memory-file",
+      "./data/mcp-memory-shadow.json"
+    ]
+  },
+  "logging": {
+    "level": "info",
+    "includeTimestamp": true
+  },
+  "mockTickets": []
+}

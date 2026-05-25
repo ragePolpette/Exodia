@@ -1,5 +1,7 @@
 # Exodia
 
+[![CI](https://github.com/ragePolpette/exodia/actions/workflows/ci.yml/badge.svg)](https://github.com/ragePolpette/exodia/actions/workflows/ci.yml)
+
 `Exodia` is a local-first orchestration harness for turning technical work items into reviewed, policy-gated engineering actions.
 
 It is not a coding model and it is not a public SaaS service. It is not intended for deployment as a publicly exposed service. Exodia owns the workflow around the model: ticket intake, context loading, memory, clarification, verification, branch hygiene, commit and pull request creation, audit trails, and safe stopping conditions. Coding runtimes such as Codex, OpenAI, Claude, OpenRouter, Ollama, or LM Studio are interchangeable workers behind that control plane.
@@ -144,6 +146,20 @@ node src/cli.js questions --config ./config/harness.config.example.json
 node src/cli.js monitor --config ./config/harness.config.example.json --limit 20
 node src/cli.js schedule-run --config ./config/harness.config.example.json --profile triage
 ```
+
+## EXODIA.md
+
+`EXODIA.md` is the per-worktree instruction file that tells the Exodia agent how to operate inside a specific target product repository. Without it, the agent has no rules for naming branches, committing, or validating its own output.
+
+It lives in the **target product worktree** (not in this repository). It is git-ignored here because it contains local paths and product-specific conventions.
+
+Create it by copying the provided example:
+
+```bash
+cp EXODIA.md.example EXODIA.md
+```
+
+Then edit `EXODIA.md` to match your target worktree conventions: branch naming rules, commit message format, and what counts as a valid implementation for that product. The example at `EXODIA.md.example` documents all available sections with inline comments.
 
 ## Configuration
 

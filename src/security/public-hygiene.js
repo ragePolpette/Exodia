@@ -1,6 +1,18 @@
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 
+const STANDARD_EXAMPLE_FIELD_POLICIES = [
+  { path: "adapters.jira.mcp.cloudId", allowedLiterals: [""], allowedPrefixes: ["your-"] },
+  { path: "adapters.llmContext.mcp.workspaceRoot", allowedLiterals: [""], allowedPrefixes: ["C:\\path\\to\\your\\workspace"] },
+  { path: "adapters.llmMemory.mcp.namespace", allowedLiterals: [""], allowedPrefixes: ["your-"] },
+  { path: "adapters.llmSqlDb.mcp.namespace", allowedLiterals: [""], allowedPrefixes: ["your-"] },
+  { path: "adapters.bitbucket.mcp.repository", allowedLiterals: [""], allowedPrefixes: ["your-"] },
+  { path: "adapters.bitbucket.mcp.project", allowedLiterals: [""], allowedLiteralsCaseSensitive: ["YOUR_PROJECT"] },
+  { path: "adapters.bitbucket.mcp.workspaceRoot", allowedLiterals: [""], allowedPrefixes: ["C:\\path\\to\\your\\workspace"] },
+  { path: "execution.baseBranch", allowedLiterals: ["main", ""] },
+  { path: "execution.workspaceRoot", allowedLiterals: [""], allowedPrefixes: ["C:\\path\\to\\your\\workspace"] }
+];
+
 const defaultSensitiveScan = {
   enabled: false,
   workspaceRoot: "",
@@ -10,59 +22,19 @@ const defaultSensitiveScan = {
   exampleFiles: [
     {
       path: "config/harness.config.example.json",
-      jsonFieldPolicies: [
-        { path: "adapters.jira.mcp.cloudId", allowedLiterals: [""], allowedPrefixes: ["your-"] },
-        { path: "adapters.llmContext.mcp.workspaceRoot", allowedLiterals: [""], allowedPrefixes: ["C:\\path\\to\\your\\workspace"] },
-        { path: "adapters.llmMemory.mcp.namespace", allowedLiterals: [""], allowedPrefixes: ["your-"] },
-        { path: "adapters.llmSqlDb.mcp.namespace", allowedLiterals: [""], allowedPrefixes: ["your-"] },
-        { path: "adapters.bitbucket.mcp.repository", allowedLiterals: [""], allowedPrefixes: ["your-"] },
-        { path: "adapters.bitbucket.mcp.project", allowedLiterals: [""], allowedLiteralsCaseSensitive: ["YOUR_PROJECT"] },
-        { path: "adapters.bitbucket.mcp.workspaceRoot", allowedLiterals: [""], allowedPrefixes: ["C:\\path\\to\\your\\workspace"] },
-        { path: "execution.baseBranch", allowedLiterals: ["main", ""] },
-        { path: "execution.workspaceRoot", allowedLiterals: [""], allowedPrefixes: ["C:\\path\\to\\your\\workspace"] }
-      ]
+      jsonFieldPolicies: STANDARD_EXAMPLE_FIELD_POLICIES
     },
     {
       path: "config/harness.config.mcp.example.json",
-      jsonFieldPolicies: [
-        { path: "adapters.jira.mcp.cloudId", allowedLiterals: [""], allowedPrefixes: ["your-"] },
-        { path: "adapters.llmContext.mcp.workspaceRoot", allowedLiterals: [""], allowedPrefixes: ["C:\\path\\to\\your\\workspace"] },
-        { path: "adapters.llmMemory.mcp.namespace", allowedLiterals: [""], allowedPrefixes: ["your-"] },
-        { path: "adapters.llmSqlDb.mcp.namespace", allowedLiterals: [""], allowedPrefixes: ["your-"] },
-        { path: "adapters.bitbucket.mcp.repository", allowedLiterals: [""], allowedPrefixes: ["your-"] },
-        { path: "adapters.bitbucket.mcp.project", allowedLiterals: [""], allowedLiteralsCaseSensitive: ["YOUR_PROJECT"] },
-        { path: "adapters.bitbucket.mcp.workspaceRoot", allowedLiterals: [""], allowedPrefixes: ["C:\\path\\to\\your\\workspace"] },
-        { path: "execution.baseBranch", allowedLiterals: ["main", ""] },
-        { path: "execution.workspaceRoot", allowedLiterals: [""], allowedPrefixes: ["C:\\path\\to\\your\\workspace"] }
-      ]
+      jsonFieldPolicies: STANDARD_EXAMPLE_FIELD_POLICIES
     },
     {
       path: "config/harness.config.real.example.json",
-      jsonFieldPolicies: [
-        { path: "adapters.jira.mcp.cloudId", allowedLiterals: [""], allowedPrefixes: ["your-"] },
-        { path: "adapters.llmContext.mcp.workspaceRoot", allowedLiterals: [""], allowedPrefixes: ["C:\\path\\to\\your\\workspace"] },
-        { path: "adapters.llmMemory.mcp.namespace", allowedLiterals: [""], allowedPrefixes: ["your-"] },
-        { path: "adapters.llmSqlDb.mcp.namespace", allowedLiterals: [""], allowedPrefixes: ["your-"] },
-        { path: "adapters.bitbucket.mcp.repository", allowedLiterals: [""], allowedPrefixes: ["your-"] },
-        { path: "adapters.bitbucket.mcp.project", allowedLiterals: [""], allowedLiteralsCaseSensitive: ["YOUR_PROJECT"] },
-        { path: "adapters.bitbucket.mcp.workspaceRoot", allowedLiterals: [""], allowedPrefixes: ["C:\\path\\to\\your\\workspace"] },
-        { path: "execution.baseBranch", allowedLiterals: ["main", ""] },
-        { path: "execution.workspaceRoot", allowedLiterals: [""], allowedPrefixes: ["C:\\path\\to\\your\\workspace"] }
-      ]
+      jsonFieldPolicies: STANDARD_EXAMPLE_FIELD_POLICIES
     },
     {
       path: "config/harness.config.triage.codex-local.example.json",
-      jsonFieldPolicies: [
-        { path: "adapters.jira.mcp.cloudId", allowedLiterals: [""], allowedPrefixes: ["your-"] },
-        { path: "adapters.llmContext.mcp.workspaceRoot", allowedLiterals: [""], allowedPrefixes: ["C:\\path\\to\\your\\workspace"] },
-        { path: "adapters.llmMemory.mcp.namespace", allowedLiterals: [""], allowedPrefixes: ["your-"] },
-        { path: "adapters.llmSqlDb.mcp.namespace", allowedLiterals: [""], allowedPrefixes: ["your-"] },
-        { path: "adapters.bitbucket.mcp.repository", allowedLiterals: [""], allowedPrefixes: ["your-"] },
-        { path: "adapters.bitbucket.mcp.project", allowedLiterals: [""], allowedLiteralsCaseSensitive: ["YOUR_PROJECT"] },
-        { path: "adapters.bitbucket.mcp.workspaceRoot", allowedLiterals: [""], allowedPrefixes: ["C:\\path\\to\\your\\workspace"] },
-        { path: "execution.baseBranch", allowedLiterals: ["main", ""] },
-        { path: "execution.workspaceRoot", allowedLiterals: [""], allowedPrefixes: ["C:\\path\\to\\your\\workspace"] }
-      ]
+      jsonFieldPolicies: STANDARD_EXAMPLE_FIELD_POLICIES
     }
   ]
 };

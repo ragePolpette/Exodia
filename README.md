@@ -101,7 +101,7 @@ Guard rails include:
 - public hygiene scanning for sensitive strings and unsafe example values
 - redaction across reports, logs, and memory payloads
 - deferred human clarification when confidence is insufficient
-- commit and secret policy hooks for newly initialized repositories
+- public-safe documentation and example configuration defaults
 
 This repository must stay free of real credentials, local runtime configs, run logs, customer data, and private operational handoffs.
 
@@ -247,22 +247,9 @@ For real execution, use an untracked config and verify these fields before runni
 - `adapters.bitbucket.mcp.workspaceRoot`
 - `agentRuntime.providers.*.workingDirectory`
 
-## Repository Policy Hooks
+## Publishing Hygiene
 
-This repository includes policy helpers for commit message and secret hygiene:
-
-- `.githooks/commit-msg`
-- `.githooks/pre-commit`
-- `policy/COMMIT_AND_SECRET_POLICY.example.md`
-- `scripts/install-git-policy-hooks.ps1`
-
-Install the template hooks for future repositories:
-
-```powershell
-.\scripts\install-git-policy-hooks.ps1
-```
-
-The policy is intentionally strict about commit text. Ticket IDs are acceptable as opaque identifiers; customer names, local paths, private URLs, database identifiers, and pasted ticket payloads are not.
+Keep publishable commits and examples generic. Ticket IDs can be used as opaque placeholders, but customer names, local paths, private URLs, database identifiers, credentials, pasted ticket payloads, run logs, and generated transcripts do not belong in this repository.
 
 ## Project Status
 

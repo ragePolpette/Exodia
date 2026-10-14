@@ -11,7 +11,16 @@ import { runHarness } from "../src/orchestration/run-harness.js";
 const execFileAsync = promisify(execFile);
 
 async function initGitWorkspace(workspace) {
-  await execFileAsync("git", ["init"], { cwd: workspace, windowsHide: true });
+  const git = (args) =>
+    execFileAsync(
+      "git",
+      ["-c", "user.email=exodia@example.invalid", "-c", "user.name=Exodia Test", ...args],
+      { cwd: workspace, windowsHide: true }
+    );
+  await git(["init"]);
+  await writeFile(path.join(workspace, ".gitignore"), "*.json\n");
+  await git(["add", ".gitignore"]);
+  await git(["commit", "-m", "ignore harness state files"]);
 }
 
 test("preflight blocks execution when changed files escape the configured allowlist", async () => {
@@ -104,7 +113,8 @@ test("preflight blocks execution when a configured command fails", async () => {
       minConfidence: 0.75,
       maxCommitMessageLength: 120,
       maxPullRequestTitleLength: 120,
-      allowedPathPrefixesByRepo: {},
+      allowedPathPrefixesByRepo: { "core-app": ["allowed"] },
+      allowedCommandPrefixes: [[process.execPath]],
       preflightCommands: [
         {
           label: "failing-check",
@@ -241,7 +251,7 @@ test("preflight blocks execution when the command is outside the allowlist", asy
       minConfidence: 0.75,
       maxCommitMessageLength: 120,
       maxPullRequestTitleLength: 120,
-      allowedPathPrefixesByRepo: {},
+      allowedPathPrefixesByRepo: { "core-app": ["allowed"] },
       allowedCommandPrefixes: [["node", "-e"]],
       preflightCommands: [
         {
@@ -312,7 +322,8 @@ test("preflight executes commands in the configured workspace subdirectory", asy
       minConfidence: 0.75,
       maxCommitMessageLength: 120,
       maxPullRequestTitleLength: 120,
-      allowedPathPrefixesByRepo: {},
+      allowedPathPrefixesByRepo: { "core-app": ["checks"] },
+      allowedCommandPrefixes: [[process.execPath]],
       preflightCommands: [
         {
           label: "cwd-check",
@@ -383,6 +394,7 @@ test("preflight blocks execution when command cwd escapes the workspace root", a
       maxCommitMessageLength: 120,
       maxPullRequestTitleLength: 120,
       allowedPathPrefixesByRepo: {},
+      allowedCommandPrefixes: [[process.execPath]],
       preflightCommands: [
         {
           label: "escaping-cwd-check",

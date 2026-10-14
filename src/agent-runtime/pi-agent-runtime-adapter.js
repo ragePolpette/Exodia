@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { AgentRuntimeAdapter } from "./agent-runtime-adapter.js";
 import { AgentRuntimeInvocationError, buildRuntimeDiagnostics } from "./runtime-diagnostics.js";
 import { buildRuntimeProcessEnv, resolveRuntimeWorkingDirectory } from "./runtime-process-policy.js";
+import { UNTRUSTED_INPUT_INSTRUCTION, wrapUntrustedPayload } from "./untrusted-input.js";
 
 export function buildPiRpcArgs(providerConfig = {}) {
   if (providerConfig.args?.length) {
@@ -34,11 +35,7 @@ export function buildPiRpcArgs(providerConfig = {}) {
   return args;
 }
 
-function stringifyForPrompt(value) {
-  return JSON.stringify(value, null, 2);
-}
-
-export function resolvePiToolPolicy(phase, providerConfig = {}) {
+export function resolvePiToolPolicy(phase, providerConfig = {}, executionMode = "real") {
   const phasePolicy = providerConfig.toolsByPhase?.[phase] ?? [];
   if (phasePolicy.length) {
     return phasePolicy;
@@ -47,7 +44,7 @@ export function resolvePiToolPolicy(phase, providerConfig = {}) {
     return providerConfig.tools;
   }
 
-  if (phase === "implementation") {
+  if (phase === "implementation" && executionMode === "real") {
     return [
       "workspace-write inside the configured target worktree only",
       "run only verification commands supplied by Exodia or the target instructions",
@@ -83,8 +80,9 @@ export function buildPiRuntimePrompt({ phase, provider, model, payload, requireS
     toolPolicy.length ? `Tool/workspace policy: ${toolPolicy.join(", ")}.` : "",
     "Use the provided ticket, memory, context, MCP guidance, and worktree instructions before asking questions.",
     "If you need missing human information, return it in the questions array and mark it blocking when appropriate.",
+    UNTRUSTED_INPUT_INSTRUCTION,
     "Runtime payload:",
-    stringifyForPrompt(payload)
+    wrapUntrustedPayload(payload)
   ].filter(Boolean).join("\n\n");
 }
 
@@ -302,7 +300,7 @@ export class PiAgentRuntimeAdapter extends AgentRuntimeAdapter {
       provider: this.provider,
       model: this.model,
       requireStructuredOutput: this.config.requireStructuredOutput,
-      toolPolicy: resolvePiToolPolicy(phase, providerConfig),
+      toolPolicy: resolvePiToolPolicy(phase, providerConfig, input?.executionMode ?? ""),
       payload: input
     });
 

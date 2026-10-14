@@ -1,5 +1,6 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile, realpath } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -7,6 +8,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
 import { normalizeMemoryRecord } from "../contracts/memory-record.js";
+import { writeFileAtomic } from "../memory/atomic-write.js";
 import { normalizeSupportTicket } from "../tickets/normalize-support-ticket.js";
 import {
   defaultRepoTarget as resolveDefaultRepoTarget,
@@ -180,7 +182,9 @@ function toJiraComment(comment) {
       comment.author?.displayName ??
       comment.author?.name ??
       comment.author?.emailAddress ??
-      ""
+      "",
+    authorId: comment.author?.accountId ?? "",
+    authorEmail: comment.author?.emailAddress ?? ""
   };
 }
 
@@ -348,8 +352,7 @@ async function loadShadowStore(shadowMemoryFile) {
 }
 
 async function writeShadowStore(shadowMemoryFile, store) {
-  await mkdir(path.dirname(shadowMemoryFile), { recursive: true });
-  await writeFile(shadowMemoryFile, JSON.stringify(store, null, 2));
+  await writeFileAtomic(shadowMemoryFile, JSON.stringify(store, null, 2));
 }
 
 function mergeRecords(existingRecords, incomingRecords) {
@@ -446,7 +449,7 @@ async function handleContextRequest(serverDefinition, action, payload) {
     .filter(Boolean)
     .join("\n");
 
-  let searchPayload = null;
+  let searchPayload;
   try {
     searchPayload = unwrapToolResult(
       await callTool(serverDefinition, "rag_search", {
@@ -577,12 +580,120 @@ async function handleMemoryRequest(serverDefinition, action, payload, { shadowMe
   };
 }
 
-async function runGit(workspaceRoot, args) {
+const exodiaRepositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+
+async function runGit(workspaceRoot, args, { raw = false } = {}) {
   const { stdout } = await execFileAsync("git", args, {
     cwd: workspaceRoot,
-    windowsHide: true
+    windowsHide: true,
+    maxBuffer: 10 * 1024 * 1024
   });
-  return stdout.trim();
+  return raw ? stdout : stdout.trim();
+}
+
+function requireWorkspaceRoot(payload, action) {
+  const workspaceRoot = `${payload.workspaceRoot ?? ""}`.trim();
+  if (!workspaceRoot) {
+    throw new Error(
+      `Bitbucket bridge action ${action} requires payload.workspaceRoot; refusing to fall back to the current directory`
+    );
+  }
+
+  return path.resolve(workspaceRoot);
+}
+
+function requireRefName(value, label) {
+  const ref = `${value ?? ""}`.trim();
+  if (!ref || ref.startsWith("-") || /\s|\.\.|[~^:?*[\\]/.test(ref)) {
+    throw new Error(`Bitbucket bridge received an invalid ${label}: "${ref}"`);
+  }
+
+  return ref;
+}
+
+async function canonicalPath(value) {
+  const resolved = await realpath(value).catch(() => path.resolve(value));
+  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+}
+
+async function assertTicketWorktree(workspaceRoot) {
+  const topLevel = await runGit(workspaceRoot, ["rev-parse", "--show-toplevel"]);
+  if ((await canonicalPath(topLevel)) === (await canonicalPath(exodiaRepositoryRoot))) {
+    throw new Error("Refusing to run worktree git operations on the Exodia repository itself");
+  }
+
+  return topLevel;
+}
+
+async function assertCleanWorktree(workspaceRoot) {
+  const status = await runGit(workspaceRoot, ["status", "--porcelain", "--untracked-files=all"]);
+  if (status) {
+    throw new Error(
+      `Ticket worktree ${workspaceRoot} has uncommitted changes; aborting before touching it`
+    );
+  }
+}
+
+export function parsePorcelainZ(output) {
+  const tokens = `${output ?? ""}`.split("\0").filter(Boolean);
+  const paths = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    const entry = tokens[index];
+    const status = entry.slice(0, 2);
+    paths.push(entry.slice(3));
+    if (status[0] === "R" || status[0] === "C") {
+      index += 1;
+      if (tokens[index]) {
+        paths.push(tokens[index]);
+      }
+    }
+  }
+
+  return [...new Set(paths.map((entry) => entry.replace(/\\/g, "/")))];
+}
+
+function normalizeAllowedPaths(values) {
+  return (Array.isArray(values) ? values : [])
+    .map((value) => `${value ?? ""}`.trim().replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, ""))
+    .filter((value) => value && !value.startsWith("/") && !value.split("/").includes(".."));
+}
+
+function isAllowedPath(entry, allowedPaths) {
+  return allowedPaths.some((prefix) => entry === prefix || entry.startsWith(`${prefix}/`));
+}
+
+async function commitAllowedChanges(workspaceRoot, payload) {
+  const allowedPaths = normalizeAllowedPaths(payload.allowedPaths);
+  if (allowedPaths.length === 0) {
+    throw new Error("createCommit requires a non-empty allowedPaths list; refusing to stage the whole worktree");
+  }
+
+  const changedPaths = parsePorcelainZ(
+    await runGit(workspaceRoot, ["status", "--porcelain", "-z", "--untracked-files=all"], { raw: true })
+  );
+  const committedPaths = changedPaths.filter((entry) => isAllowedPath(entry, allowedPaths));
+  const ignoredPaths = changedPaths.filter((entry) => !isAllowedPath(entry, allowedPaths));
+
+  if (committedPaths.length > 0) {
+    await runGit(workspaceRoot, ["add", "-A", "--", ...committedPaths]);
+  }
+
+  const staged = await runGit(workspaceRoot, ["diff", "--cached", "--name-only"]);
+  if (!staged) {
+    return {
+      commitSha: await runGit(workspaceRoot, ["rev-parse", "HEAD"]),
+      skipped: true,
+      committedPaths: [],
+      ignoredPaths
+    };
+  }
+
+  await runGit(workspaceRoot, ["commit", "-m", `${payload.commitMessage ?? ""}`]);
+  return {
+    commitSha: await runGit(workspaceRoot, ["rev-parse", "HEAD"]),
+    committedPaths,
+    ignoredPaths
+  };
 }
 
 async function handleBitbucketRequest(serverDefinition, action, payload) {
@@ -631,50 +742,55 @@ async function handleBitbucketRequest(serverDefinition, action, payload) {
   }
 
   if (action === "createBranch") {
-    await runGit(payload.workspaceRoot ?? payload.ticket?.workspaceRoot ?? process.cwd(), [
-      "branch",
-      payload.branchName,
-      payload.baseBranch
-    ]);
+    const workspaceRoot = requireWorkspaceRoot(payload, action);
+    const branchName = requireRefName(payload.branchName, "branch name");
+    const baseBranch = requireRefName(payload.baseBranch, "base branch");
+    await assertTicketWorktree(workspaceRoot);
+    await assertCleanWorktree(workspaceRoot);
+    await runGit(workspaceRoot, ["fetch", "origin", baseBranch]);
+    await runGit(workspaceRoot, ["checkout", "-B", branchName, `origin/${baseBranch}`]);
     return {
-      branchName: payload.branchName,
-      baseBranch: payload.baseBranch
+      branchName,
+      baseBranch
     };
   }
 
   if (action === "checkoutBranch") {
-    const workspaceRoot = payload.workspaceRoot ?? process.cwd();
-    await runGit(workspaceRoot, ["checkout", payload.branchName]);
+    const workspaceRoot = requireWorkspaceRoot(payload, action);
+    const branchName = requireRefName(payload.branchName, "branch name");
+    await assertTicketWorktree(workspaceRoot);
+    await assertCleanWorktree(workspaceRoot);
+    await runGit(workspaceRoot, ["checkout", branchName]);
     return {
-      branchName: payload.branchName,
+      branchName,
       workspaceRoot
     };
   }
 
   if (action === "createCommit") {
-    const workspaceRoot = payload.workspaceRoot ?? process.cwd();
-    await runGit(workspaceRoot, ["add", "-A"]);
-    const status = await runGit(workspaceRoot, ["status", "--porcelain"]);
-    if (!status.trim()) {
-      const head = await runGit(workspaceRoot, ["rev-parse", "HEAD"]);
-      return {
-        commitSha: head,
-        skipped: true
-      };
-    }
+    const workspaceRoot = requireWorkspaceRoot(payload, action);
+    await assertTicketWorktree(workspaceRoot);
+    return commitAllowedChanges(workspaceRoot, payload);
+  }
 
-    await runGit(workspaceRoot, ["commit", "-m", payload.commitMessage]);
-    const commitSha = await runGit(workspaceRoot, ["rev-parse", "HEAD"]);
+  if (action === "resetWorkspace") {
+    const workspaceRoot = requireWorkspaceRoot(payload, action);
+    await assertTicketWorktree(workspaceRoot);
+    await runGit(workspaceRoot, ["reset", "--hard"]);
+    await runGit(workspaceRoot, ["clean", "-fd"]);
     return {
-      commitSha
+      workspaceRoot,
+      reset: true
     };
   }
 
   if (action === "pushBranch") {
-    const workspaceRoot = payload.workspaceRoot ?? process.cwd();
-    await runGit(workspaceRoot, ["push", "-u", "origin", payload.branchName]);
+    const workspaceRoot = requireWorkspaceRoot(payload, action);
+    const branchName = requireRefName(payload.branchName, "branch name");
+    await assertTicketWorktree(workspaceRoot);
+    await runGit(workspaceRoot, ["push", "-u", "origin", branchName]);
     return {
-      branchName: payload.branchName,
+      branchName,
       pushed: true
     };
   }

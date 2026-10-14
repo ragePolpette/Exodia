@@ -1,3 +1,4 @@
+import { normalizeInteractionResponse } from "../interaction/interaction-contracts.js";
 import { normalizeSupportTicket } from "../tickets/normalize-support-ticket.js";
 import { buildPullRequestTicketComment } from "../tickets/pull-request-comment.js";
 
@@ -76,13 +77,19 @@ export class McpJiraAdapter {
       }
     });
 
-    return (response?.comments ?? []).map((comment) => ({
-      source: "ticket",
-      text: comment.text ?? comment.body ?? "",
-      author: comment.author ?? "",
-      respondedAt: comment.respondedAt ?? comment.createdAt ?? comment.created ?? "",
-      externalId: comment.externalId ?? comment.id ?? comment.commentId ?? ""
-    }));
+    return (response?.comments ?? []).map((comment) =>
+      normalizeInteractionResponse(
+        {
+          text: comment.text ?? comment.body ?? "",
+          author: comment.author ?? "",
+          authorId: comment.authorId ?? comment.authorAccountId ?? "",
+          authorEmail: comment.authorEmail ?? "",
+          respondedAt: comment.respondedAt ?? comment.createdAt ?? comment.created ?? "",
+          externalId: comment.externalId ?? comment.id ?? comment.commentId ?? ""
+        },
+        "ticket"
+      )
+    );
   }
 
   async postPullRequestComment(ticket, pullRequest, context = {}) {

@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import path from "node:path";
 
 const defaultProcessEnvKeys = [
@@ -60,4 +61,16 @@ export function resolveRuntimeWorkingDirectory({
   }
 
   return cwd;
+}
+
+export function terminateProcessTree(child, { platform = process.platform, spawnProcess = spawn } = {}) {
+  if (platform === "win32" && child?.pid) {
+    spawnProcess("taskkill", ["/pid", `${child.pid}`, "/t", "/f"], {
+      windowsHide: true,
+      stdio: "ignore"
+    }).on("error", () => {});
+    return;
+  }
+
+  child?.kill();
 }

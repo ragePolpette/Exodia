@@ -114,7 +114,7 @@ export class McpBitbucketAdapter {
     });
   }
 
-  async createCommit(ticket, branchName, commitMessage) {
+  async createCommit(ticket, branchName, commitMessage, { allowedPaths = [] } = {}) {
     return this.client.request({
       server: this.server,
       action: this.resolveOperation("createCommit", "createCommit"),
@@ -123,6 +123,20 @@ export class McpBitbucketAdapter {
         workspaceRoot: this.workspaceRoot,
         branchName,
         commitMessage,
+        allowedPaths,
+        ticket
+      }
+    });
+  }
+
+  async resetWorkspace(ticket, branchName) {
+    return this.client.request({
+      server: this.server,
+      action: this.resolveOperation("resetWorkspace", "resetWorkspace"),
+      payload: {
+        repository: this.repository,
+        workspaceRoot: this.workspaceRoot,
+        branchName,
         ticket
       }
     });

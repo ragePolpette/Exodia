@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { AgentRuntimeAdapter } from "./agent-runtime-adapter.js";
 import { AgentRuntimeInvocationError, buildRuntimeDiagnostics } from "./runtime-diagnostics.js";
-import { buildRuntimeProcessEnv, resolveRuntimeWorkingDirectory } from "./runtime-process-policy.js";
+import { buildRuntimeProcessEnv, resolveRuntimeWorkingDirectory, terminateProcessTree } from "./runtime-process-policy.js";
 
 export function resolveCodexTimeoutSettings(providerConfig = {}, env = {}) {
   const adapterTimeoutMs = Math.max(1000, Number(providerConfig.timeoutMs ?? 120000) || 120000);
@@ -72,17 +72,7 @@ function runJsonCommand({ command, args, cwd, env, input, timeoutMs, provider, p
           ...extras
         })
       });
-    const terminateChild = () => {
-      if (process.platform === "win32" && child.pid) {
-        spawn("taskkill", ["/pid", `${child.pid}`, "/t", "/f"], {
-          windowsHide: true,
-          stdio: "ignore"
-        }).on("error", () => {});
-        return;
-      }
-
-      child.kill();
-    };
+    const terminateChild = () => terminateProcessTree(child);
 
     child.stdout.on("data", (chunk) => stdoutChunks.push(chunk));
     child.stderr.on("data", (chunk) => stderrChunks.push(chunk));

@@ -1,14 +1,32 @@
 const defaultRedactionConfig = {
   enabled: true,
+  redactSecrets: true,
+  redactEmails: true,
   redactUrls: true,
   redactPaths: true,
   redactPhones: true,
   redactTaxIds: true,
+  secretToken: "[redacted:secret]",
+  emailToken: "[redacted:email]",
   urlToken: "[redacted:url]",
   pathToken: "[redacted:path]",
   phoneToken: "[redacted:phone]",
   taxIdToken: "[redacted:tax-id]"
 };
+
+export const secretPatterns = Object.freeze([
+  /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)/g,
+  /\bsk-[A-Za-z0-9_-]{16,}/g,
+  /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g,
+  /\bATATT[A-Za-z0-9_=-]{20,}/g,
+  /\bATCTT[A-Za-z0-9_=-]{20,}/g,
+  /\bATBB[A-Za-z0-9_=-]{20,}/g,
+  /\bgh[pousr]_[A-Za-z0-9]{30,}/g,
+  /\bxox[abprs]-[A-Za-z0-9-]{10,}/g
+]);
+
+const bearerPattern = /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{8,}/gi;
+const emailPattern = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
 
 export function resolveRedactionConfig(config = {}) {
   return {
@@ -24,6 +42,17 @@ export function redactText(value, config = {}) {
   }
 
   let redacted = value;
+
+  if (resolved.redactSecrets) {
+    for (const pattern of secretPatterns) {
+      redacted = redacted.replace(pattern, resolved.secretToken);
+    }
+    redacted = redacted.replace(bearerPattern, (_match, scheme) => `${scheme} ${resolved.secretToken}`);
+  }
+
+  if (resolved.redactEmails) {
+    redacted = redacted.replace(emailPattern, resolved.emailToken);
+  }
 
   if (resolved.redactUrls) {
     redacted = redacted.replace(/https?:\/\/\S+/gi, resolved.urlToken);

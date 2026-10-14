@@ -14,12 +14,13 @@ Requirements: Node.js 22 or later.
 
 ```bash
 npm ci
+npm run lint
 npm test
 node src/cli.js audit --config ./config/harness.config.example.json
 node src/cli.js review --config ./config/harness.config.example.json
 ```
 
-`npm test` runs `node --test`. No linter is configured. Add or update tests for behavior changes. Run `audit` and `review` for changes that touch documentation, examples, or configuration.
+`npm test` runs `node --test`. `npm run lint` runs ESLint with the flat config in `eslint.config.js`. Add or update tests for behavior changes. Run `audit` and `review` for changes that touch documentation, examples, or configuration.
 
 ## Repository Rules
 

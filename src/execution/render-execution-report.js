@@ -86,6 +86,12 @@ export function renderExecutionReport(summary) {
     if (item.pullRequestUrl) {
       lines.push(`  pr: ${redactText(item.pullRequestUrl, redaction)}`);
     }
+    if (item.diffStat) {
+      lines.push("  diff stat:");
+      for (const line of redactText(item.diffStat, redaction).split("\n")) {
+        lines.push(`    ${line}`);
+      }
+    }
   }
 
   if ((summary.auditTrail?.length ?? 0) > 0) {

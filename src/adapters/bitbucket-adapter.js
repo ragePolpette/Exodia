@@ -60,12 +60,13 @@ export class BitbucketAdapter {
     return operation;
   }
 
-  async createCommit(ticket, branchName, commitMessage) {
+  async createCommit(ticket, branchName, commitMessage, { allowedPaths = [] } = {}) {
     const operation = {
       kind: "commit",
       ticketKey: ticket.key,
       branchName,
       commitMessage,
+      allowedPaths,
       commitSha: `mock-${ticket.key.toLowerCase()}-${Date.now()}`
     };
     this.operations.push(operation);
@@ -75,6 +76,16 @@ export class BitbucketAdapter {
   async pushBranch(ticket, branchName) {
     const operation = {
       kind: "push_branch",
+      ticketKey: ticket.key,
+      branchName
+    };
+    this.operations.push(operation);
+    return operation;
+  }
+
+  async resetWorkspace(ticket, branchName) {
+    const operation = {
+      kind: "reset_workspace",
       ticketKey: ticket.key,
       branchName
     };

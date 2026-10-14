@@ -18,7 +18,8 @@ test("dry-run bootstraps triage and execution with mock adapters", async () => {
     },
     execution: {
       baseBranch: "main",
-      allowRealPrs: false
+      allowRealPrs: false,
+      workspaceRoot: "."
     },
     targeting: {
       rules: [

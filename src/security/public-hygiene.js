@@ -13,12 +13,22 @@ const STANDARD_EXAMPLE_FIELD_POLICIES = [
   { path: "execution.workspaceRoot", allowedLiterals: [""], allowedPrefixes: ["C:\\path\\to\\your\\workspace"] }
 ];
 
+export const defaultForbiddenRegexPatterns = Object.freeze([
+  "-----BEGIN [A-Z ]*PRIVATE KEY-----",
+  "\\bsk-[A-Za-z0-9_-]{20,}",
+  "\\b(?:AKIA|ASIA)[0-9A-Z]{16}\\b",
+  "\\bATATT[A-Za-z0-9_=-]{20,}",
+  "\\bATBB[A-Za-z0-9_=-]{20,}",
+  "\\bgh[pousr]_[A-Za-z0-9]{30,}",
+  "\\bxox[abprs]-[A-Za-z0-9-]{10,}"
+]);
+
 const defaultSensitiveScan = {
   enabled: false,
   workspaceRoot: "",
   includePaths: ["src", "tests", "config", "README.md", "package.json"],
   forbiddenLiteralPatterns: [],
-  forbiddenRegexPatterns: [],
+  forbiddenRegexPatterns: [...defaultForbiddenRegexPatterns],
   exampleFiles: [
     {
       path: "config/harness.config.example.json",
@@ -67,6 +77,16 @@ export function resolveSensitiveScanConfig(config = {}) {
   if (!Array.isArray(resolved.exampleFiles) || resolved.exampleFiles.length === 0) {
     resolved.exampleFiles = [...defaultSensitiveScan.exampleFiles];
   }
+
+  resolved.forbiddenLiteralPatterns = Array.isArray(resolved.forbiddenLiteralPatterns)
+    ? resolved.forbiddenLiteralPatterns
+    : [];
+  resolved.forbiddenRegexPatterns = [
+    ...new Set([
+      ...defaultForbiddenRegexPatterns,
+      ...(Array.isArray(resolved.forbiddenRegexPatterns) ? resolved.forbiddenRegexPatterns : [])
+    ])
+  ];
 
   return resolved;
 }
@@ -181,7 +201,7 @@ export async function scanWorkspace(workspaceRoot, config = {}) {
 
   for (const filePath of files) {
     const absolutePath = path.join(workspaceRoot, filePath);
-    let content = "";
+    let content;
 
     try {
       content = await readFile(absolutePath, "utf8");

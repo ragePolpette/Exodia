@@ -100,7 +100,9 @@ export class TriageService {
       mapping.feasibility === "blocked" ||
       ticket.feasibility === "blocked"
     ) {
-      const blockers = [...(mapping.blockers ?? [])];
+      const blockers = (mapping.blockers ?? []).map((blocker) =>
+        typeof blocker === "string" ? blocker : `${blocker?.reason ?? blocker?.type ?? "unspecified blocker"}`
+      );
       return {
         ticket_key: ticket.key,
         project_key: ticket.projectKey,

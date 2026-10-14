@@ -45,7 +45,8 @@ test("audit runtime can refine an analysis proposal before approving verificatio
       dryRun: true,
       baseBranch: "main",
       allowRealPrs: false,
-      allowMerge: false
+      allowMerge: false,
+      workspaceRoot: "."
     },
     mockTickets: [
       {
@@ -112,7 +113,8 @@ test("audit runtime failure stops at needs review instead of crashing the run", 
       dryRun: true,
       baseBranch: "main",
       allowRealPrs: false,
-      allowMerge: false
+      allowMerge: false,
+      workspaceRoot: "."
     },
     mockTickets: [
       {

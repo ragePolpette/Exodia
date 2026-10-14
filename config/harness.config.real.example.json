@@ -121,6 +121,29 @@
     "allowedBaseBranches": ["main"],
     "workspaceRoot": "C:\\path\\to\\your\\workspace"
   },
+  "verification": {
+    "enabled": true,
+    "minConfidence": 0.75,
+    "allowedPathPrefixesByRepo": {
+      "core-app": ["src", "tests"]
+    },
+    "allowedCommandPrefixes": [["npm", "test"], ["npm", "run", "lint"]],
+    "preflightCommands": [
+      {
+        "label": "unit-tests",
+        "command": "npm",
+        "args": ["test"],
+        "timeoutMs": 300000
+      }
+    ],
+    "preflightTimeoutMs": 300000,
+    "preflightMaxBufferBytes": 10485760,
+    "diffGate": {
+      "enabled": true,
+      "maxFiles": 25,
+      "maxChangedLines": 1000
+    }
+  },
   "interaction": {
     "enabled": true,
     "mode": "deferred",
@@ -128,6 +151,7 @@
     "destinations": "both",
     "allowedPhases": ["triage", "verification"],
     "maxQuestionsPerTicket": 1,
+    "allowedResponders": ["your-approver-account-id", "your-approver@example.invalid"],
     "captureToSemanticMemory": true,
     "captureToTicketMemory": true,
     "messagePrefix": "[Exodia]",
@@ -204,7 +228,19 @@
         "postMessage",
         "listThreadReplies"
       ]
-    }
+    },
+    "envPassthrough": ["YOUR_BRIDGE_TOKEN_ENV_VAR"],
+    "retries": 1,
+    "retryableActions": [
+      "searchTicketsByJql",
+      "searchTicketsByFilter",
+      "listTicketComments",
+      "listThreadReplies",
+      "findOpenPullRequest",
+      "mapTicketToCodebase",
+      "listTicketMemoryRecords",
+      "runDiagnosticQuery"
+    ]
   },
   "logging": {
     "level": "info",

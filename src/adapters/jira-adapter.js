@@ -1,3 +1,4 @@
+import { normalizeInteractionResponse } from "../interaction/interaction-contracts.js";
 import { normalizeSupportTicket } from "../tickets/normalize-support-ticket.js";
 import { buildPullRequestTicketComment } from "../tickets/pull-request-comment.js";
 
@@ -34,14 +35,20 @@ export class JiraAdapter {
   async listInteractionResponses(ticket, interaction) {
     return (ticket.interactionResponses ?? [])
       .filter((response) => !response.interactionId || response.interactionId === interaction.id)
-      .map((response, index) => ({
-        source: "ticket",
-        text: response.text ?? response.body ?? "",
-        author: response.author ?? "mock-user",
-        respondedAt:
-          response.respondedAt ?? response.createdAt ?? response.created ?? new Date().toISOString(),
-        externalId: response.externalId ?? response.id ?? `mock-ticket-response-${interaction.id}-${index + 1}`
-      }));
+      .map((response, index) =>
+        normalizeInteractionResponse(
+          {
+            text: response.text ?? response.body ?? "",
+            author: response.author ?? "mock-user",
+            authorId: response.authorId ?? "",
+            authorEmail: response.authorEmail ?? "",
+            respondedAt:
+              response.respondedAt ?? response.createdAt ?? response.created ?? new Date().toISOString(),
+            externalId: response.externalId ?? response.id ?? `mock-ticket-response-${interaction.id}-${index + 1}`
+          },
+          "ticket"
+        )
+      );
   }
 
   async postPullRequestComment(ticket, pullRequest, context = {}) {

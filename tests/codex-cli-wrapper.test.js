@@ -1,10 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { chmod, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 
 import {
   buildCodexExecArgs,
   buildCodexExecPrompt,
-  buildPhaseOutputSchema
+  buildPhaseOutputSchema,
+  resolveCodexSandbox,
+  runCodexExec
 } from "../src/agent-runtime/codex-cli-wrapper.js";
 
 test("codex wrapper builds a strict phase schema for structured output", () => {
@@ -77,4 +82,67 @@ test("codex wrapper prompt embeds the runtime envelope as JSON", () => {
   assert.match(prompt, /Exodia owns branch creation/);
   assert.match(prompt, /"phase": "implementation"/);
   assert.match(prompt, /"key": "GEN-100"/);
+});
+
+test("codex sandbox is read-only for every phase except real implementation", () => {
+  for (const phase of ["analysis", "audit", "implementation_verification"]) {
+    assert.equal(resolveCodexSandbox({ phase, executionMode: "real" }), "read-only");
+    assert.equal(resolveCodexSandbox({ phase, executionMode: "real", requested: "workspace-write" }), "read-only");
+    assert.equal(resolveCodexSandbox({ phase, requested: "danger-full-access" }), "read-only");
+  }
+
+  assert.equal(resolveCodexSandbox({ phase: "implementation", executionMode: "real" }), "workspace-write");
+  assert.equal(resolveCodexSandbox({ phase: "implementation", executionMode: "dry-run-mcp" }), "read-only");
+  assert.equal(resolveCodexSandbox({ phase: "implementation", executionMode: "dry-run-mock" }), "read-only");
+  assert.equal(
+    resolveCodexSandbox({ phase: "implementation", executionMode: "real", requested: "danger-full-access" }),
+    "workspace-write"
+  );
+  assert.equal(
+    resolveCodexSandbox({ phase: "implementation", executionMode: "real", requested: "read-only" }),
+    "read-only"
+  );
+});
+
+test("runCodexExec passes the phase sandbox to codex and ignores a global escalation", async (t) => {
+  if (process.platform === "win32") {
+    t.skip("uses a POSIX shebang script as fake codex binary");
+    return;
+  }
+
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-codex-sandbox-"));
+  const argsLog = path.join(workspace, "args.jsonl");
+  const fakeCodex = path.join(workspace, "fake-codex.mjs");
+  await writeFile(
+    fakeCodex,
+    [
+      "#!/usr/bin/env node",
+      "import { appendFileSync, writeFileSync } from 'node:fs';",
+      "const args = process.argv.slice(2);",
+      `appendFileSync(${JSON.stringify(argsLog)}, JSON.stringify(args) + '\\n');`,
+      "writeFileSync(args[args.indexOf('--output-last-message') + 1], JSON.stringify({ status: 'ok' }));",
+      "process.stdin.resume(); process.stdin.on('end', () => process.exit(0));"
+    ].join("\n")
+  );
+  await chmod(fakeCodex, 0o755);
+  const previous = process.env.EXODIA_CODEX_SANDBOX;
+  process.env.EXODIA_CODEX_SANDBOX = "danger-full-access";
+  t.after(() => {
+    if (previous === undefined) {
+      delete process.env.EXODIA_CODEX_SANDBOX;
+    } else {
+      process.env.EXODIA_CODEX_SANDBOX = previous;
+    }
+  });
+
+  await runCodexExec({ phase: "analysis", payload: {} }, { command: fakeCodex, cwd: workspace });
+  await runCodexExec({ phase: "implementation", payload: { executionMode: "dry-run-mcp" } }, { command: fakeCodex, cwd: workspace });
+  await runCodexExec({ phase: "implementation", payload: { executionMode: "real" } }, { command: fakeCodex, cwd: workspace });
+
+  const sandboxes = (await readFile(argsLog, "utf8"))
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line))
+    .map((args) => args[args.indexOf("--sandbox") + 1]);
+  assert.deepEqual(sandboxes, ["read-only", "read-only", "workspace-write"]);
 });

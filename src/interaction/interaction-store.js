@@ -1,5 +1,5 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { readFile } from "node:fs/promises";
+import { writeFileAtomic } from "../memory/atomic-write.js";
 import {
   mergeInteractionRecord,
   normalizeInteractionRecord
@@ -25,8 +25,7 @@ export class InteractionStore {
   }
 
   async saveAll(records) {
-    await mkdir(path.dirname(this.filePath), { recursive: true });
-    await writeFile(
+    await writeFileAtomic(
       this.filePath,
       JSON.stringify(records.map(normalizeInteractionRecord), null, 2)
     );

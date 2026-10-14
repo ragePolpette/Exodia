@@ -123,7 +123,7 @@ function renderHelp() {
     "  --report <name>   default | execution | final",
     "  --limit <n>       number of recent runs for monitor",
     "  --profile <name>  scheduling profile name for schedule-run",
-    "  --ignore-lock     bypass scheduling lock protection",
+    "  --ignore-lock     bypass run lock protection for run, triage, execute and schedule-run",
     "  --help            show this help"
   ].join("\n");
 }
@@ -260,17 +260,27 @@ async function main() {
       : options.command === "execute"
         ? "triage-and-execution"
         : undefined;
-  const summary = await runHarness({
-    configPath: options.configPath,
-    modeOverride,
-    dryRunOverride: options.dryRun,
-    executionEnabledOverride: options.executionEnabled
-  });
+  const runDirect = async () => {
+    const summary = await runHarness({
+      configPath: options.configPath,
+      modeOverride,
+      dryRunOverride: options.dryRun,
+      executionEnabledOverride: options.executionEnabled
+    });
 
-  const effectiveReport =
-    options.report ?? (options.command === "execute" ? "execution" : "default");
+    const effectiveReport =
+      options.report ?? (options.command === "execute" ? "execution" : "default");
 
-  console.log(renderSummary({ ...summary, report: effectiveReport }));
+    console.log(renderSummary({ ...summary, report: effectiveReport }));
+  };
+
+  if (options.ignoreLock) {
+    await runDirect();
+    return;
+  }
+
+  const config = await loadConfig(options.configPath);
+  await withRunLock(config.scheduling.lockFile, runDirect);
 }
 
 main().catch((error) => {

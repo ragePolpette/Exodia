@@ -2,6 +2,8 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { terminateProcessTree } from "./runtime-process-policy.js";
+import { UNTRUSTED_INPUT_INSTRUCTION, wrapUntrustedPayload } from "./untrusted-input.js";
 import { AgentRuntimeInvocationError, buildRuntimeDiagnostics, isAgentRuntimeInvocationError } from "./runtime-diagnostics.js";
 
 function inferJsonType(example) {
@@ -156,12 +158,18 @@ export function buildCodexExecPrompt(envelope) {
     "- implementation_verification.status must be needs_changes when the implementation should iterate with concrete feedback.",
     "- Never ask free-form questions outside JSON; put every human question in questions[].",
     "",
-    JSON.stringify(envelope, null, 2)
+    UNTRUSTED_INPUT_INSTRUCTION,
+    "",
+    wrapUntrustedPayload(envelope)
   ].join("\n");
 }
 
+export function resolveCodexSandbox({ phase, executionMode = "", requested = "" } = {}) {
+  const phaseSandbox = phase === "implementation" && executionMode === "real" ? "workspace-write" : "read-only";
+  return `${requested ?? ""}`.trim() === "read-only" ? "read-only" : phaseSandbox;
+}
+
 export function buildCodexExecArgs({
-  phase,
   cwd,
   model,
   outputSchemaPath,
@@ -241,17 +249,7 @@ function runCommand({ command, args, cwd, env, stdin, timeoutMs, provider, phase
           ...extras
         })
       });
-    const terminateChild = () => {
-      if (process.platform === "win32" && child.pid) {
-        spawn("taskkill", ["/pid", `${child.pid}`, "/t", "/f"], {
-          windowsHide: true,
-          stdio: "ignore"
-        }).on("error", () => {});
-        return;
-      }
-
-      child.kill();
-    };
+    const terminateChild = () => terminateProcessTree(child);
     const timeout = setTimeout(() => {
       terminateChild();
       if (!settled) {
@@ -313,7 +311,11 @@ export async function runCodexExec(envelope, options = {}) {
   const cwd = options.cwd || process.cwd();
   const command = options.command || process.env.EXODIA_CODEX_COMMAND || "codex";
   const model = options.model ?? process.env.EXODIA_CODEX_MODEL ?? "";
-  const sandbox = options.sandbox ?? process.env.EXODIA_CODEX_SANDBOX ?? "read-only";
+  const sandbox = resolveCodexSandbox({
+    phase,
+    executionMode: envelope.payload?.executionMode,
+    requested: options.sandbox ?? process.env.EXODIA_CODEX_SANDBOX ?? ""
+  });
   const profile = options.profile ?? process.env.EXODIA_CODEX_PROFILE ?? "";
   const useOss =
     options.useOss ??

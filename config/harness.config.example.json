@@ -134,6 +134,7 @@
       "verification"
     ],
     "maxQuestionsPerTicket": 1,
+    "allowedResponders": [],
     "captureToSemanticMemory": true,
     "captureToTicketMemory": true,
     "messagePrefix": "[Exodia]",

@@ -1,16 +1,18 @@
 # Exodia
 
-[![CI](https://github.com/ragePolpette/exodia/actions/workflows/ci.yml/badge.svg)](https://github.com/ragePolpette/exodia/actions/workflows/ci.yml)
+[![CI](https://github.com/ragePolpette/Exodia/actions/workflows/ci.yml/badge.svg)](https://github.com/ragePolpette/Exodia/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Node.js >=22](https://img.shields.io/badge/node-%3E%3D22-339933.svg)
 
 `Exodia` is a local-first orchestration harness for turning technical work items into reviewed, policy-gated engineering actions.
 
 It is not a coding model and it is not a public SaaS service. It is not intended for deployment as a publicly exposed service. Exodia owns the workflow around the model: ticket intake, context loading, memory, clarification, verification, branch hygiene, commit and pull request creation, audit trails, and safe stopping conditions. Coding runtimes such as Codex, OpenAI, Claude, OpenRouter, Ollama, or LM Studio are interchangeable workers behind that control plane.
 
-## What Makes It Different
+## Overview
 
-Most ticket-to-code demos collapse the whole job into one risky step: read a ticket, edit files, open a pull request.
+Most ticket-to-code demos collapse the whole job into one risky step: read a ticket, edit files, open a pull request. Exodia splits that into explicit stages.
 
-Exodia splits that into explicit stages:
+The stages are:
 
 1. read the ticket from the configured source
 2. map it to a target product and repository
@@ -24,7 +26,7 @@ Exodia splits that into explicit stages:
 
 The strongest workflow feature is the human-in-the-loop resume loop. When confidence is too low, Exodia can ask a focused question through the configured interaction transports, including Slack or ticket comments, persist the run as waiting for input, resume on a later run from the first valid answer, and store useful answers into memory.
 
-## Current Capabilities
+## Capabilities
 
 - Jira-style ticket intake through mock or MCP adapters
 - target routing by project key, scope aliases, and configured repository rules
@@ -38,8 +40,6 @@ The strongest workflow feature is the human-in-the-loop resume loop. When confid
 - deferred interaction tracking for human clarification loops
 - structured run logging, final reports, and local monitoring
 - scheduling profiles with lock-file protection for manual or unattended runs
-
-Planned follow-up work is tracked outside this public-safe README until it is implemented. In particular, PR-review follow-up modes should be documented here only after the runtime supports them end to end.
 
 ## Architecture
 
@@ -86,7 +86,7 @@ Main areas:
 - `src/reporting/`: final report rendering
 - `config/`: publishable example configurations only
 
-## Safety Model
+## Security
 
 Exodia is designed to stop rather than improvise when the workflow is ambiguous or unsafe.
 
@@ -105,20 +105,20 @@ Guard rails include:
 - deferred human clarification when confidence is insufficient
 - public-safe documentation and example configuration defaults
 
-This repository must stay free of real credentials, local runtime configs, run logs, customer data, and private operational handoffs.
+This repository must stay free of real credentials, local runtime configs, run logs, customer data, and private operational handoffs. See [SECURITY.md](SECURITY.md) for scope and reporting.
 
-## Local Setup
+## Quick Start
 
 Requirements:
 
 - Node.js 22+
-- PowerShell when using the provided helper scripts
+- PowerShell, only when using `scripts/run-exodia.ps1`
 - a local config derived from one of the example files under `config/`
 
 Install dependencies:
 
 ```bash
-npm install
+npm ci
 ```
 
 Run the test suite:
@@ -159,7 +159,7 @@ Create it by copying the provided example:
 cp EXODIA.md.example EXODIA.md
 ```
 
-Then edit `EXODIA.md` to match your target worktree conventions: branch naming rules, commit message format, and what counts as a valid implementation for that product. The example at `EXODIA.md.example` documents all available sections with inline comments.
+Then edit `EXODIA.md` to match your target worktree conventions: branch naming rules, commit message format, and what counts as a valid implementation for that product. `EXODIA.md.example` shows the expected structure.
 
 ## Configuration
 
@@ -182,8 +182,7 @@ Real values belong only in untracked local files, for example:
 
 The ignored runtime data area is `data/`.
 
-Do not use file `.env`.
-Do not use file `.env.local`.
+Do not use file `.env`. Do not use file `.env.local`.
 Pass credentials through your launcher session, MCP dashboard, secret manager, or a deliberately scoped local process environment.
 
 ## Agent Runtime Providers
@@ -229,9 +228,18 @@ For local HTTP-compatible runs:
 - both expect a running local server and a configured model name
 - keep local test token limits conservative so slow local models do not stall the whole run
 
-## Working On Exodia
+## Development
 
 Treat this repository as the harness, not as the target product. The target product worktree is supplied by configuration and can be somewhere else entirely.
+
+```bash
+npm ci
+npm test
+node src/cli.js audit --config ./config/harness.config.example.json
+node src/cli.js review --config ./config/harness.config.example.json
+```
+
+`npm test` runs the Node.js built-in test runner (`node --test`). No linter is configured. `audit` and `review` check public hygiene and publish readiness. Contribution rules are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Before changing Exodia itself:
 
@@ -241,7 +249,7 @@ Before changing Exodia itself:
 4. Use example configs for publishable defaults and local configs for real paths or credentials.
 5. Do not commit run artifacts, memory stores, local handoffs, customer-specific notes, or generated LLM transcripts.
 6. Run `npm test` after behavior changes.
-7. Run `node src/cli.js review --config ./config/harness.config.example.json` before publishing-facing changes.
+7. Run `review` before publishing-facing changes.
 
 When working on a target ticket through Exodia:
 
@@ -263,16 +271,18 @@ For real execution, use an untracked config and verify these fields before runni
 - `adapters.bitbucket.mcp.workspaceRoot`
 - `agentRuntime.providers.*.workingDirectory`
 
-## Publishing Hygiene
+### Publishing Hygiene
 
 Keep publishable commits and examples generic. Ticket IDs can be used as opaque placeholders, but customer names, local paths, private URLs, database identifiers, credentials, pasted ticket payloads, run logs, and generated transcripts do not belong in this repository.
 
 ## Project Status
 
-Exodia is in active development. The current runtime is already useful for controlled local ticket triage, policy-gated implementation, MCP-backed context, human clarification, structured reporting, and private engineering automation.
+Exodia is in active development and is not published as an installable package (`private: true` in `package.json`). The current runtime covers local ticket triage, policy-gated implementation, MCP-backed context, human clarification, and structured reporting.
 
-The next major product direction is unattended operation: recurring runs that first drain actionable pull request follow-up work, then move to new ticket intake only when the existing review queue is clear.
-
-## Development Process
+The next planned direction is unattended operation: recurring runs that first drain actionable pull request follow-up work, then move to new ticket intake only when the existing review queue is clear. This is not implemented yet.
 
 Built with AI-assisted workflows, while architecture, tradeoffs, integration choices, review, and validation are directed by the author.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

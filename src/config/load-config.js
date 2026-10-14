@@ -1,7 +1,10 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { resolveTargetingConfig } from "../targeting/target-rules.js";
-import { normalizeInteractionDestinations } from "../interaction/interaction-contracts.js";
+import {
+  normalizeAllowedResponders,
+  normalizeInteractionDestinations
+} from "../interaction/interaction-contracts.js";
 import { normalizeSchedulingConfig } from "../scheduling/scheduling-service.js";
 import { normalizeAgentRuntimeConfig } from "../agent-runtime/agent-runtime-contracts.js";
 
@@ -206,7 +209,8 @@ const defaultConfig = {
     reuseOpenPullRequests: true,
     allowedRepositories: [],
     allowedBaseBranches: [],
-    workspaceRoot: ""
+    workspaceRoot: "",
+    dryRunImplementation: false
   },
   verification: {
     enabled: true,
@@ -215,7 +219,18 @@ const defaultConfig = {
     maxPullRequestTitleLength: 120,
     allowedPathPrefixesByRepo: {},
     preflightCommands: [],
-    allowedCommandPrefixes: [],
+    allowedCommandPrefixes: [
+      ["npm", "test"],
+      ["npm", "run", "lint"],
+      ["node", "--test"]
+    ],
+    preflightTimeoutMs: 300000,
+    preflightMaxBufferBytes: 10485760,
+    diffGate: {
+      enabled: true,
+      maxFiles: 25,
+      maxChangedLines: 1000
+    },
     sensitiveScan: {
       enabled: false,
       workspaceRoot: "",
@@ -240,7 +255,19 @@ const defaultConfig = {
     allowedActionsByServer: {},
     timeoutMs: 30000,
     retries: 0,
-    retryDelayMs: 250
+    retryDelayMs: 250,
+    retryableActions: [
+      "searchTicketsByJql",
+      "searchTicketsByFilter",
+      "listTicketComments",
+      "listThreadReplies",
+      "findOpenPullRequest",
+      "mapTicketToCodebase",
+      "listTicketMemoryRecords",
+      "runDiagnosticQuery"
+    ],
+    envPassthrough: [],
+    env: {}
   },
   interaction: {
     enabled: false,
@@ -249,6 +276,7 @@ const defaultConfig = {
     destinations: ["ticket"],
     allowedPhases: ["triage", "candidate_approval", "verification", "execution"],
     maxQuestionsPerTicket: 1,
+    allowedResponders: [],
     captureToSemanticMemory: true,
     captureToTicketMemory: true,
     messagePrefix: "[Exodia]",
@@ -449,6 +477,7 @@ function normalizeInteractionConfig(config = {}) {
       ? [...new Set(config.allowedPhases.filter(Boolean))]
       : ["triage", "candidate_approval", "verification", "execution"],
     maxQuestionsPerTicket: config.maxQuestionsPerTicket ?? 1,
+    allowedResponders: normalizeAllowedResponders(config.allowedResponders),
     captureToSemanticMemory: config.captureToSemanticMemory ?? true,
     captureToTicketMemory: config.captureToTicketMemory ?? true,
     messagePrefix: config.messagePrefix ?? "[Exodia]",
@@ -491,6 +520,17 @@ function normalizeWorkflowConfig(config = {}) {
       ? humanApprovalPolicy
       : "skip"
   };
+}
+
+function resolveConfigRelativePath(configDirectory, value) {
+  const candidate = `${value ?? ""}`.trim();
+  if (!candidate) {
+    return "";
+  }
+
+  return path.isAbsolute(candidate) || path.win32.isAbsolute(candidate)
+    ? candidate
+    : path.resolve(configDirectory, candidate);
 }
 
 export async function loadConfig(configPath) {
@@ -545,6 +585,10 @@ export async function loadConfig(configPath) {
         configDirectory,
         normalizedAgentRuntimeConfig.implementationArtifactFile
       )
+    },
+    execution: {
+      ...merged.execution,
+      workspaceRoot: resolveConfigRelativePath(configDirectory, merged.execution.workspaceRoot)
     },
     configPath: resolvedPath,
     adapters: {

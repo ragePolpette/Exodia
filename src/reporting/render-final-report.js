@@ -54,6 +54,18 @@ export function renderFinalReport(summary) {
     }
   }
 
+  const humanDecisions = (summary.workflow?.records ?? []).filter(
+    (record) => record.approval?.respondedBy
+  );
+  if (humanDecisions.length > 0) {
+    lines.push("Human approvals:");
+    for (const record of humanDecisions) {
+      lines.push(
+        `- ${record.ticketKey}: ${record.approval.status} by ${record.approval.respondedBy} at ${record.approval.respondedAt || "n/a"} via ${record.approval.responseSource || "n/a"}`
+      );
+    }
+  }
+
   if ((summary.auditTrail?.length ?? 0) > 0) {
     lines.push("Audit trail:");
     for (const entry of summary.auditTrail) {

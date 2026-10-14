@@ -6,6 +6,7 @@ import { VerificationAgent } from "../agents/verification-agent.js";
 import { loadConfig } from "../config/load-config.js";
 import { assertMode } from "../contracts/harness-contracts.js";
 import { renderExecutionReport } from "../execution/render-execution-report.js";
+import { resolveApprovalDecision } from "../interaction/interaction-contracts.js";
 import { InteractionService } from "../interaction/interaction-service.js";
 import { InteractionStore } from "../interaction/interaction-store.js";
 import { createLogger } from "../logging/logger.js";
@@ -14,6 +15,7 @@ import { AnalysisArtifactStore } from "../agent-runtime/analysis-artifact-store.
 import { ImplementationArtifactStore } from "../agent-runtime/implementation-artifact-store.js";
 import { FileMemoryStore } from "../memory/file-memory-store.js";
 import { renderFinalReport } from "../reporting/render-final-report.js";
+import { redactText } from "../security/redaction.js";
 import { renderTriageReport } from "../triage/render-triage-report.js";
 import { TicketWorkflowStore } from "./ticket-workflow-store.js";
 
@@ -51,20 +53,24 @@ function approvalRequired(policy, decision) {
 }
 
 function extractApprovalDecision(ticket) {
-  const answers = (ticket.humanClarifications ?? [])
-    .filter((item) => item.phase === "candidate_approval")
-    .map((item) => `${item.text ?? item.summary ?? ""}`.toLowerCase());
-  const combined = answers.join(" ");
+  for (const clarification of ticket.humanClarifications ?? []) {
+    if (clarification.phase !== "candidate_approval") {
+      continue;
+    }
 
-  if (/\b(reject|rejected|no|stop|blocca|rifiuta|scarta)\b/i.test(combined)) {
-    return "rejected";
+    const decision = resolveApprovalDecision(clarification.text ?? "");
+    if (decision) {
+      return {
+        decision,
+        respondedBy: clarification.authorEmail || clarification.authorId || clarification.author || "",
+        respondedAt: clarification.respondedAt ?? "",
+        source: clarification.source ?? "",
+        interactionId: clarification.interactionId ?? ""
+      };
+    }
   }
 
-  if (/\b(approve|approved|yes|ok|go|procedi|approvo|vai)\b/i.test(combined)) {
-    return "approved";
-  }
-
-  return "";
+  return { decision: "" };
 }
 
 async function applyCandidateApprovalGate({
@@ -105,23 +111,31 @@ async function applyCandidateApprovalGate({
     }
 
     const explicitDecision = extractApprovalDecision(item.ticket);
-    if (explicitDecision === "approved") {
+    const responseAudit = {
+      respondedBy: explicitDecision.respondedBy,
+      respondedAt: explicitDecision.respondedAt,
+      responseSource: explicitDecision.source,
+      interaction: explicitDecision.interactionId ? { id: explicitDecision.interactionId } : null
+    };
+    if (explicitDecision.decision === "approved") {
       await workflowStore.markApproval({
         ticket: item.ticket,
         required: true,
         status: "approved",
-        reason: "human approved candidate"
+        reason: "human approved candidate",
+        ...responseAudit
       });
       approvedItems.push(item);
       continue;
     }
 
-    if (explicitDecision === "rejected") {
+    if (explicitDecision.decision === "rejected") {
       await workflowStore.markApproval({
         ticket: item.ticket,
         required: true,
         status: "rejected",
-        reason: "human rejected candidate"
+        reason: "human rejected candidate",
+        ...responseAudit
       });
       rejected.push(item);
       continue;
@@ -134,7 +148,7 @@ async function applyCandidateApprovalGate({
         `Approve Exodia to analyze ${item.ticket.key}?`,
         `Candidate target: ${item.decision.product_target}/${item.decision.repo_target}.`,
         `Reason: ${item.decision.short_reason}.`,
-        "Reply with approve/procedi/vai to continue, or reject/scarta/stop to skip."
+        "Reply with /exodia approve to continue or /exodia reject to skip."
       ].join(" "),
       reason: item.decision.short_reason,
       blocking: true,
@@ -192,336 +206,312 @@ export async function runHarness({
   });
   const auditTrail = [];
   auditTrail.push(createAuditEntry("run", "harness run started", { mode, dryRun }));
+  const progress = { workflowStore: null, ticketCount: 0 };
 
-  assertMode(mode);
-  logger.info("Harness run started", { mode, dryRun, configPath: config.configPath });
-  const { adapters, agentRuntime, ticketMemoryAdapter, kinds, mcpClient } = buildAdapters({ config, logger });
-  const analysisArtifactStore = new AnalysisArtifactStore(new FileMemoryStore(config.agentRuntime.artifactFile));
-  const implementationArtifactStore = new ImplementationArtifactStore(
-    new FileMemoryStore(config.agentRuntime.implementationArtifactFile)
-  );
-  const workflowStore = config.workflow?.enabled
-    ? new TicketWorkflowStore(new FileMemoryStore(config.workflow.stateFile))
-    : null;
-  const {
-    jira: jiraAdapter,
-    llmContext: contextAdapter,
-    llmMemory: semanticMemoryAdapter,
-    llmSqlDb: sqlDbAdapter,
-    bitbucket: bitbucketAdapter
-  } = adapters;
-  const interactionService = config.interaction?.enabled
-    ? new InteractionService({
-        config: config.interaction,
-        store: new InteractionStore(config.interaction.storeFile),
-        jiraAdapter,
-        semanticMemoryAdapter,
-        ticketMemoryAdapter,
-        mcpClient,
-        logger,
-        securityConfig: config.security,
-        targeting: config.targeting
-      })
-    : null;
-  auditTrail.push(createAuditEntry("bootstrap", "adapters bootstrapped", kinds));
-  logger.info("Adapter modes selected", kinds);
+  try {
+    assertMode(mode);
+    logger.info("Harness run started", { mode, dryRun, configPath: config.configPath });
+    const { adapters, agentRuntime, ticketMemoryAdapter, kinds, mcpClient } = buildAdapters({ config, logger });
+    const analysisArtifactStore = new AnalysisArtifactStore(new FileMemoryStore(config.agentRuntime.artifactFile));
+    const implementationArtifactStore = new ImplementationArtifactStore(
+      new FileMemoryStore(config.agentRuntime.implementationArtifactFile)
+    );
+    const workflowStore = config.workflow?.enabled
+      ? new TicketWorkflowStore(new FileMemoryStore(config.workflow.stateFile))
+      : null;
+    progress.workflowStore = workflowStore;
+    const {
+      jira: jiraAdapter,
+      llmContext: contextAdapter,
+      llmMemory: semanticMemoryAdapter,
+      llmSqlDb: sqlDbAdapter,
+      bitbucket: bitbucketAdapter
+    } = adapters;
+    const interactionService = config.interaction?.enabled
+      ? new InteractionService({
+          config: config.interaction,
+          store: new InteractionStore(config.interaction.storeFile),
+          jiraAdapter,
+          semanticMemoryAdapter,
+          ticketMemoryAdapter,
+          mcpClient,
+          logger,
+          securityConfig: config.security,
+          targeting: config.targeting
+        })
+      : null;
+    auditTrail.push(createAuditEntry("bootstrap", "adapters bootstrapped", kinds));
+    logger.info("Adapter modes selected", kinds);
 
-  const triageAgent = new TriageAgent({
-    contextAdapter,
-    ticketMemoryAdapter,
-    semanticMemoryAdapter,
-    sqlDbAdapter,
-    interactionService,
-    agentRuntime,
-    analysisArtifactStore,
-    logger,
-    securityConfig: config.security,
-    runtimePromptConfig: config
-  });
-  const verificationAgent = new VerificationAgent({
-    bitbucketAdapter,
-    verificationConfig: config.verification,
-    interactionService,
-    agentRuntime,
-    analysisArtifactStore,
-    logger,
-    runtimePromptConfig: config
-  });
-  const executionAgent = new ExecutionAgent({
-    bitbucketAdapter,
-    jiraAdapter,
-    ticketMemoryAdapter,
-    semanticMemoryAdapter,
-    sqlDbAdapter,
-    executionConfig: {
-      ...config.execution,
-      enabled: executionEnabled,
-      dryRun: executionDryRun
-    },
-    verificationConfig: config.verification,
-    interactionService,
-    agentRuntime,
-    analysisArtifactStore,
-    implementationArtifactStore,
-    logger,
-    securityConfig: config.security,
-    runtimePromptConfig: config
-  });
+    const triageAgent = new TriageAgent({
+      contextAdapter,
+      ticketMemoryAdapter,
+      semanticMemoryAdapter,
+      sqlDbAdapter,
+      interactionService,
+      agentRuntime,
+      analysisArtifactStore,
+      logger,
+      securityConfig: config.security,
+      runtimePromptConfig: config
+    });
+    const verificationAgent = new VerificationAgent({
+      bitbucketAdapter,
+      verificationConfig: config.verification,
+      interactionService,
+      agentRuntime,
+      analysisArtifactStore,
+      logger,
+      runtimePromptConfig: config
+    });
+    const executionAgent = new ExecutionAgent({
+      bitbucketAdapter,
+      jiraAdapter,
+      ticketMemoryAdapter,
+      semanticMemoryAdapter,
+      sqlDbAdapter,
+      executionConfig: {
+        ...config.execution,
+        enabled: executionEnabled,
+        dryRun: executionDryRun
+      },
+      verificationConfig: config.verification,
+      interactionService,
+      agentRuntime,
+      analysisArtifactStore,
+      implementationArtifactStore,
+      logger,
+      securityConfig: config.security,
+      runtimePromptConfig: config
+    });
 
-  const promptContexts = await Promise.all([
-    triageAgent.preparePromptContext(),
-    verificationAgent.preparePromptContext(),
-    executionAgent.preparePromptContext()
-  ]);
-  const promptContext = promptContexts[0];
-  auditTrail.push(createAuditEntry("prompt-context", "agent prompt context loaded", {
-    workspaceRoot: promptContext.workspaceRoot,
-    files: promptContext.files.map((file) => file.filePath),
-    missingGeneral: promptContext.missingGeneral,
-    missingTarget: promptContext.missingTarget
-  }));
-  logger.info("Agent prompt context loaded", {
-    workspaceRoot: promptContext.workspaceRoot,
-    files: promptContext.files.map((file) => file.filePath),
-    missingGeneral: promptContext.missingGeneral,
-    missingTarget: promptContext.missingTarget
-  });
+    const promptContexts = await Promise.all([
+      triageAgent.preparePromptContext(),
+      verificationAgent.preparePromptContext(),
+      executionAgent.preparePromptContext()
+    ]);
+    const promptContext = promptContexts[0];
+    auditTrail.push(createAuditEntry("prompt-context", "agent prompt context loaded", {
+      workspaceRoot: promptContext.workspaceRoot,
+      files: promptContext.files.map((file) => file.filePath),
+      missingGeneral: promptContext.missingGeneral,
+      missingTarget: promptContext.missingTarget
+    }));
+    logger.info("Agent prompt context loaded", {
+      workspaceRoot: promptContext.workspaceRoot,
+      files: promptContext.files.map((file) => file.filePath),
+      missingGeneral: promptContext.missingGeneral,
+      missingTarget: promptContext.missingTarget
+    });
 
-  const memoryBefore = await ticketMemoryAdapter.listRecords();
-  const loadedTickets = await jiraAdapter.listOpenTickets();
-  const interactionPreparation = interactionService
-    ? await interactionService.prepareTickets(loadedTickets)
-    : { tickets: loadedTickets, pending: [], resolved: [] };
-  const tickets = interactionPreparation.tickets;
-  await workflowStore?.ensureTickets(tickets);
-  auditTrail.push(createAuditEntry("input", "tickets loaded", { count: tickets.length }));
-  if (interactionPreparation.pending.length > 0 || interactionPreparation.resolved.length > 0) {
+    const memoryBefore = await ticketMemoryAdapter.listRecords();
+    const loadedTickets = await jiraAdapter.listOpenTickets();
+    const interactionPreparation = interactionService
+      ? await interactionService.prepareTickets(loadedTickets)
+      : { tickets: loadedTickets, pending: [], resolved: [] };
+    const tickets = interactionPreparation.tickets;
+    progress.ticketCount = tickets.length;
+    await workflowStore?.ensureTickets(tickets);
+    auditTrail.push(createAuditEntry("input", "tickets loaded", { count: tickets.length }));
+    if (interactionPreparation.pending.length > 0 || interactionPreparation.resolved.length > 0) {
+      auditTrail.push(
+        createAuditEntry("interaction", "interaction state synchronized", {
+          pending: interactionPreparation.pending.length,
+          resolved: interactionPreparation.resolved.length
+        })
+      );
+    }
+    logger.debug("Tickets loaded", { count: tickets.length });
+    const triage = await triageAgent.run(tickets);
+    for (const decision of triage) {
+      await workflowStore?.recordCandidate(decision);
+    }
     auditTrail.push(
-      createAuditEntry("interaction", "interaction state synchronized", {
-        pending: interactionPreparation.pending.length,
-        resolved: interactionPreparation.resolved.length
+      createAuditEntry("triage", "triage completed", {
+        count: triage.length,
+        feasible: triage.filter((item) => item.status_decision === "feasible").length
       })
     );
-  }
-  logger.debug("Tickets loaded", { count: tickets.length });
-  const triage = await triageAgent.run(tickets);
-  for (const decision of triage) {
-    await workflowStore?.recordCandidate(decision);
-  }
-  auditTrail.push(
-    createAuditEntry("triage", "triage completed", {
+    logger.info("Triage completed", {
       count: triage.length,
       feasible: triage.filter((item) => item.status_decision === "feasible").length
-    })
-  );
-  logger.info("Triage completed", {
-    count: triage.length,
-    feasible: triage.filter((item) => item.status_decision === "feasible").length
-  });
-  const candidateItems = triage
-    .filter((decision) =>
-      ["feasible", "feasible_low_confidence", "blocked", "not_feasible"].includes(
-        decision.status_decision
-      )
-    )
-    .map((decision) => ({
-      decision,
-      ticket: tickets.find((ticket) => ticket.key === decision.ticket_key)
-    }))
-    .filter((item) => item.ticket);
-  const approvalGate = await applyCandidateApprovalGate({
-    candidateItems,
-    workflowStore,
-    interactionService,
-    humanApprovalPolicy: config.workflow?.humanApprovalPolicy ?? "skip",
-    logger
-  });
-  auditTrail.push(
-    createAuditEntry("approval", "candidate approval gate completed", {
-      approved: approvalGate.approvedItems.length,
-      awaiting: approvalGate.awaitingApproval.length,
-      rejected: approvalGate.rejected.length
-    })
-  );
-  const verification =
-    mode === "triage-and-execution" ? await verificationAgent.run(approvalGate.approvedItems) : [];
-  for (const result of verification) {
-    await workflowStore?.markPhase(
-      result.ticketKey,
-      "analysis",
-      result.status === "approved"
-        ? "analysis_approved"
-        : result.status === "needs_review"
-          ? "code_analysis_ready"
-          : "blocked",
-      result.analysisArtifact ? "analysis" : ""
-    );
-  }
-  const approvedItemsByTicket = new Map(approvalGate.approvedItems.map((item) => [item.ticket.key, item]));
-  const reviewMemoryRecords = verification
-    .filter((result) => result.status !== "approved")
-    .map((result) => {
-      const item = approvedItemsByTicket.get(result.ticketKey);
-      const decision = result.refinedDecision ?? item?.decision ?? {};
-      const ticket = item?.ticket ?? {};
-      return {
-        ticket_key: result.ticketKey,
-        project_key: result.projectKey ?? ticket.projectKey,
-        product_target: decision.product_target ?? ticket.productTarget ?? "unknown",
-        repo_target: decision.repo_target ?? ticket.repoTarget ?? "UNKNOWN",
-        status_decision: decision.status_decision ?? "blocked",
-        confidence: decision.confidence ?? 0,
-        short_reason: result.reason ?? decision.short_reason ?? "",
-        implementation_hint: decision.implementation_hint ?? "",
-        branch_name: "",
-        pr_url: "",
-        last_outcome: result.status,
-        recheck_conditions: decision.recheck_conditions ?? []
-      };
     });
-  if (reviewMemoryRecords.length > 0) {
-    await ticketMemoryAdapter.upsertRecords(reviewMemoryRecords);
-  }
-  auditTrail.push(
-    createAuditEntry("verification", "verification completed", {
+    const candidateItems = triage
+      .filter((decision) =>
+        ["feasible", "feasible_low_confidence", "blocked", "not_feasible"].includes(
+          decision.status_decision
+        )
+      )
+      .map((decision) => ({
+        decision,
+        ticket: tickets.find((ticket) => ticket.key === decision.ticket_key)
+      }))
+      .filter((item) => item.ticket);
+    const approvalGate = await applyCandidateApprovalGate({
+      candidateItems,
+      workflowStore,
+      interactionService,
+      humanApprovalPolicy: config.workflow?.humanApprovalPolicy ?? "skip",
+      logger
+    });
+    auditTrail.push(
+      createAuditEntry("approval", "candidate approval gate completed", {
+        approved: approvalGate.approvedItems.length,
+        awaiting: approvalGate.awaitingApproval.length,
+        rejected: approvalGate.rejected.length
+      })
+    );
+    const verification =
+      mode === "triage-and-execution" ? await verificationAgent.run(approvalGate.approvedItems) : [];
+    for (const result of verification) {
+      await workflowStore?.markPhase(
+        result.ticketKey,
+        "analysis",
+        result.status === "approved"
+          ? "analysis_approved"
+          : result.status === "needs_review"
+            ? "code_analysis_ready"
+            : "blocked",
+        result.analysisArtifact ? "analysis" : ""
+      );
+    }
+    const approvedItemsByTicket = new Map(approvalGate.approvedItems.map((item) => [item.ticket.key, item]));
+    const reviewMemoryRecords = verification
+      .filter((result) => result.status !== "approved")
+      .map((result) => {
+        const item = approvedItemsByTicket.get(result.ticketKey);
+        const decision = result.refinedDecision ?? item?.decision ?? {};
+        const ticket = item?.ticket ?? {};
+        return {
+          ticket_key: result.ticketKey,
+          project_key: result.projectKey ?? ticket.projectKey,
+          product_target: decision.product_target ?? ticket.productTarget ?? "unknown",
+          repo_target: decision.repo_target ?? ticket.repoTarget ?? "UNKNOWN",
+          status_decision: decision.status_decision ?? "blocked",
+          confidence: decision.confidence ?? 0,
+          short_reason: result.reason ?? decision.short_reason ?? "",
+          implementation_hint: decision.implementation_hint ?? "",
+          branch_name: "",
+          pr_url: "",
+          last_outcome: result.status,
+          recheck_conditions: decision.recheck_conditions ?? []
+        };
+      });
+    if (reviewMemoryRecords.length > 0) {
+      await ticketMemoryAdapter.upsertRecords(reviewMemoryRecords);
+    }
+    auditTrail.push(
+      createAuditEntry("verification", "verification completed", {
+        count: verification.length,
+        approved: verification.filter((item) => item.status === "approved").length
+      })
+    );
+    logger.info("Verification completed", {
       count: verification.length,
       approved: verification.filter((item) => item.status === "approved").length
-    })
-  );
-  logger.info("Verification completed", {
-    count: verification.length,
-    approved: verification.filter((item) => item.status === "approved").length
-  });
-  const verificationByTicket = new Map(verification.map((result) => [result.ticketKey, result]));
-  const executionCandidates =
-    mode === "triage-and-execution" && config.verification.enabled !== false
-      ? approvalGate.approvedItems
-          .filter((item) => verificationByTicket.get(item.ticket.key)?.status === "approved")
-          .map((item) => ({
-            ...item,
-            decision: verificationByTicket.get(item.ticket.key)?.refinedDecision ?? item.decision,
-            verification: verificationByTicket.get(item.ticket.key) ?? null
-          }))
-      : candidateItems;
+    });
+    const verificationByTicket = new Map(verification.map((result) => [result.ticketKey, result]));
+    const executionCandidates =
+      mode === "triage-and-execution" && config.verification.enabled !== false
+        ? approvalGate.approvedItems
+            .filter((item) => verificationByTicket.get(item.ticket.key)?.status === "approved")
+            .map((item) => ({
+              ...item,
+              decision: verificationByTicket.get(item.ticket.key)?.refinedDecision ?? item.decision,
+              verification: verificationByTicket.get(item.ticket.key) ?? null
+            }))
+        : candidateItems;
 
-  const execution =
-    mode === "triage-and-execution" ? await executionAgent.run(executionCandidates) : [];
-  for (const result of execution) {
-    await workflowStore?.markPhase(
-      result.ticketKey,
-      result.status === "pr_opened" ? "implementationCheck" : "implementation",
-      result.status === "pr_opened"
-        ? "pr_opened"
-        : result.status === "blocked"
-          ? "blocked"
-          : result.status === "failed"
-            ? "failed"
-            : "implementation_ready",
-      result.status
+    const execution =
+      mode === "triage-and-execution" ? await executionAgent.run(executionCandidates) : [];
+    for (const result of execution) {
+      await workflowStore?.markPhase(
+        result.ticketKey,
+        result.status === "pr_opened" ? "implementationCheck" : "implementation",
+        result.status === "pr_opened"
+          ? "pr_opened"
+          : result.status === "blocked"
+            ? "blocked"
+            : result.status === "failed"
+              ? "failed"
+              : "implementation_ready",
+        result.status
+      );
+    }
+    const memoryAfter = await ticketMemoryAdapter.listRecords();
+    const workflowSnapshot = workflowStore ? await workflowStore.snapshot() : null;
+    auditTrail.push(
+      createAuditEntry("execution", "execution completed", {
+        count: execution.length
+      })
     );
-  }
-  const memoryAfter = await ticketMemoryAdapter.listRecords();
-  const workflowSnapshot = workflowStore ? await workflowStore.snapshot() : null;
-  auditTrail.push(
-    createAuditEntry("execution", "execution completed", {
-      count: execution.length
-    })
-  );
-  logger.info("Execution completed", { count: execution.length });
+    logger.info("Execution completed", { count: execution.length });
 
-  const runRecord = await sqlDbAdapter.recordRun({
-    mode,
-    dryRun,
-    ticketCount: tickets.length,
-    runId: localRunId
-  });
-  auditTrail.push(
-    createAuditEntry("run-record", "run record handled", {
-      runId: runRecord.runId ?? "",
-      stored: runRecord.stored ?? false
-    })
-  );
-  logger.debug("Run recorded in sql-db adapter", runRecord);
-
-  const triageCounts = countBy(triage, "status_decision");
-  const verificationCounts = countBy(verification, "status");
-  const executionCounts = countBy(execution, "status");
-  const executionTrustLevel =
-    config.execution.trustLevel ||
-    (kinds.bitbucket === "mcp"
-      ? executionEnabled && !executionDryRun
-        ? "mcp-write"
-        : "mcp-readonly"
-      : "mock");
-  const resumeStats = {
-    memoryRecordsBefore: memoryBefore.length,
-    memoryRecordsAfter: memoryAfter.length,
-    skippedAlreadyRejected: triageCounts.skipped_already_rejected ?? 0,
-    skippedAlreadyInProgress: triageCounts.skipped_already_in_progress ?? 0,
-    skippedAlreadyNeedsReview: triageCounts.skipped_already_needs_review ?? 0,
-    blockedFromMemory: triage.filter(
-      (item) => item.status_decision === "blocked" && item.last_outcome === "blocked"
-    ).length
-  };
-
-  if (
-    resumeStats.skippedAlreadyRejected > 0 ||
-    resumeStats.skippedAlreadyInProgress > 0 ||
-    resumeStats.skippedAlreadyNeedsReview > 0
-  ) {
-    logger.warn("Resume reused existing memory decisions", resumeStats);
-  }
-
-  const summary = {
-    mode,
-    dryRun,
-    adapterKinds: kinds,
-    executionEnabled,
-    executionDryRun,
-    executionTrustLevel,
-    agentRuntime: {
-      provider: agentRuntime.provider,
-      enabled: agentRuntime.isEnabled(),
-      enabledPhases: agentRuntime.config.enabledPhases,
-      artifactFile: config.agentRuntime.artifactFile,
-      implementationArtifactFile: config.agentRuntime.implementationArtifactFile
-    },
-    interactionStats: {
-      pending: interactionPreparation.pending.length,
-      resolved: interactionPreparation.resolved.length
-    },
-    workflow: workflowSnapshot,
-    runId: localRunId,
-    recordedRunId: runRecord.runId ?? "",
-    runStartedAt,
-    logFiles: logPaths
-      ? {
-          jsonl: logPaths.jsonlFile,
-          summaryText: logPaths.summaryTextFile,
-          summaryJson: logPaths.summaryJsonFile
-        }
-      : null,
-    ticketCount: tickets.length,
-    triage,
-    execution,
-    triageCounts,
-    verification,
-    verificationCounts,
-    executionCounts,
-    auditTrail,
-    resumeStats,
-    memoryFile: config.memory.filePath,
-    triageReport: renderTriageReport({
+    const runRecord = await sqlDbAdapter.recordRun({
       mode,
       dryRun,
-      executionTrustLevel,
-      adapterKinds: kinds,
-      runId: localRunId,
       ticketCount: tickets.length,
+      runId: localRunId
+    });
+    auditTrail.push(
+      createAuditEntry("run-record", "run record handled", {
+        runId: runRecord.runId ?? "",
+        stored: runRecord.stored ?? false
+      })
+    );
+    logger.debug("Run recorded in sql-db adapter", runRecord);
+
+    const triageCounts = countBy(triage, "status_decision");
+    const verificationCounts = countBy(verification, "status");
+    const executionCounts = countBy(execution, "status");
+    const executionTrustLevel =
+      config.execution.trustLevel ||
+      (kinds.bitbucket === "mcp"
+        ? executionEnabled && !executionDryRun
+          ? "mcp-write"
+          : "mcp-readonly"
+        : "mock");
+    const resumeStats = {
+      memoryRecordsBefore: memoryBefore.length,
+      memoryRecordsAfter: memoryAfter.length,
+      skippedAlreadyRejected: triageCounts.skipped_already_rejected ?? 0,
+      skippedAlreadyInProgress: triageCounts.skipped_already_in_progress ?? 0,
+      skippedAlreadyNeedsReview: triageCounts.skipped_already_needs_review ?? 0,
+      blockedFromMemory: triage.filter(
+        (item) => item.status_decision === "blocked" && item.last_outcome === "blocked"
+      ).length
+    };
+
+    if (
+      resumeStats.skippedAlreadyRejected > 0 ||
+      resumeStats.skippedAlreadyInProgress > 0 ||
+      resumeStats.skippedAlreadyNeedsReview > 0
+    ) {
+      logger.warn("Resume reused existing memory decisions", resumeStats);
+    }
+
+    const summary = {
+      mode,
+      dryRun,
+      adapterKinds: kinds,
+      executionEnabled,
+      executionDryRun,
+      executionTrustLevel,
+      agentRuntime: {
+        provider: agentRuntime.provider,
+        enabled: agentRuntime.isEnabled(),
+        enabledPhases: agentRuntime.config.enabledPhases,
+        artifactFile: config.agentRuntime.artifactFile,
+        implementationArtifactFile: config.agentRuntime.implementationArtifactFile
+      },
       interactionStats: {
         pending: interactionPreparation.pending.length,
         resolved: interactionPreparation.resolved.length
       },
+      workflow: workflowSnapshot,
+      runId: localRunId,
+      recordedRunId: runRecord.runId ?? "",
+      runStartedAt,
       logFiles: logPaths
         ? {
             jsonl: logPaths.jsonlFile,
@@ -529,67 +519,126 @@ export async function runHarness({
             summaryJson: logPaths.summaryJsonFile
           }
         : null,
-      triageCounts,
-      auditTrail,
-      resumeStats,
+      ticketCount: tickets.length,
       triage,
-      memoryFile: config.memory.filePath,
-      redaction: config.security?.redaction
-    }),
-    executionReport: renderExecutionReport({
-      mode,
-      dryRun,
-      executionTrustLevel,
-      adapterKinds: kinds,
-      runId: localRunId,
+      execution,
+      triageCounts,
       verification,
       verificationCounts,
       executionCounts,
-      interactionStats: {
-        pending: interactionPreparation.pending.length,
-        resolved: interactionPreparation.resolved.length
-      },
-      logFiles: logPaths
-        ? {
-            jsonl: logPaths.jsonlFile,
-            summaryText: logPaths.summaryTextFile,
-            summaryJson: logPaths.summaryJsonFile
-          }
-        : null,
       auditTrail,
       resumeStats,
-      triage,
-      execution,
       memoryFile: config.memory.filePath,
-      redaction: config.security?.redaction
-    })
-  };
+      triageReport: renderTriageReport({
+        mode,
+        dryRun,
+        executionTrustLevel,
+        adapterKinds: kinds,
+        runId: localRunId,
+        ticketCount: tickets.length,
+        interactionStats: {
+          pending: interactionPreparation.pending.length,
+          resolved: interactionPreparation.resolved.length
+        },
+        logFiles: logPaths
+          ? {
+              jsonl: logPaths.jsonlFile,
+              summaryText: logPaths.summaryTextFile,
+              summaryJson: logPaths.summaryJsonFile
+            }
+          : null,
+        triageCounts,
+        auditTrail,
+        resumeStats,
+        triage,
+        memoryFile: config.memory.filePath,
+        redaction: config.security?.redaction
+      }),
+      executionReport: renderExecutionReport({
+        mode,
+        dryRun,
+        executionTrustLevel,
+        adapterKinds: kinds,
+        runId: localRunId,
+        verification,
+        verificationCounts,
+        executionCounts,
+        interactionStats: {
+          pending: interactionPreparation.pending.length,
+          resolved: interactionPreparation.resolved.length
+        },
+        logFiles: logPaths
+          ? {
+              jsonl: logPaths.jsonlFile,
+              summaryText: logPaths.summaryTextFile,
+              summaryJson: logPaths.summaryJsonFile
+            }
+          : null,
+        auditTrail,
+        resumeStats,
+        triage,
+        execution,
+        memoryFile: config.memory.filePath,
+        redaction: config.security?.redaction
+      })
+    };
 
-  const finalReport = renderFinalReport(summary);
-  runLogStore.writeSummary({
-    text: finalReport,
-    json: {
-      runId: localRunId,
-      recordedRunId: runRecord.runId ?? "",
-      startedAt: runStartedAt,
-      mode,
-      dryRun,
-      adapterKinds: kinds,
-      ticketCount: tickets.length,
-      triageCounts,
-      verificationCounts,
-      executionCounts,
-      interactionStats: summary.interactionStats,
-      workflow: workflowSnapshot,
-      resumeStats,
-      auditTrail
-    }
-  });
+    const finalReport = renderFinalReport(summary);
+    runLogStore.writeSummary({
+      text: finalReport,
+      json: {
+        runId: localRunId,
+        recordedRunId: runRecord.runId ?? "",
+        startedAt: runStartedAt,
+        mode,
+        dryRun,
+        adapterKinds: kinds,
+        ticketCount: tickets.length,
+        triageCounts,
+        verificationCounts,
+        executionCounts,
+        interactionStats: summary.interactionStats,
+        workflow: workflowSnapshot,
+        resumeStats,
+        auditTrail
+      }
+    });
 
-  return {
-    ...summary,
-    finalReport
-  };
+    return {
+      ...summary,
+      finalReport
+    };
+  } catch (error) {
+    const message = redactText(error?.message ?? String(error), config.security?.redaction);
+    auditTrail.push(createAuditEntry("run", "harness run failed", { error: message }));
+    logger.error("Harness run failed", { error: message });
+    const workflowSnapshot = await progress.workflowStore?.snapshot().catch(() => null);
+    runLogStore.writeSummary({
+      text: [
+        "Exodia Final Report",
+        "Status: failed",
+        `Run id: ${localRunId}`,
+        `Mode: ${mode}`,
+        `Dry run: ${dryRun}`,
+        `Error: ${message}`,
+        "Audit trail:",
+        ...auditTrail.map((entry) => `- ${entry.phase}: ${entry.message}`)
+      ].join("\n"),
+      json: {
+        runId: localRunId,
+        status: "failed",
+        error: message,
+        startedAt: runStartedAt,
+        endedAt: new Date().toISOString(),
+        mode,
+        dryRun,
+        ticketCount: progress.ticketCount,
+        workflow: workflowSnapshot ?? null,
+        auditTrail
+      }
+    });
+    throw error;
+  }
 }
 
 

@@ -45,9 +45,18 @@ export async function withRunLock(lockFile, callback) {
   const resolvedLockFile = path.resolve(lockFile);
   await mkdir(path.dirname(resolvedLockFile), { recursive: true });
 
-  let handle = null;
+  let handle;
   try {
     handle = await open(resolvedLockFile, "wx");
+  } catch (error) {
+    if (error?.code === "EEXIST") {
+      throw new Error(`Another run is already holding the lock file: ${resolvedLockFile}`, { cause: error });
+    }
+
+    throw error;
+  }
+
+  try {
     await handle.writeFile(
       JSON.stringify(
         {
@@ -63,12 +72,6 @@ export async function withRunLock(lockFile, callback) {
     handle = null;
 
     return await callback();
-  } catch (error) {
-    if (error?.code === "EEXIST") {
-      throw new Error(`Another run is already holding the lock file: ${resolvedLockFile}`);
-    }
-
-    throw error;
   } finally {
     try {
       if (handle) {

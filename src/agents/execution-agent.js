@@ -23,8 +23,10 @@ function compactText(value, maxLength = 1200) {
   return text.length > maxLength ? `${text.slice(0, maxLength - 3).trim()}...` : text;
 }
 
-function markdownList(values, { maxItems = 8 } = {}) {
-  const list = normalizeList(values).map((value) => compactText(value, 300)).filter(Boolean);
+function markdownList(values, { maxItems = 8, redaction } = {}) {
+  const list = normalizeList(values)
+    .map((value) => compactText(redactText(`${value}`, redaction), 300))
+    .filter(Boolean);
   if (list.length === 0) {
     return "- None provided";
   }
@@ -78,11 +80,52 @@ export class ExecutionAgent {
   }
 
   resolveWorkspaceRoot() {
+    const workspaceRoot = this.executionConfig.workspaceRoot || this.bitbucketAdapter.workspaceRoot;
+    if (!workspaceRoot) {
+      throw new Error(
+        "Execution requires execution.workspaceRoot (or the Bitbucket adapter workspaceRoot); Exodia never falls back to the current directory"
+      );
+    }
+
+    return workspaceRoot;
+  }
+
+  resolveAllowedCommitPaths(scopedTicket) {
+    return this.verificationService.resolveAllowedPathPrefixes(scopedTicket.repoTarget);
+  }
+
+  shouldRunImplementation(executionMode) {
     return (
-      this.executionConfig.workspaceRoot ||
-      this.bitbucketAdapter.workspaceRoot ||
-      process.cwd()
+      executionMode === "real" ||
+      this.agentRuntime?.provider === "mock" ||
+      this.executionConfig.dryRunImplementation === true
     );
+  }
+
+  async resetTicketWorkspace(scopedTicket, branchName, executionMode) {
+    if (executionMode !== "real" || !this.bitbucketAdapter.resetWorkspace) {
+      return {};
+    }
+
+    try {
+      await this.bitbucketAdapter.resetWorkspace(scopedTicket, branchName);
+      return { workspaceReset: "done" };
+    } catch (error) {
+      this.logger?.warn?.("Ticket workspace reset failed", {
+        ticketKey: scopedTicket.key,
+        branchName,
+        error: error.message
+      });
+      return { workspaceReset: "failed" };
+    }
+  }
+
+  async finishWithoutPullRequest(scopedTicket, payload, executionMode, status, reason, extras = {}) {
+    const resetExtras = await this.resetTicketWorkspace(scopedTicket, payload.branchName, executionMode);
+    return this.service.buildPlannedResult(scopedTicket, status, reason, {
+      ...extras,
+      ...resetExtras
+    });
   }
 
   async loadAnalysisArtifacts() {
@@ -158,14 +201,15 @@ export class ExecutionAgent {
       .join(" ");
   }
 
-  async runPreflightChecks(item, scopedTicket, payload) {
+  async runPreflightChecks(item, scopedTicket, payload, executionMode) {
     return this.verificationService.runPreflight({
       item: {
         ...item,
         ticket: scopedTicket
       },
       workspaceRoot: this.resolveWorkspaceRoot(),
-      payload
+      payload,
+      executionMode
     });
   }
 
@@ -262,6 +306,15 @@ export class ExecutionAgent {
     if (!this.agentRuntime?.isPhaseEnabled("implementation")) {
       return {
         implementation: null,
+        payload,
+        attempts: []
+      };
+    }
+
+    if (!this.shouldRunImplementation(executionMode)) {
+      return {
+        implementation: null,
+        skippedReason: "skipped_dry_run",
         payload,
         attempts: []
       };
@@ -405,7 +458,7 @@ export class ExecutionAgent {
   buildImplementationExtras(implementationLoop) {
     const implementation = implementationLoop.implementation;
     return {
-      implementationStatus: implementation?.status ?? "not_run",
+      implementationStatus: implementation?.status ?? implementationLoop.skippedReason ?? "not_run",
       implementationSummary: implementation?.summary ?? "",
       changedFiles: implementation?.changedFiles ?? [],
       verificationResults: implementation?.verificationResults ?? [],
@@ -422,7 +475,8 @@ export class ExecutionAgent {
     scopedTicket,
     analysisArtifact,
     implementationExtras,
-    diagnostics
+    diagnostics,
+    diffStat = ""
   }) {
     const redactionConfig = this.securityConfig?.redaction;
     const ticketDescription = compactText(
@@ -452,7 +506,7 @@ export class ExecutionAgent {
       "## Proposed Fix",
       proposedFix.summary ? compactText(redactText(proposedFix.summary, redactionConfig), 700) : "No proposed fix summary provided.",
       "",
-      markdownList(proposedFix.steps),
+      markdownList(proposedFix.steps, { redaction: redactionConfig }),
       "",
       "## Implementation",
       implementationExtras.implementationSummary
@@ -460,18 +514,21 @@ export class ExecutionAgent {
         : "Implementation runtime did not provide a summary.",
       "",
       "Changed files:",
-      markdownList(implementationExtras.changedFiles),
+      markdownList(implementationExtras.changedFiles, { redaction: redactionConfig }),
       "",
+      diffStat ? "Diff stat:" : null,
+      diffStat ? ["```", redactText(diffStat, redactionConfig), "```"].join("\n") : null,
+      diffStat ? "" : null,
       "## Verification",
       verificationPlan.summary
         ? compactText(redactText(verificationPlan.summary, redactionConfig), 700)
         : "No verification plan summary provided.",
       "",
       "Planned checks:",
-      markdownList(verificationPlan.checks),
+      markdownList(verificationPlan.checks, { redaction: redactionConfig }),
       "",
       "Runtime evidence:",
-      markdownList(implementationExtras.verificationResults),
+      markdownList(implementationExtras.verificationResults, { redaction: redactionConfig }),
       "",
       `Implementation verifier: ${implementationExtras.implementationVerificationStatus}`,
       implementationExtras.implementationVerificationSummary
@@ -479,7 +536,7 @@ export class ExecutionAgent {
         : null,
       "",
       "Verifier success criteria:",
-      markdownList(verificationPlan.successCriteria),
+      markdownList(verificationPlan.successCriteria, { redaction: redactionConfig }),
       "",
       "---",
       PULL_REQUEST_SIGNATURE
@@ -545,10 +602,11 @@ export class ExecutionAgent {
       return [];
     }
 
+    this.resolveWorkspaceRoot();
     const results = [];
 
     for (const item of items) {
-      const result = await this.executeItem(
+      const result = await this.executeItemSafely(
         item,
         {
           implementationPrompt,
@@ -594,14 +652,41 @@ export class ExecutionAgent {
       }
 
       if (result.status === "blocked" || result.status === "not_feasible" || result.status === "failed") {
-        break;
+        this.logger?.warn?.("Execution item did not complete; continuing with the next ticket", {
+          ticketKey: result.ticketKey,
+          status: result.status,
+          reason: result.reason
+        });
       }
     }
 
     return results;
   }
 
-  async executeItem(item, prompts, executionMode, analysisByTicket) {
+  async executeItemSafely(item, prompts, executionMode, analysisByTicket) {
+    const state = { branchName: "" };
+    try {
+      return await this.executeItem(item, prompts, executionMode, analysisByTicket, state);
+    } catch (error) {
+      const scopedTicket = {
+        ...item.ticket,
+        productTarget: item.decision?.product_target ?? item.ticket.productTarget ?? "unknown",
+        repoTarget: item.decision?.repo_target ?? item.ticket.repoTarget ?? "UNKNOWN"
+      };
+      this.logger?.error?.("Execution item failed with an unexpected error", {
+        ticketKey: scopedTicket.key,
+        error: error.message
+      });
+      const reason = `execution failed: ${redactText(error.message, this.securityConfig?.redaction)}`;
+      if (!state.branchName) {
+        return this.service.buildPlannedResult(scopedTicket, "failed", reason);
+      }
+
+      return this.finishWithoutPullRequest(scopedTicket, state, executionMode, "failed", reason);
+    }
+  }
+
+  async executeItem(item, prompts, executionMode, analysisByTicket, state = {}) {
     const { ticket, decision } = item;
     const scopedTicket = {
       ...ticket,
@@ -634,6 +719,14 @@ export class ExecutionAgent {
         scopedTicket,
         "not_feasible",
         "execution stopped because the ticket is not feasible"
+      );
+    }
+
+    if (executionMode === "real" && this.resolveAllowedCommitPaths(scopedTicket).length === 0) {
+      return this.service.buildPlannedResult(
+        scopedTicket,
+        "blocked",
+        `path policy denies all changes: no allowedPathPrefixesByRepo entry for ${scopedTicket.repoTarget}`
       );
     }
 
@@ -676,6 +769,7 @@ export class ExecutionAgent {
 
     if (executionMode !== "dry-run-mcp") {
       await this.bitbucketAdapter.createBranch(scopedTicket, payload.branchName);
+      state.branchName = payload.branchName;
       await this.bitbucketAdapter.checkoutBranch(scopedTicket, payload.branchName);
     }
 
@@ -722,12 +816,14 @@ export class ExecutionAgent {
         }
       }
 
-      return this.service.buildPlannedResult(scopedTicket, "blocked", reason, implementationExtras);
+      return this.finishWithoutPullRequest(scopedTicket, payload, executionMode, "blocked", reason, implementationExtras);
     }
 
     if (implementation?.status === "blocked") {
-      return this.service.buildPlannedResult(
+      return this.finishWithoutPullRequest(
         scopedTicket,
+        payload,
+        executionMode,
         "blocked",
         implementation.summary || "execution blocked by implementation runtime",
         implementationExtras
@@ -735,8 +831,10 @@ export class ExecutionAgent {
     }
 
     if (implementation?.status === "failed") {
-      return this.service.buildPlannedResult(
+      return this.finishWithoutPullRequest(
         scopedTicket,
+        payload,
+        executionMode,
         "failed",
         implementation.summary || "implementation verify loop exhausted before completion",
         implementationExtras
@@ -763,14 +861,30 @@ export class ExecutionAgent {
       };
     }
 
-    const preflightResult = await this.runPreflightChecks(item, scopedTicket, payload);
+    const preflightResult = await this.runPreflightChecks(item, scopedTicket, payload, executionMode);
+    const diffExtras = preflightResult.diffStat ? { diffStat: preflightResult.diffStat } : {};
     if (preflightResult.status !== "approved") {
-      return this.service.buildPlannedResult(
+      return this.finishWithoutPullRequest(
         scopedTicket,
+        payload,
+        executionMode,
         "blocked",
         preflightResult.reason,
-        implementationExtras
+        { ...implementationExtras, ...diffExtras }
       );
+    }
+
+    if (diffExtras.diffStat) {
+      payload = {
+        ...payload,
+        pullRequestDescription: this.buildPullRequestDescription({
+          scopedTicket,
+          analysisArtifact,
+          implementationExtras,
+          diagnostics,
+          diffStat: diffExtras.diffStat
+        })
+      };
     }
 
     if (executionMode === "dry-run-mcp") {
@@ -781,7 +895,7 @@ export class ExecutionAgent {
           diagnostics?.summary
             ? `execution dry-run planned with diagnostics: ${diagnostics.summary}`
             : "execution dry-run planned with MCP adapter; no real PR opened",
-          implementationExtras
+          { ...implementationExtras, ...diffExtras }
         ),
         branchName: payload.branchName,
         commitMessage: payload.commitMessage,
@@ -794,8 +908,20 @@ export class ExecutionAgent {
     const commitResult = await this.bitbucketAdapter.createCommit(
       scopedTicket,
       payload.branchName,
-      payload.commitMessage
+      payload.commitMessage,
+      { allowedPaths: this.resolveAllowedCommitPaths(scopedTicket) }
     );
+
+    if (commitResult?.skipped) {
+      return this.finishWithoutPullRequest(
+        scopedTicket,
+        payload,
+        executionMode,
+        "failed",
+        "no changes inside the allowed paths were available to commit; pull request not opened",
+        { ...implementationExtras, ...diffExtras }
+      );
+    }
 
     await this.bitbucketAdapter.pushBranch?.(scopedTicket, payload.branchName);
 
@@ -835,6 +961,7 @@ export class ExecutionAgent {
       },
       {
         ...implementationExtras,
+        ...diffExtras,
         ...ticketCommentExtras
       }
     );

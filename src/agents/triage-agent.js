@@ -4,6 +4,16 @@ import { buildTriageInsight } from "../memory/semantic-insights.js";
 import { TriageService } from "../triage/triage-service.js";
 import { buildInteractionMarkers } from "../interaction/interaction-contracts.js";
 import { AgentPromptContextBuilder } from "../agent-runtime/agent-prompt-context.js";
+import {
+  buildTargetPolicy,
+  capAgentConfidence,
+  collectTargetViolations,
+  mostConservativeFeasibility
+} from "../targeting/target-policy.js";
+
+export function isClarificationBlocker(blocker) {
+  return Boolean(blocker && typeof blocker === "object" && blocker.type === "needs_clarification");
+}
 
 export class TriageAgent {
   constructor({
@@ -28,6 +38,7 @@ export class TriageAgent {
     this.logger = logger;
     this.securityConfig = securityConfig;
     this.promptContextBuilder = new AgentPromptContextBuilder(runtimePromptConfig ?? {});
+    this.targetPolicy = buildTargetPolicy(runtimePromptConfig ?? {});
     this.service = new TriageService();
   }
 
@@ -75,18 +86,26 @@ export class TriageAgent {
       return mapping;
     }
 
+    const violations = collectTargetViolations(this.targetPolicy, overrides, "human clarification");
+    const remainingBlockers = clarificationSummary
+      ? (mapping.blockers ?? []).filter((blocker) => !isClarificationBlocker(blocker))
+      : [...(mapping.blockers ?? [])];
+    const blockers = [...remainingBlockers, ...violations];
+
     return {
       ...mapping,
-      productTarget: overrides.productTarget || mapping.productTarget,
-      repoTarget: overrides.repoTarget || mapping.repoTarget,
+      productTarget: violations.length === 0 && overrides.productTarget ? overrides.productTarget : mapping.productTarget,
+      repoTarget: violations.length === 0 && overrides.repoTarget ? overrides.repoTarget : mapping.repoTarget,
       feasibility:
-        clarificationSummary && mapping.feasibility === "feasible_low_confidence"
-          ? "feasible"
-          : mapping.feasibility,
-      confidence: clarificationSummary
+        violations.length > 0
+          ? "blocked"
+          : clarificationSummary && mapping.feasibility === "feasible_low_confidence"
+            ? "feasible"
+            : mapping.feasibility,
+      confidence: clarificationSummary && blockers.length === 0
         ? Math.max(mapping.confidence ?? 0, 0.86)
         : mapping.confidence,
-      blockers: clarificationSummary ? [] : mapping.blockers,
+      blockers,
       implementationHint: [mapping.implementationHint, clarificationSummary]
         .filter(Boolean)
         .join(" | ")
@@ -211,7 +230,17 @@ export class TriageAgent {
     }
 
     const blockers = [...(mapping.blockers ?? [])];
-    let feasibility = analysis.feasibility || mapping.feasibility;
+    const violations = collectTargetViolations(
+      this.targetPolicy,
+      { productTarget: analysis.productTarget, repoTarget: analysis.repoTarget },
+      "agent analysis"
+    );
+    let feasibility = mostConservativeFeasibility(mapping.feasibility, analysis.feasibility);
+
+    if (violations.length > 0) {
+      feasibility = "blocked";
+      blockers.push(...violations);
+    }
 
     if (analysis.status === "blocked") {
       feasibility = "blocked";
@@ -226,11 +255,12 @@ export class TriageAgent {
 
     return {
       ...mapping,
-      productTarget: analysis.productTarget || mapping.productTarget,
-      repoTarget: analysis.repoTarget || mapping.repoTarget,
+      productTarget: violations.length === 0 && analysis.productTarget ? analysis.productTarget : mapping.productTarget,
+      repoTarget: violations.length === 0 && analysis.repoTarget ? analysis.repoTarget : mapping.repoTarget,
       area: analysis.area || mapping.area,
       feasibility,
-      confidence: analysis.confidence ?? mapping.confidence,
+      confidence: capAgentConfidence(analysis.confidence, mapping.confidence),
+      agentConfidence: analysis.confidence,
       implementationHint: [
         analysis.proposedFix?.summary,
         analysis.proposedFix?.steps?.[0],

@@ -1,5 +1,17 @@
 import { readFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
+import { buildRuntimeProcessEnv, terminateProcessTree } from "../agent-runtime/runtime-process-policy.js";
+
+export const defaultRetryableActions = Object.freeze([
+  "searchTicketsByJql",
+  "searchTicketsByFilter",
+  "listTicketComments",
+  "listThreadReplies",
+  "findOpenPullRequest",
+  "mapTicketToCodebase",
+  "listTicketMemoryRecords",
+  "runDiagnosticQuery"
+]);
 
 function createClientError(code, message, cause) {
   const error = new Error(`[${code}] ${message}`);
@@ -69,7 +81,11 @@ class ExternalCommandMcpClient {
     allowedActionsByServer = {},
     timeoutMs = 30000,
     retries = 0,
-    retryDelayMs = 250
+    retryDelayMs = 250,
+    retryableActions = defaultRetryableActions,
+    envPassthrough = [],
+    env = {},
+    processEnv = process.env
   } = {}) {
     this.command = command;
     this.args = args;
@@ -77,6 +93,15 @@ class ExternalCommandMcpClient {
     this.timeoutMs = timeoutMs;
     this.retries = retries;
     this.retryDelayMs = retryDelayMs;
+    this.retryableActions = new Set(Array.isArray(retryableActions) ? retryableActions : defaultRetryableActions);
+    this.env = buildRuntimeProcessEnv({
+      providerConfig: { envPassthrough, env },
+      processEnv
+    });
+  }
+
+  isRetryable(action) {
+    return this.retryableActions.has(action);
   }
 
   assertAllowed(server, action) {
@@ -98,12 +123,13 @@ class ExternalCommandMcpClient {
     this.assertAllowed(request.server, request.action);
 
     let lastError = null;
-    for (let attempt = 0; attempt <= this.retries; attempt += 1) {
+    const maxRetries = this.isRetryable(request.action) ? this.retries : 0;
+    for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
       try {
         return await this.executeRequest(request);
       } catch (error) {
         lastError = error;
-        if (attempt >= this.retries || !["MCP_BRIDGE_TIMEOUT", "MCP_BRIDGE_FAILED"].includes(error.code)) {
+        if (attempt >= maxRetries || !["MCP_BRIDGE_TIMEOUT", "MCP_BRIDGE_FAILED"].includes(error.code)) {
           throw error;
         }
 
@@ -117,13 +143,15 @@ class ExternalCommandMcpClient {
   async executeRequest(request) {
     return new Promise((resolve, reject) => {
       const child = spawn(this.command, this.args, {
+        env: this.env,
+        windowsHide: true,
         stdio: ["pipe", "pipe", "pipe"]
       });
 
       let stdout = "";
       let stderr = "";
       const timeoutHandle = setTimeout(() => {
-        child.kill();
+        terminateProcessTree(child);
         reject(
           createClientError(
             "MCP_BRIDGE_TIMEOUT",

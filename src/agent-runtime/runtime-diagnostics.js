@@ -1,3 +1,5 @@
+import { redactText } from "../security/redaction.js";
+
 const DEFAULT_TAIL_LENGTH = 4000;
 
 function truncateTail(value = "", maxLength = DEFAULT_TAIL_LENGTH) {
@@ -48,14 +50,14 @@ export function buildRuntimeDiagnostics({
     phase: `${phase ?? ""}`.trim(),
     model: `${model ?? ""}`.trim(),
     code: `${code ?? "AGENT_RUNTIME_FAILED"}`.trim() || "AGENT_RUNTIME_FAILED",
-    message: compactMessage(message),
+    message: redactText(compactMessage(message)),
     command: `${command ?? ""}`.trim(),
-    args: Array.isArray(args) ? args.map((arg) => `${arg}`) : [],
+    args: Array.isArray(args) ? args.map((arg) => redactText(`${arg}`)) : [],
     cwd: `${cwd ?? ""}`.trim(),
     timeoutMs: Math.max(0, Number(timeoutMs) || 0),
     timedOut: Boolean(timedOut),
-    stdoutTail: truncateTail(stdout),
-    stderrTail: truncateTail(stderr),
+    stdoutTail: truncateTail(redactText(`${stdout ?? ""}`)),
+    stderrTail: truncateTail(redactText(`${stderr ?? ""}`)),
     startedAt: `${startedAt ?? ""}`.trim(),
     endedAt: `${endedAt ?? ""}`.trim(),
     metadata: metadata && typeof metadata === "object" && !Array.isArray(metadata) ? { ...metadata } : {}

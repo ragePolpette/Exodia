@@ -32,14 +32,16 @@ function buildConfig(ticketOverrides = {}) {
       storeFile: "./interactions.json",
       destinations: ["ticket"],
       allowedPhases: ["candidate_approval"],
-      maxQuestionsPerTicket: 2
+      maxQuestionsPerTicket: 2,
+      allowedResponders: ["release-lead@example.invalid"]
     },
     execution: {
       enabled: true,
       dryRun: true,
       baseBranch: "main",
       allowRealPrs: false,
-      allowMerge: false
+      allowMerge: false,
+      workspaceRoot: "."
     },
     mockTickets: [
       {
@@ -97,7 +99,9 @@ test("workflow approval answer resumes the ticket on the next run", async () => 
       buildConfig({
         interactionResponses: [
           {
-            text: "approvo, procedi con analisi e piano",
+            text: "/exodia approve proceed with analysis and plan",
+            author: "Release Lead",
+            authorEmail: "release-lead@example.invalid",
             respondedAt: new Date(Date.now() + 1000).toISOString()
           }
         ]
@@ -119,4 +123,70 @@ test("workflow approval answer resumes the ticket on the next run", async () => 
 
   const workflow = JSON.parse(await readFile(path.join(workspace, "workflow-state.json"), "utf8"));
   assert.equal(workflow[0].approval.status, "approved");
+  assert.equal(workflow[0].approval.respondedBy, "release-lead@example.invalid");
+  assert.ok(workflow[0].approval.respondedAt);
+  assert.equal(workflow[0].approval.responseSource, "ticket");
+  assert.match(summary.finalReport, /Human approvals:/);
+  assert.match(summary.finalReport, /GEN-930: approved by release-lead@example\.invalid/);
+});
+
+async function runApprovalSecondPass(responses) {
+  const { workspace, configPath } = await createWorkflowScenario(buildConfig());
+  await runHarness({ configPath, modeOverride: "triage-and-execution", dryRunOverride: true });
+  await writeFile(
+    configPath,
+    JSON.stringify(buildConfig({ interactionResponses: responses }), null, 2)
+  );
+  const summary = await runHarness({
+    configPath,
+    modeOverride: "triage-and-execution",
+    dryRunOverride: true
+  });
+  const workflow = JSON.parse(await readFile(path.join(workspace, "workflow-state.json"), "utf8"));
+  return { summary, workflow };
+}
+
+for (const text of ["ok", "go ahead", "yes please", "looks ok to me, go", "approved"]) {
+  test(`approval gate ignores informal reply "${text}"`, async () => {
+    const { summary, workflow } = await runApprovalSecondPass([
+      {
+        text,
+        authorEmail: "release-lead@example.invalid",
+        respondedAt: new Date(Date.now() + 1000).toISOString()
+      }
+    ]);
+
+    assert.equal(summary.execution.length, 0);
+    assert.equal(summary.interactionStats.pending, 1);
+    assert.notEqual(workflow[0].approval.status, "approved");
+  });
+}
+
+test("approval gate ignores an approve command from an unauthorized author", async () => {
+  const { summary, workflow } = await runApprovalSecondPass([
+    {
+      text: "/exodia approve",
+      author: "Anonymous Reporter",
+      authorEmail: "reporter@example.invalid",
+      respondedAt: new Date(Date.now() + 1000).toISOString()
+    }
+  ]);
+
+  assert.equal(summary.execution.length, 0);
+  assert.equal(summary.interactionStats.pending, 1);
+  assert.notEqual(workflow[0].approval.status, "approved");
+});
+
+test("approval gate accepts a bare reject keyword at the start of the comment", async () => {
+  const { summary, workflow } = await runApprovalSecondPass([
+    {
+      text: "Reject: out of scope for this sprint",
+      authorEmail: "release-lead@example.invalid",
+      respondedAt: new Date(Date.now() + 1000).toISOString()
+    }
+  ]);
+
+  assert.equal(summary.execution.length, 0);
+  assert.equal(workflow[0].state, "candidate_rejected");
+  assert.equal(workflow[0].approval.respondedBy, "release-lead@example.invalid");
 });

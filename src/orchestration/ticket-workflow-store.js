@@ -55,7 +55,10 @@ export function normalizeTicketWorkflowRecord(record = {}) {
       status: `${record.approval?.status ?? "not_required"}`.trim() || "not_required",
       interactionId: `${record.approval?.interactionId ?? ""}`.trim(),
       decidedAt: `${record.approval?.decidedAt ?? ""}`.trim(),
-      reason: `${record.approval?.reason ?? ""}`.trim()
+      reason: `${record.approval?.reason ?? ""}`.trim(),
+      respondedBy: `${record.approval?.respondedBy ?? ""}`.trim(),
+      respondedAt: `${record.approval?.respondedAt ?? ""}`.trim(),
+      responseSource: `${record.approval?.responseSource ?? ""}`.trim()
     },
     candidate: {
       status: `${record.candidate?.status ?? ""}`.trim(),
@@ -192,7 +195,16 @@ export class TicketWorkflowStore {
     ]);
   }
 
-  async markApproval({ ticket, required, status, interaction = null, reason = "" }) {
+  async markApproval({
+    ticket,
+    required,
+    status,
+    interaction = null,
+    reason = "",
+    respondedBy = "",
+    respondedAt = "",
+    responseSource = ""
+  }) {
     const approved = status === "approved" || !required;
     const state = approved
       ? "approved_for_analysis"
@@ -211,7 +223,10 @@ export class TicketWorkflowStore {
           status,
           interactionId: interaction?.id ?? "",
           decidedAt: status === "approved" || status === "rejected" ? nowIso() : "",
-          reason
+          reason,
+          respondedBy,
+          respondedAt,
+          responseSource
         },
         lastOutcome: state
       }

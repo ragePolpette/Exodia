@@ -1,5 +1,5 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { readFile } from "node:fs/promises";
+import { writeFileAtomic } from "./atomic-write.js";
 
 export class FileMemoryStore {
   constructor(filePath) {
@@ -19,7 +19,6 @@ export class FileMemoryStore {
   }
 
   async saveAll(records) {
-    await mkdir(path.dirname(this.filePath), { recursive: true });
-    await writeFile(this.filePath, JSON.stringify(records, null, 2));
+    await writeFileAtomic(this.filePath, JSON.stringify(records, null, 2));
   }
 }

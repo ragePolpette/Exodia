@@ -117,3 +117,8 @@ test("Pi runtime provider reads JSONL agent_end output", async () => {
   assert.equal(result.productTarget, "public-app");
   assert.equal(result.verificationPlan.maxVerificationLoops, 2);
 });
+
+test("pi implementation tool policy stays read-only outside real execution", () => {
+  assert.equal(resolvePiToolPolicy("implementation", {}, "dry-run-mcp")[0], "read-only workspace access");
+  assert.match(resolvePiToolPolicy("implementation", {}, "real")[0], /workspace-write/);
+});

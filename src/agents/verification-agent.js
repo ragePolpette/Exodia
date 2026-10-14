@@ -2,6 +2,7 @@ import { loadPrompt } from "../prompts/load-prompt.js";
 import { VerificationService } from "../verification/verification-service.js";
 import { AgentPromptContextBuilder } from "../agent-runtime/agent-prompt-context.js";
 import { inferChangeType } from "../adapters/bitbucket-adapter.js";
+import { buildTargetPolicy, capAgentConfidence, collectTargetViolations } from "../targeting/target-policy.js";
 
 function unique(values) {
   return [...new Set((values ?? []).filter(Boolean))];
@@ -39,6 +40,7 @@ export class VerificationAgent {
     this.analysisArtifactStore = analysisArtifactStore;
     this.logger = logger;
     this.promptContextBuilder = new AgentPromptContextBuilder(runtimePromptConfig ?? {});
+    this.targetPolicy = buildTargetPolicy(runtimePromptConfig ?? {});
     this.service = new VerificationService(verificationConfig);
   }
 
@@ -145,6 +147,19 @@ export class VerificationAgent {
   }
 
   applyAnalysisToDecision(decision, analysis) {
+    const violations = collectTargetViolations(
+      this.targetPolicy,
+      { productTarget: analysis.productTarget, repoTarget: analysis.repoTarget },
+      "agent analysis"
+    );
+    if (violations.length > 0) {
+      return {
+        ...decision,
+        status_decision: "blocked",
+        short_reason: `blocked by ${violations.join(", ")}`
+      };
+    }
+
     const nextStatus =
       analysis.status === "blocked"
         ? "blocked"
@@ -158,7 +173,7 @@ export class VerificationAgent {
       ...decision,
       product_target: analysis.productTarget || decision.product_target,
       repo_target: analysis.repoTarget || decision.repo_target,
-      confidence: analysis.confidence ?? decision.confidence,
+      confidence: capAgentConfidence(analysis.confidence, decision.confidence),
       status_decision: nextStatus,
       short_reason: analysis.summary || decision.short_reason,
       implementation_hint: [
@@ -280,7 +295,7 @@ export class VerificationAgent {
 
     let currentAnalysis = analysis;
     let currentDecision = item.decision;
-    let currentAudit = null;
+    let currentAudit;
     let refinementIterations = 0;
     const maxIterations = this.agentRuntime.config.audit.maxRefinementIterations;
 

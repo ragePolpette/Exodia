@@ -1,4 +1,5 @@
 import { AgentRuntimeAdapter } from "./agent-runtime-adapter.js";
+import { UNTRUSTED_INPUT_INSTRUCTION, wrapUntrustedPayload } from "./untrusted-input.js";
 import { AgentRuntimeInvocationError, buildRuntimeDiagnostics } from "./runtime-diagnostics.js";
 
 function withTrailingSlash(value = "") {
@@ -106,6 +107,7 @@ export function buildSystemPrompt(phase, prompt, requireStructuredOutput) {
 
   return [
     base,
+    UNTRUSTED_INPUT_INSTRUCTION,
     jsonInstruction,
     `Use this target shape for phase ${phase}:`,
     schemaHint
@@ -115,7 +117,8 @@ export function buildSystemPrompt(phase, prompt, requireStructuredOutput) {
 }
 
 export function buildUserPrompt(input = {}) {
-  return JSON.stringify(input, null, 2);
+  const { prompt: _trustedPrompt, ...payload } = input ?? {};
+  return wrapUntrustedPayload(payload);
 }
 
 export function safeJsonParse(content) {

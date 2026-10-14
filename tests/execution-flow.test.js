@@ -3,10 +3,25 @@ import assert from "node:assert/strict";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 
 import { BitbucketAdapter } from "../src/adapters/bitbucket-adapter.js";
 import { ExecutionAgent } from "../src/agents/execution-agent.js";
 import { runHarness } from "../src/orchestration/run-harness.js";
+
+const execFileAsync = promisify(execFile);
+
+async function createGitWorkspace(prefix = "exodia-execution-git-") {
+  const repoWorkspace = await mkdtemp(path.join(os.tmpdir(), prefix));
+  await execFileAsync("git", ["init"], { cwd: repoWorkspace, windowsHide: true });
+  return repoWorkspace;
+}
+
+const realModeVerificationConfig = {
+  allowedPathPrefixesByRepo: { "core-app": ["src"] },
+  allowedCommandPrefixes: [["npm", "test"]]
+};
 
 async function runExecutionScenario({ mockTickets, existingMemory = [] }) {
   const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-execution-"));
@@ -106,10 +121,11 @@ test("execution skips feasible_low_confidence tickets", async () => {
 
 test("execution checks out base branch before creating and checking out ticket branch", async () => {
   const operations = [];
+  const repoWorkspace = await createGitWorkspace();
   const bitbucketAdapter = {
     kind: "mcp",
     baseBranch: "main",
-    workspaceRoot: "/tmp/workspace",
+    workspaceRoot: repoWorkspace,
     planBranch: () => "fix/GEN-320-reset-base-first",
     async findOpenPullRequest() {
       operations.push("find_open_pr");
@@ -146,10 +162,10 @@ test("execution checks out base branch before creating and checking out ticket b
       enabled: true,
       dryRun: false,
       baseBranch: "main",
-      workspaceRoot: "/tmp/workspace",
+      workspaceRoot: repoWorkspace,
       reuseOpenPullRequests: false
     },
-    verificationConfig: {},
+    verificationConfig: realModeVerificationConfig,
     agentRuntime: {
       isPhaseEnabled: () => false,
       config: { implementation: { maxVerificationLoops: 1 } }
@@ -200,10 +216,11 @@ test("execution checks out base branch before creating and checking out ticket b
 
 test("execution records already implemented results without opening an empty pull request", async () => {
   const operations = [];
+  const repoWorkspace = await createGitWorkspace();
   const bitbucketAdapter = {
     kind: "mcp",
     baseBranch: "main",
-    workspaceRoot: "/tmp/workspace",
+    workspaceRoot: repoWorkspace,
     planBranch: () => "fix/GEN-333-already-implemented",
     async findOpenPullRequest() {
       operations.push("find_open_pr");
@@ -240,10 +257,10 @@ test("execution records already implemented results without opening an empty pul
       enabled: true,
       dryRun: false,
       baseBranch: "main",
-      workspaceRoot: "/tmp/workspace",
+      workspaceRoot: repoWorkspace,
       reuseOpenPullRequests: false
     },
-    verificationConfig: {},
+    verificationConfig: realModeVerificationConfig,
     agentRuntime: {
       isPhaseEnabled: (phase) =>
         phase === "implementation" || phase === "implementation_verification",
@@ -725,6 +742,7 @@ test("guardrail blocks execution when repository is outside the allowlist", asyn
 test("mcp execution can create branch, commit and pull request when config is coherent", async () => {
   const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-execution-mcp-real-"));
   const configPath = path.join(workspace, "harness.config.json");
+  const repoWorkspace = await createGitWorkspace();
   const config = {
     mode: "triage-and-execution",
     dryRun: false,
@@ -755,12 +773,12 @@ test("mcp execution can create branch, commit and pull request when config is co
       },
       bitbucket: {
         kind: "mcp",
-        mock: { workspaceRoot: workspace },
+        mock: { workspaceRoot: repoWorkspace },
         mcp: {
           server: "llm_bitbucket_mcp",
           repository: "core-app",
           project: "GEN",
-          workspaceRoot: workspace,
+          workspaceRoot: repoWorkspace,
           operations: {
             findOpenPullRequest: {
               action: "findOpenPullRequest",
@@ -776,8 +794,9 @@ test("mcp execution can create branch, commit and pull request when config is co
       baseBranch: "main",
       allowRealPrs: true,
       allowMerge: false,
-      workspaceRoot: workspace
+      workspaceRoot: repoWorkspace
     },
+    verification: realModeVerificationConfig,
     mcpBridge: {
       mode: "fixture",
       fixtureFile: "",
@@ -789,7 +808,7 @@ test("mcp execution can create branch, commit and pull request when config is co
         },
         "llm_bitbucket_mcp.checkoutBranch": {
           branchName: "gen-329-real-mcp-execution",
-          workspaceRoot: workspace
+          workspaceRoot: repoWorkspace
         },
         "llm_bitbucket_mcp.createCommit": {
           commitSha: "abc123"
@@ -842,6 +861,7 @@ test("mcp execution can create branch, commit and pull request when config is co
 test("mcp execution accepts nested pull request responses", async () => {
   const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-execution-nested-pr-"));
   const configPath = path.join(workspace, "harness.config.json");
+  const repoWorkspace = await createGitWorkspace();
   const config = {
     mode: "triage-and-execution",
     dryRun: false,
@@ -872,12 +892,12 @@ test("mcp execution accepts nested pull request responses", async () => {
       },
       bitbucket: {
         kind: "mcp",
-        mock: { workspaceRoot: workspace },
+        mock: { workspaceRoot: repoWorkspace },
         mcp: {
           server: "llm_bitbucket_mcp",
           repository: "core-app",
           project: "GEN",
-          workspaceRoot: workspace,
+          workspaceRoot: repoWorkspace,
           operations: {
             findOpenPullRequest: {
               action: "findOpenPullRequest",
@@ -893,8 +913,9 @@ test("mcp execution accepts nested pull request responses", async () => {
       baseBranch: "main",
       allowRealPrs: true,
       allowMerge: false,
-      workspaceRoot: workspace
+      workspaceRoot: repoWorkspace
     },
+    verification: realModeVerificationConfig,
     mcpBridge: {
       mode: "fixture",
       fixtureFile: "",
@@ -906,7 +927,7 @@ test("mcp execution accepts nested pull request responses", async () => {
         },
         "llm_bitbucket_mcp.checkoutBranch": {
           branchName: "fix/GEN-332-normalize-nested-pr-response",
-          workspaceRoot: workspace
+          workspaceRoot: repoWorkspace
         },
         "llm_bitbucket_mcp.createCommit": {
           commitSha: "abc332"
@@ -961,6 +982,7 @@ test("mcp execution accepts nested pull request responses", async () => {
 test("execution reuses an already open pull request when found in bitbucket", async () => {
   const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-execution-existing-pr-"));
   const configPath = path.join(workspace, "harness.config.json");
+  const repoWorkspace = await createGitWorkspace();
   const config = {
     mode: "triage-and-execution",
     dryRun: false,
@@ -991,12 +1013,12 @@ test("execution reuses an already open pull request when found in bitbucket", as
       },
       bitbucket: {
         kind: "mcp",
-        mock: { workspaceRoot: workspace },
+        mock: { workspaceRoot: repoWorkspace },
         mcp: {
           server: "llm_bitbucket_mcp",
           repository: "core-app",
           project: "GEN",
-          workspaceRoot: workspace,
+          workspaceRoot: repoWorkspace,
           operations: {
             findOpenPullRequest: {
               action: "findOpenPullRequest",
@@ -1012,15 +1034,16 @@ test("execution reuses an already open pull request when found in bitbucket", as
       baseBranch: "main",
       allowRealPrs: true,
       allowMerge: false,
-      workspaceRoot: workspace
+      workspaceRoot: repoWorkspace
     },
+    verification: realModeVerificationConfig,
     mcpBridge: {
       mode: "fixture",
       fixtureFile: "",
       fixtures: {
         "llm_bitbucket_mcp.checkoutBranch": {
           branchName: "main",
-          workspaceRoot: workspace
+          workspaceRoot: repoWorkspace
         },
         "llm_bitbucket_mcp.findOpenPullRequest": {
           pullRequest: {
@@ -1066,6 +1089,7 @@ test("execution reuses an already open pull request when found in bitbucket", as
 test("execution can ignore an already open pull request when retry mode disables reuse", async () => {
   const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-execution-ignore-existing-pr-"));
   const configPath = path.join(workspace, "harness.config.json");
+  const repoWorkspace = await createGitWorkspace();
   const config = {
     mode: "triage-and-execution",
     dryRun: false,
@@ -1096,12 +1120,12 @@ test("execution can ignore an already open pull request when retry mode disables
       },
       bitbucket: {
         kind: "mcp",
-        mock: { workspaceRoot: workspace },
+        mock: { workspaceRoot: repoWorkspace },
         mcp: {
           server: "llm_bitbucket_mcp",
           repository: "core-app",
           project: "GEN",
-          workspaceRoot: workspace
+          workspaceRoot: repoWorkspace
         }
       }
     },
@@ -1112,8 +1136,9 @@ test("execution can ignore an already open pull request when retry mode disables
       allowRealPrs: true,
       allowMerge: false,
       reuseOpenPullRequests: false,
-      workspaceRoot: workspace
+      workspaceRoot: repoWorkspace
     },
+    verification: realModeVerificationConfig,
     mcpBridge: {
       mode: "fixture",
       fixtureFile: "",
@@ -1131,7 +1156,7 @@ test("execution can ignore an already open pull request when retry mode disables
         },
         "llm_bitbucket_mcp.checkoutBranch": {
           branchName: "feat/GEN-331-ignore-existing-pr-for-retry",
-          workspaceRoot: workspace
+          workspaceRoot: repoWorkspace
         },
         "llm_bitbucket_mcp.createCommit": {
           commitSha: "def456"

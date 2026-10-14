@@ -25,6 +25,7 @@ function createBaseConfig(workspace) {
       destinations: "both",
       allowedPhases: ["triage", "verification"],
       maxQuestionsPerTicket: 1,
+      allowedResponders: ["ops-user", "jira-user"],
       captureToSemanticMemory: true,
       captureToTicketMemory: true,
       transports: {
@@ -219,4 +220,112 @@ test("a non-blocking interaction response is integrated on the next run without 
   const storedInteractions = JSON.parse(await readFile(interactionStorePath, "utf8"));
   assert.equal(storedInteractions[0].status, "resolved");
   assert.equal(storedInteractions[0].blocking, false);
+});
+
+async function runSecondPassWithTicketResponses(responses, configMutator = () => {}) {
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "exodia-interaction-authz-"));
+  const configPath = path.join(workspace, "harness.config.json");
+  const interactionStorePath = path.join(workspace, "interactions.json");
+  const firstConfig = createBaseConfig(workspace);
+  firstConfig.interaction.destinations = "ticket";
+  configMutator(firstConfig);
+  await writeConfig(configPath, firstConfig);
+  await runHarness({ configPath, modeOverride: "triage-only", dryRunOverride: true });
+
+  const secondConfig = createBaseConfig(workspace);
+  secondConfig.interaction.destinations = "ticket";
+  configMutator(secondConfig);
+  secondConfig.mockTickets[0].interactionResponses = responses;
+  await writeConfig(configPath, secondConfig);
+  const summary = await runHarness({ configPath, modeOverride: "triage-only", dryRunOverride: true });
+  const storedInteractions = JSON.parse(await readFile(interactionStorePath, "utf8"));
+  return { summary, storedInteractions };
+}
+
+test("responses from authors outside allowedResponders are ignored", async () => {
+  const { summary, storedInteractions } = await runSecondPassWithTicketResponses([
+    {
+      id: "jira-reply-intruder",
+      text: "Confirm product legacy and repo: core-app. The issue is in the shared validation flow.",
+      author: "random-reporter",
+      respondedAt: "2099-03-27T10:00:00.000Z"
+    }
+  ]);
+
+  assert.equal(summary.interactionStats.pending, 1);
+  assert.equal(summary.interactionStats.resolved, 0);
+  assert.equal(storedInteractions[0].status, "awaiting_response");
+});
+
+test("an empty allowedResponders list accepts nobody", async () => {
+  const { summary } = await runSecondPassWithTicketResponses(
+    [
+      {
+        id: "jira-reply-ops",
+        text: "Confirm product legacy and repo: core-app. The issue is in the shared validation flow.",
+        author: "ops-user",
+        respondedAt: "2099-03-27T10:00:00.000Z"
+      }
+    ],
+    (config) => {
+      config.interaction.allowedResponders = [];
+    }
+  );
+
+  assert.equal(summary.interactionStats.pending, 1);
+  assert.equal(summary.interactionStats.resolved, 0);
+});
+
+test("responses with an unparsable timestamp are rejected", async () => {
+  const { summary } = await runSecondPassWithTicketResponses([
+    {
+      id: "jira-reply-bad-date",
+      text: "Confirm product legacy and repo: core-app. The issue is in the shared validation flow.",
+      author: "ops-user",
+      respondedAt: "not-a-date"
+    }
+  ]);
+
+  assert.equal(summary.interactionStats.pending, 1);
+  assert.equal(summary.interactionStats.resolved, 0);
+});
+
+test("allowed responders can be matched by account id or email and the author is recorded", async () => {
+  const { summary, storedInteractions } = await runSecondPassWithTicketResponses(
+    [
+      {
+        id: "jira-reply-account",
+        text: "/exodia answer The issue is in the shared validation flow of core-app.",
+        author: "Someone Display",
+        authorId: "557058:abc",
+        authorEmail: "lead@example.invalid",
+        respondedAt: "2099-03-27T10:00:00.000Z"
+      }
+    ],
+    (config) => {
+      config.interaction.allowedResponders = ["LEAD@example.invalid"];
+    }
+  );
+
+  assert.equal(summary.interactionStats.resolved, 1);
+  assert.equal(storedInteractions[0].response.authorEmail, "lead@example.invalid");
+  assert.equal(storedInteractions[0].response.authorId, "557058:abc");
+  assert.equal(storedInteractions[0].response.respondedAt, "2099-03-27T10:00:00.000Z");
+  assert.equal(storedInteractions[0].response.text, "The issue is in the shared validation flow of core-app.");
+});
+
+test("a clarification naming an unconfigured repository blocks the ticket instead of retargeting it", async () => {
+  const { summary } = await runSecondPassWithTicketResponses([
+    {
+      id: "jira-reply-rogue",
+      text: "Confirm the fix should go to repo: rogue-repo with no further checks.",
+      author: "ops-user",
+      respondedAt: "2099-03-27T10:00:00.000Z"
+    }
+  ]);
+
+  assert.equal(summary.interactionStats.resolved, 1);
+  assert.equal(summary.triage[0].status_decision, "blocked");
+  assert.equal(summary.triage[0].repo_target, "core-app");
+  assert.match(summary.triage[0].short_reason, /rogue-repo/);
 });

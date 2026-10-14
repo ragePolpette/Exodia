@@ -46,7 +46,9 @@ test("implementation runtime can loop verification before opening a pull request
       dryRun: true,
       baseBranch: "main",
       allowRealPrs: false,
-      allowMerge: false
+      allowMerge: false,
+      workspaceRoot: ".",
+      dryRunImplementation: true
     },
     mockTickets: [
       {
@@ -134,7 +136,9 @@ test("implementation verification runtime can request changes before Exodia open
       dryRun: true,
       baseBranch: "main",
       allowRealPrs: false,
-      allowMerge: false
+      allowMerge: false,
+      workspaceRoot: ".",
+      dryRunImplementation: true
     },
     mockTickets: [
       {
@@ -201,7 +205,9 @@ test("implementation runtime timeout is recorded as structured failure without o
       dryRun: true,
       baseBranch: "main",
       allowRealPrs: false,
-      allowMerge: false
+      allowMerge: false,
+      workspaceRoot: ".",
+      dryRunImplementation: true
     },
     mockTickets: [
       {

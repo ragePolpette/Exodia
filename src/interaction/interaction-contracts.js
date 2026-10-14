@@ -13,6 +13,10 @@ function normalizeTimestamp(value, fallback) {
     return fallback;
   }
 
+  if (/^\d{9,11}(\.\d+)?$/.test(candidate)) {
+    return new Date(Number(candidate) * 1000).toISOString();
+  }
+
   const parsed = Date.parse(candidate);
   return Number.isNaN(parsed) ? fallback : new Date(parsed).toISOString();
 }
@@ -43,6 +47,16 @@ export function normalizeInteractionDestinations(value) {
   return validDestinations.includes(normalized) ? [normalized] : [];
 }
 
+function firstText(...values) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return "";
+}
+
 export function normalizeInteractionResponse(response = {}, source = "") {
   const normalizedResponse =
     typeof response === "string"
@@ -50,15 +64,37 @@ export function normalizeInteractionResponse(response = {}, source = "") {
       : response && typeof response === "object"
         ? response
         : {};
-  const fallbackTimestamp = new Date().toISOString();
-  const author =
-    normalizedResponse.author?.displayName ??
-    normalizedResponse.author?.name ??
-    normalizedResponse.author ??
-    normalizedResponse.user?.displayName ??
-    normalizedResponse.user?.name ??
-    normalizedResponse.user ??
-    "";
+  const authorObject = normalizedResponse.author && typeof normalizedResponse.author === "object"
+    ? normalizedResponse.author
+    : {};
+  const userObject = normalizedResponse.user && typeof normalizedResponse.user === "object"
+    ? normalizedResponse.user
+    : {};
+  const author = firstText(
+    authorObject.displayName,
+    authorObject.name,
+    normalizedResponse.author,
+    userObject.displayName,
+    userObject.real_name,
+    userObject.name,
+    normalizedResponse.user
+  );
+  const authorId = firstText(
+    normalizedResponse.authorId,
+    normalizedResponse.authorAccountId,
+    authorObject.accountId,
+    authorObject.id,
+    userObject.accountId,
+    userObject.id,
+    normalizedResponse.userId
+  );
+  const authorEmail = firstText(
+    normalizedResponse.authorEmail,
+    authorObject.emailAddress,
+    authorObject.email,
+    userObject.emailAddress,
+    userObject.email
+  );
   const text =
     normalizedResponse.text ??
     normalizedResponse.body ??
@@ -69,7 +105,9 @@ export function normalizeInteractionResponse(response = {}, source = "") {
   return {
     source: `${normalizedResponse.source ?? source ?? ""}`.trim() || "unknown",
     text: `${text ?? ""}`.trim(),
-    author: `${author ?? ""}`.trim(),
+    author,
+    authorId,
+    authorEmail,
     respondedAt: normalizeTimestamp(
       normalizedResponse.respondedAt ??
         normalizedResponse.createdAt ??
@@ -77,7 +115,7 @@ export function normalizeInteractionResponse(response = {}, source = "") {
         normalizedResponse.timestamp ??
         normalizedResponse.ts ??
         normalizedResponse.date,
-      fallbackTimestamp
+      ""
     ),
     externalId: `${normalizedResponse.externalId ?? normalizedResponse.id ?? normalizedResponse.commentId ?? normalizedResponse.ts ?? ""}`.trim()
   };
@@ -104,6 +142,63 @@ export function sortInteractionResponses(responses = []) {
 
     return `${left.externalId ?? ""}`.localeCompare(`${right.externalId ?? ""}`);
   });
+}
+
+export function normalizeAllowedResponders(value) {
+  return normalizeStringArray(value).map((entry) => entry.toLowerCase());
+}
+
+export function isAuthorizedResponder(response = {}, allowedResponders = []) {
+  const allowed = normalizeAllowedResponders(allowedResponders);
+  if (allowed.length === 0) {
+    return false;
+  }
+
+  return [response.authorId, response.authorEmail, response.author]
+    .map((value) => `${value ?? ""}`.trim().toLowerCase())
+    .filter(Boolean)
+    .some((identity) => allowed.includes(identity));
+}
+
+export function hasValidResponseTimestamp(response = {}) {
+  return !Number.isNaN(Date.parse(`${response.respondedAt ?? ""}`));
+}
+
+const explicitCommandPattern = /^\s*\/exodia\s+(approve|reject|answer)\b/i;
+const bareCommandPattern = /^\s*(approve|reject)\b/i;
+
+export function parseInteractionCommand(text) {
+  const value = `${text ?? ""}`;
+  const explicit = value.match(explicitCommandPattern);
+  if (explicit) {
+    return {
+      command: explicit[1].toLowerCase(),
+      body: value.slice(explicit[0].length).trim()
+    };
+  }
+
+  const bare = value.match(bareCommandPattern);
+  if (bare) {
+    return {
+      command: bare[1].toLowerCase(),
+      body: value.slice(bare[0].length).trim()
+    };
+  }
+
+  return { command: "", body: value.trim() };
+}
+
+export function resolveApprovalDecision(text) {
+  const { command } = parseInteractionCommand(text);
+  if (command === "approve") {
+    return "approved";
+  }
+
+  if (command === "reject") {
+    return "rejected";
+  }
+
+  return "";
 }
 
 export function isFunctionalInteractionResponse(text) {
@@ -223,7 +318,7 @@ export function deriveInteractionOverrides(text, targeting) {
   const repoMatch = normalizedText.match(
     /\b(?:repo|repository)\s*[:=]?\s*([A-Za-z0-9._+/-]+)/i
   );
-  const repoTarget = repoMatch?.[1]?.trim() ?? "";
+  const repoTarget = repoMatch?.[1]?.trim().replace(/[.]+$/, "") ?? "";
 
   if (!productTarget && !repoTarget) {
     return {};

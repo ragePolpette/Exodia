@@ -12,12 +12,18 @@
     "execute": "node src/cli.js execute --config ./config/harness.config.example.json --dry-run --report execution",
     "audit": "node src/cli.js audit --config ./config/harness.config.example.json",
     "review": "node src/cli.js review --config ./config/harness.config.example.json",
-    "test": "node --test"
+    "test": "node --test",
+    "lint": "eslint ."
   },
   "engines": {
     "node": ">=22"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0"
   }
 }

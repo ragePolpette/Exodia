@@ -3,8 +3,12 @@ import {
   buildInteractionMarkers,
   createInteractionRecord,
   deriveInteractionOverrides,
+  hasValidResponseTimestamp,
+  isAuthorizedResponder,
   mergeInteractionOverrides,
   normalizeInteractionDestinations,
+  parseInteractionCommand,
+  resolveApprovalDecision,
   sortInteractionResponses,
   summarizeFunctionalInteractionResponse
 } from "./interaction-contracts.js";
@@ -27,10 +31,15 @@ function isResponseAfter(sentAt, respondedAt) {
   const sentTimestamp = Date.parse(`${sentAt ?? ""}`);
   const responseTimestamp = Date.parse(`${respondedAt ?? ""}`);
   if (Number.isNaN(sentTimestamp) || Number.isNaN(responseTimestamp)) {
-    return true;
+    return false;
   }
 
   return responseTimestamp >= sentTimestamp;
+}
+
+function stripAnswerCommand(response) {
+  const { command, body } = parseInteractionCommand(response.text);
+  return command === "answer" ? { ...response, text: body } : response;
 }
 
 export class InteractionService {
@@ -82,7 +91,9 @@ export class InteractionService {
       `Phase: ${interaction.phase}`,
       `Question: ${interaction.question}`,
       interaction.reason ? `Why: ${interaction.reason}` : "",
-      "Reply here or on the configured Slack thread. The first valid answer wins."
+      interaction.phase === "candidate_approval"
+        ? "Reply with /exodia approve or /exodia reject. Only authorized responders are accepted."
+        : "Reply here or on the configured Slack thread, optionally prefixed with /exodia answer. Only authorized responders are accepted."
     ]
       .filter(Boolean)
       .join("\n");
@@ -214,11 +225,43 @@ export class InteractionService {
     return responses
       .filter((response) => response.text)
       .filter((response) => !responseContainsQuestionMarker(interaction, response))
-      .filter((response) => {
-        const sentAt =
-          interaction.transportState?.[response.source]?.sentAt ?? interaction.createdAt;
-        return isResponseAfter(sentAt, response.respondedAt);
-      });
+      .filter((response) => this.acceptResponse(ticket, interaction, response))
+      .map((response) =>
+        interaction.phase === "candidate_approval" ? response : stripAnswerCommand(response)
+      )
+      .filter((response) => response.text);
+  }
+
+  rejectResponse(ticket, interaction, response, reason) {
+    this.logger?.warn("Interaction response rejected", {
+      ticketKey: ticket.key,
+      interactionId: interaction.id,
+      source: response.source ?? "",
+      author: response.author ?? "",
+      reason
+    });
+    return false;
+  }
+
+  acceptResponse(ticket, interaction, response) {
+    if (!hasValidResponseTimestamp(response)) {
+      return this.rejectResponse(ticket, interaction, response, "response timestamp is missing or not parsable");
+    }
+
+    const sentAt = interaction.transportState?.[response.source]?.sentAt ?? interaction.createdAt;
+    if (!isResponseAfter(sentAt, response.respondedAt)) {
+      return this.rejectResponse(ticket, interaction, response, "response predates the question");
+    }
+
+    if (!isAuthorizedResponder(response, this.config.allowedResponders)) {
+      return this.rejectResponse(ticket, interaction, response, "author is not listed in interaction.allowedResponders");
+    }
+
+    if (interaction.phase === "candidate_approval" && !resolveApprovalDecision(response.text)) {
+      return this.rejectResponse(ticket, interaction, response, "approval responses require an explicit approve or reject command");
+    }
+
+    return true;
   }
 
   async captureResolvedInteraction(ticket, interaction) {
@@ -269,6 +312,9 @@ export class InteractionService {
           source: interaction.response?.source ?? "human",
           summary,
           text: interaction.response?.text ?? "",
+          author: interaction.response?.author ?? "",
+          authorId: interaction.response?.authorId ?? "",
+          authorEmail: interaction.response?.authorEmail ?? "",
           respondedAt: interaction.response?.respondedAt ?? ""
         }
       ],
@@ -323,7 +369,10 @@ export class InteractionService {
       const interaction = byTicket.get(ticket.key);
       if (!interaction) {
         const resolvedInteraction = resolvedByTicket.get(ticket.key);
-        if (resolvedInteraction) {
+        if (
+          resolvedInteraction &&
+          isAuthorizedResponder(resolvedInteraction.response, this.config.allowedResponders)
+        ) {
           resolved.push(resolvedInteraction);
           preparedTickets.push(this.applyResolvedInteraction(ticket, resolvedInteraction));
           continue;

@@ -1,0 +1,2 @@
+# Fake credentials in test fixtures, reviewed and approved on 2026-10-16.
+4e40e0cab06ec3a0dd37ca0d3fb25b0f20b5b30c:tests/redaction.test.js:curl-auth-header:83
